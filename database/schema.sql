@@ -321,6 +321,7 @@ CREATE TABLE IF NOT EXISTS documents (
   signer_user_id BIGINT UNSIGNED NOT NULL,
   title VARCHAR(120) NOT NULL,
   content TEXT NOT NULL,
+  attachments TEXT NULL,
   amount INT NULL,
   status ENUM('pending','signed','rejected') NOT NULL DEFAULT 'pending',
   signed_at DATETIME NULL,

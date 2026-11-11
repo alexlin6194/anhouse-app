@@ -63,6 +63,18 @@
     }
     $('#docTitle').textContent = d.title;
     $('#docBody').textContent = d.content;
+    let att = [];
+    try { att = d.attachments ? (JSON.parse(d.attachments) || []) : []; } catch (e) { att = []; }
+    if (att.length) {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'margin-top:14px';
+      wrap.innerHTML = '<b>📎 附件(現場照片/報價單/佐證資料)</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' +
+        att.map(p => '<img src="uploads/' + esc(p) + '" data-full="uploads/' + esc(p) + '" alt="附件" style="width:88px;height:88px;object-fit:cover;border-radius:10px;cursor:zoom-in;border:1.5px solid rgba(255,255,255,.15)">').join('') + '</div>';
+      $('#docBody').appendChild(wrap);
+      wrap.querySelectorAll('img').forEach(im => {
+        im.addEventListener('click', () => { if (window.showLightbox) window.showLightbox(im.dataset.full, '文件附件'); });
+      });
+    }
     const foot = $('#docFoot');
     const isSigner = Number(d.signer_user_id) === Number(cache.my_id);
     const isManager = ['landlord', 'manager', 'company_owner', 'admin_staff', 'accountant'].includes(cache.my_role);
@@ -84,6 +96,7 @@
       foot.innerHTML = '<p style="font-size:12.5px;color:var(--brown2);text-align:center;margin:0">此文件已拒絕簽署</p>';
     }
     $('#docMask').classList.add('show');
+    document.querySelector('.sheet').classList.add('show');
   }
 
   async function postAction(body) {
@@ -120,8 +133,12 @@
     render();
   }
 
-  $('#docClose').addEventListener('click', () => $('#docMask').classList.remove('show'));
-  $('#docMask').addEventListener('click', (e) => { if (e.target === $('#docMask')) $('#docMask').classList.remove('show'); });
+  function closeDoc() {
+    $('#docMask').classList.remove('show');
+    document.querySelector('.sheet').classList.remove('show');
+  }
+  $('#docClose').addEventListener('click', closeDoc);
+  $('#docMask').addEventListener('click', (e) => { if (e.target === $('#docMask')) closeDoc(); });
 
   load();
 })();

@@ -111,7 +111,8 @@
       btns.push('<button type="button" class="mini-btn line act-cancel" data-id="' + r.id + '">取消報修</button>');
     }
     if (cm && r.status === 'inspected') {
-      btns.push('<button type="button" class="mini-btn act-approve" data-id="' + r.id + '">✅ 核准報價(開始施工)</button>');
+      btns.push('<button type="button" class="mini-btn act-doc-charge" data-id="' + r.id + '">📄 發自費確認函(房客同意後施工)</button>');
+      btns.push('<button type="button" class="mini-btn act-approve" data-id="' + r.id + '">✅ 直接核准施工</button>');
       btns.push('<button type="button" class="mini-btn line act-reject" data-id="' + r.id + '">↩ 退回重新評估</button>');
     }
     if (amIWorker && r.status === 'assigned') btns.push('<button type="button" class="mini-btn act-quote" data-id="' + r.id + '">📋 查修回報(原因+報價)</button>');
@@ -364,18 +365,14 @@
       const how = prompt('收取方式:輸入 1=併入下期帳單 / 2=現金或轉帳\n(房客簽署確認函後才會收取)', '1');
       if (how === null) return;
       const payMethod = String(how).trim() === '2' ? 'cash' : 'bill';
-      try {
-        const res = await fetch('api/documents.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'create_repair_charge', repair_id: id, amount: Number(String(amt).replace(/\D/g, '')) || 0, pay_method: payMethod })
-        });
-        const d = await res.json();
-        showToast(d.message);
-        if (d.ok) { openId = null; load(); }
-      } catch (err) {
-        showToast('連線異常,請稍後再試');
-      }
+      docWork = { fd: null, meta: { repair_id: id, amount: Number(String(amt).replace(/\D/g, '')) || 0, pay_method: payMethod } };
+      const fd = new FormData();
+      fd.append('action', 'create_repair_charge');
+      fd.append('repair_id', String(id));
+      fd.append('amount', String(docWork.meta.amount));
+      fd.append('pay_method', payMethod);
+      docWork.fd = fd;
+      evidenceInput.click();
       return;
     }
     if (btn.classList.contains('act-charge-none')) { act({ repair_id: id, action: 'charge_tenant', method: 'none' }); return; }
@@ -396,6 +393,38 @@
     }
     if (btn.classList.contains('act-cancel')) { act({ repair_id: id, action: 'cancel' }); }
   }
+
+  let docWork = null;
+  const evidenceInput = document.createElement('input');
+  evidenceInput.type = 'file';
+  evidenceInput.accept = 'image/*';
+  evidenceInput.multiple = true;
+  evidenceInput.style.display = 'none';
+  document.body.appendChild(evidenceInput);
+  evidenceInput.addEventListener('change', async () => {
+    if (!docWork) return;
+    const work = docWork;
+    docWork = null;
+    const files = evidenceInput.files || [];
+    for (const f of files) {
+      if (!f) continue;
+      try {
+        const buf = await f.arrayBuffer();
+        work.fd.append('evidence', new Blob([buf], { type: f.type || 'image/jpeg' }), f.name || 'evidence.jpg');
+        if (work.fd.getAll('evidence').length >= 5) break;
+      } catch (e) { /* 跳過壞檔 */ }
+    }
+    evidenceInput.value = '';
+    showToast('上傳中…');
+    try {
+      const res = await fetch('api/documents.php', { method: 'POST', body: work.fd });
+      const d = await res.json();
+      showToast(d.message);
+      if (d.ok) { openId = null; load(); }
+    } catch (e) {
+      showToast('連線異常,請稍後再試');
+    }
+  });
 
   let completeWork = null;
   const completeInput = document.createElement('input');
