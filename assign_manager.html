@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>指派管理員|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+<style>
+  .list-item{display:flex;align-items:center;gap:12px;padding:13px 2px;border-bottom:1px dashed var(--beige2);cursor:pointer}
+  .list-item:last-child{border-bottom:none}
+  .list-item input[type=checkbox]{width:19px;height:19px;accent-color:var(--wood-d);flex-shrink:0}
+  .list-item b{font-size:14px;display:block}
+  .list-item span{font-size:11.5px;color:var(--brown2)}
+  .cam-tip{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--wood-d);background:#FDF6E7;border-radius:10px;padding:10px 12px;margin-top:12px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>指派管理員</h2>
+    <p>房屋可多選或全選<br>一次邀請同一位管理員</p>
+    <div class="feat">
+      <div>📋 勾選房屋→輸入手機→送出</div>
+      <div>📱 邀請僅送達已註冊用戶</div>
+      <div>🔓 您可隨時收回權限</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="dashboard.html" aria-label="返回房東主頁">←</a> 指派管理員</div>
+      <p style="font-size:13px;color:var(--brown2);line-height:1.7;margin-bottom:10px">選擇要委託的房屋(可多選或全選),再輸入管理員手機發送邀請;邀請將透過 <b>安家房屋管理 APP</b> 通知送達<b>已註冊</b>用戶。</p>
+
+      <div class="card" style="padding:4px 16px;margin-top:0">
+        <label class="list-item" style="font-weight:700"><input type="checkbox" id="selAll">
+          <div><b>全選</b><span>把勾選的房屋一次指派給同一位管理員</span></div></label>
+      </div>
+      <div class="card" style="padding:6px 16px" id="houseList"></div>
+      <p style="text-align:right;font-size:12px;color:var(--wood-d);font-weight:700;margin:8px 6px 0" id="selCount">已選 0 間房屋</p>
+
+      <div class="sect">管理員手機</div>
+      <div class="field">
+        <label for="phone">手機號碼(須已註冊 APP)</label>
+        <input id="phone" type="tel" inputmode="numeric" placeholder="09xxxxxxxx" maxlength="10">
+        <p class="hint" id="hint-phone" aria-live="polite"></p>
+      </div>
+
+      <div class="cam-tip">🛡 指派後,管理員僅能處理勾選房屋的抄錶、報修與帳單草稿;您可隨時收回。對方同意後,該等房屋由其訂閱計費,您的級距同步遞減。</div>
+      <button class="btn primary" id="sendBtn" style="margin-top:16px">發送邀請</button>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="assign_manager.js?v=20261113e"></script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>會員中心|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+</head>
+<body>
+<div class="shell">
+  <main class="main">
+    <div class="wrap">
+      <div class="hero">
+        <svg class="mark" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="安家生活GO 標誌">
+          <defs>
+            <linearGradient id="bgG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FCF5E6"/><stop offset="1" stop-color="#F8EDD4"/></linearGradient>
+            <linearGradient id="wallG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#F9EFDB"/></linearGradient>
+            <linearGradient id="roofG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2DFAF"/><stop offset="1" stop-color="#EAD1A0"/></linearGradient>
+            <radialGradient id="glowG" cx="0.5" cy="0.45" r="0.65"><stop offset="0" stop-color="#FFF3D6"/><stop offset="1" stop-color="#F5CB88"/></radialGradient>
+          </defs>
+          <circle cx="512" cy="512" r="468" fill="url(#bgG)" stroke="#F0E2C2" stroke-width="6"/>
+          <ellipse cx="512" cy="802" rx="292" ry="46" fill="#EFE0BF"/>
+          <rect x="296" y="536" width="432" height="246" rx="26" fill="url(#wallG)" stroke="#E2CBA0" stroke-width="5"/>
+          <path d="M 226 560 Q 230 544 248 532 L 490 366 Q 512 352 534 366 L 776 532 Q 794 544 798 560 Q 802 574 784 574 L 240 574 Q 222 574 226 560 Z" fill="url(#roofG)" stroke="#D9BE8C" stroke-width="5"/>
+          <circle cx="402" cy="640" r="44" fill="url(#glowG)" stroke="#D9B98A" stroke-width="5"/>
+          <path d="M 560 782 L 560 664 Q 560 618 606 618 Q 652 618 652 664 L 652 782 Z" fill="#C89B6B" stroke="#AC8054" stroke-width="5"/>
+        </svg>
+        <h1 id="greet">載入中…</h1>
+        <p class="tag" id="roleTag"></p>
+      </div>
+      <div class="card">
+        <b>✅ 登入成功</b>
+        <p style="font-size:12.5px;color:var(--brown2);margin-top:6px;line-height:1.7">此為註冊系統階段性畫面:各角色管理主頁(房東/管理員/業務/房客/公司後台/行政/會計)將於下一階段開發,設計稿詳見「安家生活GO_APP視覺設計原型.html」。</p>
+      </div>
+      <div class="home-actions">
+        <button class="btn ghost" id="logoutBtn">登 出</button>
+      </div>
+      <p class="foot">本 APP 由 安家生活GO・安家生活網・房產與生活服務平台・互動開發工作室 聯合開發<br>© Copyright 2026 All Rights Reserved</p>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+(function(){
+  const roleNames = {landlord:'房東', manager:'管理員', agent:'業務', tenant:'房客'};
+  async function load(){
+    try{
+      const res = await fetch('api/me.php');
+      const data = await res.json();
+      if(!data.ok || !data.authenticated){ location.href='login.html'; return; }
+      document.getElementById('greet').textContent = '您好,' + data.user.name;
+      const role = data.user.registration_role;
+      const mem = (data.memberships && data.memberships[0]) ? data.memberships[0] : null;
+      const roleText = mem ? '身份:' + (roleNames[mem.role] || mem.role) + '(組織:' + mem.org_name + ')' : (role ? '身份:' + (roleNames[role] || role) : '身份:公司負責人(審核中)');
+      document.getElementById('roleTag').textContent = roleText;
+      const routes = { landlord: 'dashboard.html', manager: 'dashboard_manager.html', agent: 'dashboard_agent.html', tenant: 'dashboard_tenant.html', company_owner: 'dashboard_company.html', admin_staff: 'dashboard_company.html', accountant: 'dashboard_company.html' };
+      const target = mem ? routes[mem.role] : routes[role];
+      if (target) { setTimeout(() => location.href = target, 600); return; }
+    }catch(e){
+      location.href='login.html';
+    }
+  }
+  load();
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await fetch('api/logout.php');
+    location.href = 'index.html';
+  });
+})();
+</script>
+</body>
+</html>

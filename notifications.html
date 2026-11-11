@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>通知中心|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+<style>
+  .filter{display:flex;gap:8px;margin:6px 0 12px}
+  .filter button{border:1.5px solid var(--beige2);background:var(--surface);color:var(--brown);
+    border-radius:999px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .filter button.on{background:linear-gradient(135deg,#E9C98D,#D3A25F);color:#5C4126;border-color:transparent}
+  .markall{margin-left:auto;font-size:12px;color:var(--wood-d);background:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;text-decoration:underline}
+  .notif{display:flex;gap:12px;align-items:flex-start;padding:14px 4px;border-bottom:1px dashed var(--beige2);cursor:pointer;position:relative}
+  .notif:last-child{border-bottom:none}
+  .notif .nic{width:42px;height:42px;border-radius:14px;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+  .notif .nt b{font-size:14px;display:block;padding-right:14px}
+  .notif .nt span{font-size:11.5px;color:var(--brown2);line-height:1.65;display:block;margin-top:2px}
+  .notif .nt em{font-style:normal;font-size:10.5px;color:#C4AC84;display:block;margin-top:4px}
+  .notif .dot{position:absolute;top:16px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--pink-d)}
+  .notif.read{opacity:.62}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>通知中心</h2>
+    <p>帳單逾期、邀請動態<br>系統訊息都在這裡</p>
+    <div class="feat">
+      <div>🔔 點一下通知即標為已讀</div>
+      <div>🧹 可一次全部標記已讀</div>
+      <div>🗂 逾期/邀請/系統分類圖示</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav">
+        <a class="back" href="dashboard.html" aria-label="返回房東主頁">←</a> 通知中心
+        <button class="markall" id="markAll">全部標為已讀</button>
+      </div>
+      <div class="filter">
+        <button class="on" data-f="">全部</button>
+        <button data-f="unread">未讀</button>
+      </div>
+      <div class="card" style="padding:6px 16px;min-height:120px" id="list"></div>
+      <p class="foot">本 APP 由 安家生活GO・安家生活網・房產與生活服務平台・互動開發工作室 聯合開發<br>© Copyright 2026 All Rights Reserved</p>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="notifications.js?v=20261113e"></script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>

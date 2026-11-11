@@ -1,0 +1,88 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../includes/helpers.php';
+
+require_methods('GET');
+
+session_start();
+
+if (empty($_SESSION['user_id'])) {
+    respond(false, '尚未登入', ['authenticated' => false]);
+}
+
+$pdo = db();
+$userId = (int)$_SESSION['user_id'];
+$id = (int)($_GET['id'] ?? 0);
+
+if ($id <= 0) {
+    respond(false, '缺少房屋編號');
+}
+
+$propStmt = $pdo->prepare('SELECT p.*, o.name AS org_name, o.owner_user_id,
+        du.name AS manager_name, pu.name AS pending_manager_name
+    FROM properties p
+    JOIN organizations o ON o.id = p.org_id
+    LEFT JOIN users du ON du.id = p.delegated_user_id
+    LEFT JOIN users pu ON pu.id = p.pending_manager_id
+    WHERE p.id = ? LIMIT 1');
+$propStmt->execute([$id]);
+$p = $propStmt->fetch();
+if (!$p) {
+    respond(false, '找不到這筆房屋');
+}
+
+$memStmt = $pdo->prepare("SELECT role, org_id FROM org_members WHERE user_id = ? AND status = 'active' LIMIT 1");
+$memStmt->execute([$userId]);
+$mem = $memStmt->fetch();
+$isLandlordOwner = $mem && $mem['role'] === 'landlord' && (int)$mem['org_id'] === (int)$p['org_id'];
+$isManager = (int)($p['delegated_user_id'] ?? 0) === $userId;
+
+$leaseStmt = $pdo->prepare("SELECT l.id, l.tenant_user_id, l.start_date, l.end_date, l.rent_amount, l.deposit_amount,
+        l.payment_day, l.meter_start, l.status, tu.name AS tenant_name, tu.phone AS tenant_phone
+    FROM leases l JOIN users tu ON tu.id = l.tenant_user_id
+    WHERE l.property_id = ? AND l.status IN ('active','pending') ORDER BY l.id");
+$leaseStmt->execute([$id]);
+$leases = $leaseStmt->fetchAll();
+
+$isTenantHere = false;
+foreach ($leases as $l) {
+    if ((int)$l['tenant_user_id'] === $userId) $isTenantHere = true;
+}
+
+if (!$isLandlordOwner && !$isManager && !$isTenantHere) {
+    respond(false, '您沒有權限查看這筆房屋');
+}
+
+$photoStmt = $pdo->prepare('SELECT id, file_path, is_cover FROM property_photos WHERE property_id = ? ORDER BY is_cover DESC, sort_order, id');
+$photoStmt->execute([$id]);
+$photos = $photoStmt->fetchAll();
+
+foreach ($leases as &$l) {
+    if ($l['status'] === 'active' && ($isLandlordOwner || $isManager)) {
+        $bStmt = $pdo->prepare("SELECT id, period, amount, rent_amount, electric_amount, meter_reading, mgmt_amount, parking_amount, misc_amount, misc_note, due_date, status
+            FROM bills WHERE lease_id = ? ORDER BY period ASC LIMIT 12");
+        $bStmt->execute([(int)$l['id']]);
+        $l['bills'] = $bStmt->fetchAll();
+    } else {
+        $l['bills'] = [];
+    }
+    $lastReading = ($l['meter_start'] !== null) ? (int)$l['meter_start'] : null;
+    foreach ($l['bills'] as &$b) {
+        $b['prev_reading'] = $lastReading;
+        if ($b['meter_reading'] !== null) {
+            $lastReading = (int)$b['meter_reading'];
+        }
+    }
+    unset($b);
+}
+unset($l);
+
+respond(true, 'ok', [
+    'authenticated' => true,
+    'property' => $p,
+    'photos' => $photos,
+    'leases' => $leases,
+    'can_manage' => ($isLandlordOwner && $p['delegated_user_id'] === null && $p['pending_manager_id'] === null) || $isManager,
+    'view' => $isLandlordOwner ? 'landlord' : ($isManager ? 'manager' : 'tenant'),
+]);

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>房源管理|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>房源管理</h2>
+    <p>您的出租・出售刊登</p>
+    <div class="feat">
+      <div>🏷️ 出租/出售狀態一目瞭然</div>
+      <div>⬆️ 隨時上架/下架刊登</div>
+      <div>✏️ 點編輯即可調整內容</div>
+      <div>🔒 代管中房屋由管理員管理</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="dashboard.html" aria-label="返回首頁">←</a> 房源管理 <button type="button" class="mini-btn" style="margin-left:auto" onclick="location.href='create_property.html'">+ 刊登新房源</button></div>
+      <div id="list"></div>
+      <div id="editBox" style="display:none">
+        <div class="sect">編輯房源</div>
+        <form id="editForm" novalidate>
+          <input type="hidden" id="f_id">
+          <div class="sect">照片管理(★ 設封面)</div>
+          <div id="photoManager" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+          <div class="field">
+            <label for="f_addphoto">新增照片(最多 12 張)</label>
+            <input id="f_addphoto" type="file" accept="image/*" style="padding:10px">
+          </div>
+          <div class="field"><label for="f_title">房屋名稱/地址</label><input id="f_title" maxlength="100"></div>
+          <div class="field" style="display:flex;gap:12px"><div style="flex:1"><label for="f_city">城市</label><input id="f_city" maxlength="30"></div><div style="flex:1"><label for="f_district">行政區</label><input id="f_district" maxlength="30"></div></div>
+          <div class="field"><label for="f_address">詳細地址</label><input id="f_address" maxlength="150"></div>
+          <div class="field" style="display:flex;gap:12px">
+            <div style="flex:1"><label for="f_type">刊登類型</label>
+              <select id="f_type"><option value="rental">出租</option><option value="sale">出售</option></select></div>
+            <div style="flex:1"><label for="f_ptype">房源型態</label>
+              <select id="f_ptype">
+                <option value="">未選擇</option>
+                <option value="whole_house">整層住家</option>
+                <option value="independent_suite">獨立套房</option>
+                <option value="shared_suite">分租套房</option>
+                <option value="studio">雅房</option>
+                <option value="apartment">公寓/電梯大樓</option>
+                <option value="building">大樓/華廈</option>
+                <option value="townhouse">透天厝</option>
+                <option value="other">其他</option>
+              </select></div>
+          </div>
+          <div class="field" style="display:flex;gap:8px">
+            <div style="flex:1"><label for="f_rooms">房</label><input id="f_rooms" inputmode="numeric"></div>
+            <div style="flex:1"><label for="f_living">廳</label><input id="f_living" inputmode="numeric"></div>
+            <div style="flex:1"><label for="f_bath">衛</label><input id="f_bath" inputmode="numeric"></div>
+            <div style="flex:1"><label for="f_area">坪數</label><input id="f_area" inputmode="decimal"></div>
+          </div>
+          <div class="field" style="display:flex;gap:8px">
+            <div style="flex:1"><label for="f_floorcur">樓層</label><input id="f_floorcur" inputmode="numeric"></div>
+            <div style="flex:1"><label for="f_floortotal">共樓層</label><input id="f_floortotal" inputmode="numeric"></div>
+          </div>
+          <div class="field"><label for="f_legaluse">法定用途</label>
+            <select id="f_legaluse">
+              <option value="">未選擇</option>
+              <option>住家用</option>
+              <option>商業用</option>
+              <option>住商混合</option>
+              <option>工業用</option>
+              <option>其他</option>
+            </select></div>
+          <div class="field" id="rentWrap"><label for="f_rent">月租金(NT$)</label><input id="f_rent" inputmode="numeric"></div>
+          <div class="field" id="mgmtWrap"><label for="f_mgmt">管理費(NT$/月)</label><input id="f_mgmt" inputmode="numeric"></div>
+          <div class="field" id="erateWrap">
+            <label for="f_rate">電費計價方式</label>
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+              <button type="button" class="mini-btn mode-opt on" data-mode="flat">固定每度</button>
+              <button type="button" class="mini-btn line mode-opt" data-mode="taipower">台電累進計價</button>
+            </div>
+            <input id="f_rate" inputmode="decimal" placeholder="每度 NT$(例:5.5)" maxlength="5">
+            <p class="hint" id="modeHint">固定單價:用電度數 × 此單價</p>
+          </div>
+          <div class="field" id="minleaseWrap"><label for="f_minlease">最短租期</label>
+            <select id="f_minlease">
+              <option value="">未填</option>
+              <option>3 個月</option>
+              <option>半年</option>
+              <option>一年</option>
+              <option>一年以上</option>
+            </select></div>
+          <div class="field" id="depositWrap">
+            <label for="f_deposit">押金(NT$,留空=未填)</label>
+            <input id="f_deposit" inputmode="numeric" maxlength="9" readonly style="background:#FBF0DA" placeholder="點選下方月數,或選自填">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px" id="depOpts">
+              <button type="button" class="mini-btn dep-opt" data-m="1">1 個月</button>
+              <button type="button" class="mini-btn dep-opt" data-m="2">2 個月</button>
+              <button type="button" class="mini-btn dep-opt" data-m="3">3 個月</button>
+              <button type="button" class="mini-btn line dep-opt" data-m="0">自填</button>
+            </div>
+            <p class="hint" id="depHint" aria-live="polite" style="margin-top:6px"></p>
+          </div>
+          <div class="field" id="saleWrap" style="display:none"><label for="f_sale">售價(NT$)</label><input id="f_sale" inputmode="numeric"></div>
+          <div class="field" id="statusWrap"><label for="f_status">現況</label>
+            <select id="f_status">
+              <option value="vacant">空置中</option>
+              <option value="rented">已出租</option>
+              <option value="for_sale">銷售中</option>
+              <option value="sold">已售出</option>
+            </select></div>
+          <div class="field" id="availWrap"><label for="f_available">可遷入日</label><input id="f_available" type="date"></div>
+          <div class="field"><label for="f_facilities">生活機能/設備(逗號分隔)</label><input id="f_facilities" maxlength="255" placeholder="近捷運,冷氣,洗衣機"></div>
+          <div class="field"><label for="f_note">備註</label><input id="f_note" maxlength="255"></div>
+          <div class="checks" style="display:flex;gap:18px;margin:4px 2px 10px;font-size:13.5px;color:var(--brown);font-weight:700">
+            <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="f_parking" style="width:17px;height:17px;accent-color:var(--wood-d)">車位</label>
+            <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="f_pet" style="width:17px;height:17px;accent-color:var(--wood-d)">寵物</label>
+            <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="f_cook" style="width:17px;height:17px;accent-color:var(--wood-d)">開伙</label>
+          </div>
+          <button type="submit" class="btn primary" id="saveBtn">儲存變更</button>
+          <button type="button" class="btn line" id="cancelBtn" style="margin-top:8px">取消編輯</button>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="assets/js/lightbox.js?v=20261113e"></script>
+<script src="listings.js?v=20261113e"></script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>

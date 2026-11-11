@@ -1,0 +1,15 @@
+# 機敏資料 — 勿上傳
+config.php
+config.local.php
+
+# 使用者上傳內容(照片/收據/電錶照,含個資)
+uploads/
+
+# 開發模式信件(含真實 email/姓名)
+emails/
+
+# 系統/編輯器雜物
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>公司/代管公司申請|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>組織母帳號申請</h2>
+    <p>公司/代管公司採母帳號申請制<br>審核通過後管理分店、員工與房屋</p>
+    <div class="feat">
+      <div>🏢 公司資料+經紀人證書審核</div>
+      <div>👥 員工帳號依級距額度開通</div>
+      <div>📊 全公司報表與稽核</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="register.html" aria-label="返回註冊">←</a> 公司/代管公司申請</div>
+      <form id="companyForm" novalidate>
+        <div class="steps">
+          <div class="step"><i>1</i><span>公司資料</span></div>
+          <div class="step"><i>2</i><span>負責人帳號</span></div>
+          <div class="step"><i>3</i><span>證照審核</span></div>
+        </div>
+
+        <div class="sect">① 公司資料</div>
+        <div class="field">
+          <label for="company_name">公司/組織名稱</label>
+          <input id="company_name" type="text" placeholder="例:安家物業管理顧問有限公司" maxlength="100">
+        </div>
+        <div class="field">
+          <label for="tax_id">統一編號</label>
+          <input id="tax_id" type="tel" inputmode="numeric" placeholder="8 位數字" maxlength="8">
+          <p class="hint" id="hint-tax" aria-live="polite"></p>
+        </div>
+        <div class="field">
+          <label for="company_phone">公司電話(選填)</label>
+          <input id="company_phone" type="tel" placeholder="02-xxxx-xxxx" maxlength="15">
+        </div>
+        <div class="field">
+          <label for="company_address">公司地址(選填)</label>
+          <input id="company_address" type="text" placeholder="縣市鄉鎮市區街路" maxlength="150">
+        </div>
+
+        <div class="sect">② 負責人帳號(母帳號)</div>
+        <div class="field">
+          <label for="name">負責人姓名</label>
+          <input id="name" type="text" placeholder="請輸入負責人真實姓名" maxlength="50">
+        </div>
+        <div class="field">
+          <label for="phone">手機號碼|將作為母帳號</label>
+          <input id="phone" type="tel" inputmode="numeric" placeholder="09xxxxxxxx" maxlength="10">
+          <p class="hint" id="hint-phone" aria-live="polite"></p>
+        </div>
+        <div class="field">
+          <label for="email">電子郵件</label>
+          <input id="email" type="email" placeholder="example@mail.com" maxlength="120">
+          <p class="hint" id="hint-email" aria-live="polite"></p>
+        </div>
+        <div class="field">
+          <label for="password">設定密碼</label>
+          <div class="pw-wrap">
+            <input id="password" type="password" placeholder="8 碼以上,含英文與數字" autocomplete="new-password">
+            <button type="button" class="pw-eye" data-for="password" aria-label="顯示密碼">
+              <svg class="i-eye" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="i-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.5 10.5 0 0 1 12 19c-7 0-11-7-11-7a19.8 19.8 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.9 9.9 0 0 1 12 5c7 0 11 7 11 7a19.8 19.8 0 0 1-3.22 4.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+          <p class="hint" id="hint-password" aria-live="polite"></p>
+        </div>
+        <div class="field">
+          <label for="confirm_password">確認密碼</label>
+          <div class="pw-wrap">
+            <input id="confirm_password" type="password" placeholder="再次輸入密碼" autocomplete="new-password">
+            <button type="button" class="pw-eye" data-for="confirm_password" aria-label="顯示密碼">
+              <svg class="i-eye" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="i-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.5 10.5 0 0 1 12 19c-7 0-11-7-11-7a19.8 19.8 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.9 9.9 0 0 1 12 5c7 0 11 7 11 7a19.8 19.8 0 0 1-3.22 4.19"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+          <p class="hint" id="hint-confirm" aria-live="polite"></p>
+        </div>
+
+        <div class="sect">③ 經紀人證書與審核</div>
+        <div class="upload" id="certBox">
+          <label for="cert_file" style="cursor:pointer">📄 點擊上傳|不動產經紀人證書(PDF/JPG/PNG,最大 5MB)</label>
+          <input type="file" id="cert_file" accept=".pdf,.jpg,.jpeg,.png" style="display:none">
+        </div>
+        <p class="hint" id="hint-cert" aria-live="polite"></p>
+        <div class="field" style="margin-top:12px">
+          <label for="broker_name">指定證書所屬經紀人</label>
+          <input id="broker_name" type="text" placeholder="請輸入經紀人姓名" maxlength="50">
+        </div>
+        <div class="field">
+          <label for="broker_cert_no">經紀人證書字號</label>
+          <input id="broker_cert_no" type="text" placeholder="例:(109)北市經證字第 000000 號" maxlength="50">
+        </div>
+        <p style="font-size:12px;color:var(--wood-d);background:#FDF6E7;border:1.5px dashed var(--beige2);border-radius:14px;padding:10px 14px;line-height:1.7">旗下業務與管理員無須在此申請:由母帳號以手機號碼邀請加入後,個別提交身分證明與經紀營業員證明,經母帳號審核開通。</p>
+        <label class="agree"><input type="checkbox" id="agree">送出申請即表示同意 <a class="link" href="javascript:alert('請參考註冊頁《服務條款》全文') ">《服務條款》</a> 與 <a class="link" href="javascript:alert('請參考註冊頁《隱私政策》全文')">《隱私政策》</a>。</label>
+        <button type="submit" class="btn primary" id="submitBtn">送出組織申請</button>
+      </form>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="assets/js/pw.js?v=20261113e"></script>
+<script src="register_company.js?v=20261113e"></script>
+</body>
+</html>

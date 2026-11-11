@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>租約管理|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>租約管理</h2>
+    <p>發邀請・審核・退租</p>
+    <div class="feat">
+      <div>📱 輸入房客註冊手機即可發租約邀請</div>
+      <div>✅ 房客於其帳號接受後生效</div>
+      <div>🏠 生效自動將房屋標為出租中</div>
+      <div>🔚 退租一鍵結束並還原空置</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="dashboard.html" id="navBack" aria-label="返回首頁">←</a> 租約管理</div>
+
+      <div class="lhead" style="margin-top:14px">
+        <div class="sect">租約列表</div>
+        <button type="button" class="btn small" id="newLeaseBtn" style="letter-spacing:1px">+ 新增租約</button>
+      </div>
+      <div class="field" id="searchWrap" style="margin:0 0 4px">
+        <input id="leaseSearch" type="search" placeholder="搜尋:地址/房屋名/房客/房東" autocomplete="off">
+      </div>
+
+      <form id="leaseForm" novalidate style="display:none">
+        <div class="sect">發租約邀請</div>
+        <div class="field">
+          <label for="property_id">選擇房屋*</label>
+          <select id="property_id"></select>
+          <p class="hint" id="propHint"></p>
+        </div>
+        <div class="field">
+          <label for="phone">房客手機(須已註冊 APP)*</label>
+          <input id="phone" type="tel" inputmode="numeric" placeholder="09xxxxxxxx" maxlength="10">
+          <p class="hint" id="hint-phone" aria-live="polite"></p>
+        </div>
+        <div class="field" style="display:flex;gap:12px">
+          <div style="flex:1"><label for="start_date">起租日*</label><input id="start_date" type="date" required></div>
+          <div style="flex:1"><label for="end_date">到期日(可留空)</label><input id="end_date" type="date"></div>
+        </div>
+        <div class="field">
+          <label for="rent_amount">每月租金(NT$)*— 由屋主刊登租金自動帶入</label>
+          <input id="rent_amount" type="tel" inputmode="numeric" maxlength="9" readonly style="background:#f4efe7;color:var(--brown2)">
+        </div>
+        <div class="field">
+          <label for="deposit_amount">押金(NT$)</label>
+          <input id="deposit_amount" type="tel" inputmode="numeric" placeholder="點選選擇月數,或選自填" maxlength="9" readonly style="background:#FBF0DA">
+          <div id="depOptions" style="display:none;flex-wrap:wrap;gap:8px;margin:8px 2px 0">
+            <button type="button" class="mini-btn dep-opt" data-m="1">1 個月</button>
+            <button type="button" class="mini-btn dep-opt" data-m="2">2 個月</button>
+            <button type="button" class="mini-btn dep-opt" data-m="3">3 個月</button>
+            <button type="button" class="mini-btn line dep-opt" data-m="0">自填</button>
+          </div>
+          <p class="hint" id="hint-deposit" aria-live="polite"></p>
+        </div>
+        <div class="field">
+          <label for="payment_day">每月繳租日(1–28 日)</label>
+          <input id="payment_day" type="tel" inputmode="numeric" placeholder="例:5" maxlength="2">
+        </div>
+        <div class="field">
+          <label for="meter_start">簽約時電錶度數(建議填,供下期計算電費)*</label>
+          <input id="meter_start" type="tel" inputmode="numeric" placeholder="例:5050(電錶當前度數)" maxlength="7">
+          <p class="hint">下期抄錄時,系統以「本期讀數 − 此度數 × 每度單價」自動計算電費</p>
+        </div>
+        <button type="submit" class="btn primary" id="sendBtn">送出租約邀請</button>
+      </form>
+
+      <div id="list" style="margin-top:6px"></div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="leases.js?v=20261113e"></script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>

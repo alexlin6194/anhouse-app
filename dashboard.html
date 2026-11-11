@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>房東主頁|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>房東主頁</h2>
+    <p>房屋、帳單、訂閱計費<br>一目瞭然</p>
+    <div class="feat">
+      <div>🏠 自管與代管狀態清楚標示</div>
+      <div>💳 訂閱級距只計自管戶數</div>
+      <div>🧑‍🔧 指派管理員:多選房屋一次邀請</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="dash-head">
+        <div class="avatar" id="avatar">…</div>
+        <div class="who"><b id="greet">載入中…</b><span class="pill">房東</span><span id="orgName"></span></div>
+        <a class="bell" id="bell" href="notifications.html" aria-label="通知中心">🔔<i id="bellBadge" style="display:none"></i></a>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="card" id="subCard"><div class="row"><div class="ico">💳</div>
+        <div><span class="tagline">我的訂閱|管理版</span><h4 id="subTier"></h4><p id="subDesc"></p></div>
+        <div class="money" id="subFee"></div></div>
+        <button class="mini-btn line" onclick="toast('訂閱明細頁開發中')">訂閱明細</button><button class="mini-btn line" onclick="toast('級距表:1-3戶免費/4-9戶149/10-29戶399/30-99戶799/100+戶1499(後台可調)')">級距表</button>
+      </div>
+
+      <div class="card" id="pendingCard" style="display:none"></div>
+
+      <div class="card"><div class="row"><div class="ico">🧑‍🔧</div>
+        <div><span class="tagline">協助人員|自行管理</span><h4>把房屋交給管理員代管</h4><p>可多選房屋一次邀請同一位管理員;邀請僅送達已註冊用戶</p></div></div>
+        <button class="mini-btn" onclick="location.href='assign_manager.html'">指派管理員</button>
+      </div>
+
+      <div style="display:flex;align-items:center;margin-top:16px">
+        <div class="sect" style="flex:1;margin:0">我的房屋</div>
+        <button class="mini-btn" style="margin:0" onclick="location.href='create_property.html'">+ 建立房源</button>
+      </div>
+      <div class="card" style="padding:6px 16px" id="houseList"></div>
+
+      <div class="sect">常用功能</div>
+      <div class="grid-fn">
+        <div class="fn" onclick="location.href='leases.html'"><i>📄</i><span>租約管理</span></div>
+        <div class="fn" onclick="location.href='bills.html'"><i>💰</i><span>帳單財務</span></div>
+        <div class="fn" onclick="location.href='repairs.html'"><i>🔧</i><span>報修紀錄</span></div>
+        <div class="fn" onclick="location.href='documents.html'"><i>📄</i><span>文件簽署</span></div>
+        <div class="fn" onclick="location.href='messages.html'"><i>💬</i><span>房客訊息</span></div>
+        <div class="fn" onclick="location.href='listings.html'"><i>🏷️</i><span>房源管理</span></div>
+        <div class="fn" onclick="toast('文件簽署開發中')"><i>✍️</i><span>文件簽署</span></div>
+        <div class="fn" onclick="location.href='profile.html'"><i>👤</i><span>我的</span></div>
+      </div>
+
+      <p class="foot">本 APP 由 安家生活GO・安家生活網・房產與生活服務平台・互動開發工作室 聯合開發<br>© Copyright 2026 All Rights Reserved</p>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="dashboard.js?v=20261113e"></script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>

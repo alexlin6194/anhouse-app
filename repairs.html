@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>報修管理|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>報修管理</h2>
+    <p>回報・受理・結案</p>
+    <div class="feat">
+      <div>📸 報修可附現場照片(最多 3 張)</div>
+      <div>🚨 緊急事件排在最上面</div>
+      <div>💬 受理後可直接聯絡報修人</div>
+      <div>✅ 完成時自動通知報修人</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="dashboard.html" id="navBack" aria-label="返回首頁">←</a> 報修管理</div>
+
+      <div class="lhead" style="margin-top:14px">
+        <div class="sect" id="listTitle">報修列表</div>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="btn small line" id="vendorBtn" style="letter-spacing:1px">🔧 廠商名單</button>
+          <button type="button" class="btn small" id="newRepairBtn" style="letter-spacing:1px">+ 新增報修</button>
+        </div>
+      </div>
+
+      <div class="card" id="vendorCard" style="display:none;padding:12px 16px">
+        <div class="bd-sec" style="margin-top:0">🔧 維修廠商名單</div>
+        <div id="vendorList" style="max-height:200px;overflow:auto"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <button type="button" class="mini-btn" id="vendorAddBtn">+ 新增廠商</button>
+          <button type="button" class="mini-btn line" id="vendorCloseBtn">收合</button>
+        </div>
+      </div>
+
+      <form id="repairForm" novalidate style="display:none">
+        <div class="sect">提交報修</div>
+        <div class="field">
+          <label for="r_property">選擇房屋*</label>
+          <select id="r_property"></select>
+        </div>
+        <div class="field">
+          <label for="r_category">問題類別*</label>
+          <select id="r_category">
+            <option>水電</option>
+            <option>門鎖</option>
+            <option>家電</option>
+            <option>網路</option>
+            <option>漏水</option>
+            <option>其他</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>緊急程度*</label>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="mini-btn urg-opt on" data-u="normal">一般</button>
+            <button type="button" class="mini-btn line urg-opt" data-u="urgent">🚨 緊急</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="r_desc">問題描述*(3–500 字)</label>
+          <textarea id="r_desc" rows="4" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:16px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;resize:vertical" placeholder="例:廚房水龍頭漏水,關緊後仍滴水"></textarea>
+        </div>
+        <div class="field">
+          <label>現場照片(可選,最多 3 張)</label>
+          <div class="upload" id="r_photoBox">📷 點此拍照或選擇照片</div>
+          <div id="r_previews" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+        </div>
+        <button type="submit" class="btn primary" id="r_sendBtn">送出報修</button>
+      </form>
+
+      <div class="field" id="searchWrap" style="margin:0 0 4px">
+        <input id="repairSearch" type="search" placeholder="搜尋:房屋/描述/類別" autocomplete="off">
+      </div>
+
+      <div id="list" style="margin-top:6px"></div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="assets/js/lightbox.js?v=20261113e"></script>
+<script src="repairs.js?v=20261113e"></script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>

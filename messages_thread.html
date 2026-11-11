@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>對話|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+<style>
+  .thread{display:flex;flex-direction:column;gap:8px;padding:14px 2px;min-height:45dvh}
+  .bubble{max-width:78%;padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.7;position:relative;
+    -webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+  .bubble.me{align-self:flex-end;background:linear-gradient(135deg,#E9C98D,#D3A25F);color:#5C4126;border-bottom-right-radius:6px}
+  .bubble.you{align-self:flex-start;background:var(--surface);color:var(--brown);border:1px solid var(--beige2);border-bottom-left-radius:6px}
+  .bubble em{font-style:normal;font-size:10px;display:block;margin-top:4px;opacity:.7;text-align:right}
+  .inputbar{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--beige3);
+    display:flex;gap:8px;padding:10px 0 4px;margin-top:10px}
+  .inputbar .att{width:44px;height:44px;border-radius:50%;border:1.8px solid var(--beige2);background:var(--cream2);
+    font-size:19px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--brown)}
+  #fileChip{margin:0 20px 6px;padding:8px 14px;border-radius:12px;background:var(--cream2);border:1.5px dashed var(--beige2);
+    font-size:12px;color:var(--brown2);display:none;word-break:break-all}
+  .inputbar input{flex:1;border:1.8px solid var(--beige2);background:var(--surface);border-radius:999px;
+    padding:12px 18px;font-size:15px;font-family:inherit;outline:none;color:var(--brown)}
+  .inputbar input:focus{border-color:var(--wood)}
+  .send{width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#E9C98D,#D3A25F);
+    color:#5C4126;font-size:19px;font-weight:700;cursor:pointer;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>對話</h2>
+    <p>訊息每 5 秒自動更新<br>顯示對方已讀狀態</p>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="messages.html" aria-label="返回訊息列表">←</a> <span id="otherName">對話</span></div>
+      <div class="thread" id="thread"></div>
+      <div class="inputbar">
+        <button class="att" id="attBtn" type="button" aria-label="附加圖片或檔案">📎</button>
+        <input id="msgInput" type="text" placeholder="輸入訊息…" maxlength="500">
+        <button class="send" id="sendBtn" aria-label="送出">➤</button>
+      </div>
+      <p class="foot">本 APP 由 安家生活GO・安家生活網・房產與生活服務平台・互動開發工作室 聯合開發<br>© Copyright 2026 All Rights Reserved</p>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="messages_thread.js?v=20261113e"></script>
+<script src="assets/js/lightbox.js?v=20261113e"></script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>

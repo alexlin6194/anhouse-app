@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>文件簽署|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113g">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>文件簽署</h2>
+    <p>電子合同・確認函</p>
+    <div class="feat">
+      <div>📜 租約合同:簽約後自動生成</div>
+      <div>🧾 維修自費:房客簽署後收費才生效</div>
+      <div>🖊 簽署需輸入全名作為電子簽名</div>
+      <div>🕒 簽署時間與文件內容永久留存</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="dashboard.html" id="navBack" aria-label="返回首頁">←</a> 文件簽署</div>
+
+      <div class="lhead" style="margin-top:14px"><div class="sect">文件列表</div></div>
+      <div id="list"></div>
+    </div>
+  </main>
+</div>
+<div class="modal-mask" id="docMask"><div class="sheet" style="height:92dvh">
+  <div class="sheet-head"><b id="docTitle"></b><button class="sheet-close" id="docClose">✕</button></div>
+  <div class="sheet-body" id="docBody" style="white-space:pre-wrap;font-size:13.5px"></div>
+  <div class="sheet-foot" id="docFoot"></div>
+</div></div>
+<div class="toast" id="toast" role="status"></div>
+<script src="documents.js?v=20261113g"></script>
+<script src="assets/js/notify.js?v=20261113g"></script>
+<script src="assets/js/tabbar.js?v=20261113g"></script>
+</body>
+</html>

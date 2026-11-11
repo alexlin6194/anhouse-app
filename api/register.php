@@ -1,0 +1,89 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/mailer.php';
+require_once __DIR__ . '/../includes/notify.php';
+
+require_methods('POST');
+
+$in = json_input();
+
+$name = clean($in['name'] ?? '');
+$phone = normalize_phone(clean($in['phone'] ?? ''));
+$email = mb_strtolower(clean($in['email'] ?? ''));
+$password = (string)($in['password'] ?? '');
+$confirm = (string)($in['confirm_password'] ?? '');
+$role = clean($in['role'] ?? '');
+$agree = $in['agree'] ?? '';
+
+if ($agree !== '1' && $agree !== 1 && $agree !== true) {
+    respond(false, '請先閱讀並同意《服務條款》與《隱私政策》');
+}
+if (mb_strlen($name) < 2 || mb_strlen($name) > 50) {
+    respond(false, '請輸入真實姓名(2–50 字)');
+}
+if (!valid_phone($phone)) {
+    respond(false, '手機號碼格式不符:須為 09 開頭共 10 碼數字');
+}
+if (!valid_email($email)) {
+    respond(false, '電子郵件格式不正確');
+}
+if (!valid_password($password)) {
+    respond(false, '密碼需 8 碼以上,且同時包含英文與數字');
+}
+if ($password !== $confirm) {
+    respond(false, '兩次輸入的密碼不一致');
+}
+if (!in_array($role, ['landlord', 'manager', 'agent', 'tenant'], true)) {
+    respond(false, '請選擇您的身份(房東/管理員/業務/房客)');
+}
+
+$pdo = db();
+
+$exists = $pdo->prepare('SELECT id FROM users WHERE phone = ? OR email = ? LIMIT 1');
+$exists->execute([$phone, $email]);
+if ($exists->fetch()) {
+    $dup = $pdo->prepare('SELECT phone FROM users WHERE phone = ?');
+    $dup->execute([$phone]);
+    respond(false, $dup->fetch() ? '此手機號碼已註冊,請直接登入' : '此電子郵件已註冊,請直接登入');
+}
+
+$pdo->beginTransaction();
+try {
+    $stmt = $pdo->prepare('INSERT INTO users (name, phone, email, password_hash, registration_role) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([$name, $phone, $email, password_hash($password, PASSWORD_DEFAULT), $role]);
+    $userId = (int)$pdo->lastInsertId();
+
+    if ($role === 'landlord') {
+        $orgStmt = $pdo->prepare('INSERT INTO organizations (name, type, status, owner_user_id) VALUES (?, ?, ?, ?)');
+        $orgStmt->execute([$name . ' 的房屋管理', 'personal', 'active', $userId]);
+        $orgId = (int)$pdo->lastInsertId();
+
+        $memStmt = $pdo->prepare('INSERT INTO org_members (org_id, user_id, role, status) VALUES (?, ?, ?, ?)');
+        $memStmt->execute([$orgId, $userId, 'landlord', 'active']);
+    }
+
+    $pdo->commit();
+} catch (Throwable $e) {
+    $pdo->rollBack();
+    respond(false, '註冊失敗,請稍後再試');
+}
+
+$token = bin2hex(random_bytes(32));
+$tokStmt = $pdo->prepare('INSERT INTO email_verifications (user_id, token_hash, expires_at) VALUES (?, ?, ?)');
+$tokStmt->execute([$userId, hash('sha256', $token), date('Y-m-d H:i:s', time() + VERIFY_TOKEN_HOURS * 3600)]);
+send_mail(
+    $email,
+    '安家生活GO|Email 驗證',
+    mail_link(
+        'Email 驗證',
+        $name . ' 您好,請點擊下方按鈕完成 Email 驗證(24 小時內有效),驗證後即可登入使用。',
+        APP_URL . '/api/verify_email.php?token=' . $token,
+        '驗證完成後即可使用手機號碼 ' . $phone . ' 登入。'
+    )
+);
+
+notify($userId, 'system', '歡迎加入安家生活', $name . ' 您好!完成 Email 驗證後即可登入;房東可於主頁指派管理員、查看帳單與訂閱計費。');
+
+respond(true, '註冊成功!驗證信已寄至您的信箱,完成驗證後即可登入', ['redirect' => 'login.html']);

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>建立房源|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>建立房源</h2>
+    <p>591 等級完整刊登</p>
+    <div class="feat">
+      <div>📷 最多 12 張照片,首張為封面</div>
+      <div>🔀 出租/出售一步切換</div>
+      <div>🏷️ 格局/坪數/樓層/費用全記錄</div>
+      <div>📅 建完自動納入房源管理</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" id="navBack" href="dashboard.html" aria-label="返回首頁">←</a> <span id="navTitle">建立房源</span></div>
+      <form id="propForm" novalidate>
+
+        <div class="field" id="forOrgWrap" style="display:none">
+          <label for="forOrg">屋主(為哪位房東建立)</label>
+          <select id="forOrg"></select>
+          <p class="hint">以管理員身份代建:新屋將登記在房東名下,並自動納入您的代管清單。</p>
+        </div>
+
+        <div class="sect">① 基本資訊</div>
+        <div class="seg" id="typeSeg" role="tablist" style="display:flex;gap:8px;margin:4px 0 14px">
+          <button type="button" class="role on" data-t="rental" style="flex:1"><b>出租</b><span>月租刊登</span></button>
+          <button type="button" class="role" data-t="sale" style="flex:1"><b>出售</b><span>售屋刊登</span></button>
+        </div>
+        <div class="field">
+          <label for="title">房屋名稱/地址*</label>
+          <input id="title" type="text" placeholder="例:快樂街 12 號 302 房" maxlength="100">
+          <p class="hint" id="hint-title" aria-live="polite"></p>
+        </div>
+        <div class="field" style="display:flex;gap:12px">
+          <div style="flex:1"><label for="city">城市</label><input id="city" type="text" placeholder="台中市" maxlength="30"></div>
+          <div style="flex:1"><label for="district">行政區</label><input id="district" type="text" placeholder="西屯區" maxlength="30"></div>
+        </div>
+        <div class="field">
+          <label for="address">詳細地址(路段/街名門牌)</label>
+          <input id="address" type="text" placeholder="例:快樂街 12 號 302 房(正式刊登後可設只顯示路段)" maxlength="150">
+        </div>
+        <div class="field">
+          <label for="ptype">房源型態</label>
+          <select id="ptype">
+            <option value="">未選擇</option>
+            <option value="whole_house">整層住家</option>
+            <option value="independent_suite">獨立套房</option>
+            <option value="shared_suite">分租套房</option>
+            <option value="studio">雅房</option>
+            <option value="apartment">公寓/電梯大樓</option>
+            <option value="building">大樓/華廈</option>
+            <option value="townhouse">透天厝</option>
+            <option value="other">其他</option>
+          </select>
+        </div>
+
+        <div class="sect">② 格局與空間</div>
+        <div class="field" style="display:flex;gap:8px">
+          <div style="flex:1"><label for="rooms">房</label><input id="rooms" type="tel" inputmode="numeric" placeholder="3" maxlength="2"></div>
+          <div style="flex:1"><label for="living">廳</label><input id="living" type="tel" inputmode="numeric" placeholder="2" maxlength="2"></div>
+          <div style="flex:1"><label for="bath">衛</label><input id="bath" type="tel" inputmode="numeric" placeholder="2" maxlength="2"></div>
+          <div style="flex:1"><label for="area">坪數</label><input id="area" type="tel" inputmode="decimal" placeholder="25.4" maxlength="6"></div>
+        </div>
+        <div class="field" style="display:flex;gap:8px">
+          <div style="flex:1"><label for="floorcur">所在樓層</label><input id="floorcur" type="tel" inputmode="numeric" placeholder="5" maxlength="3"></div>
+          <div style="flex:1"><label for="floortotal">總樓層</label><input id="floortotal" type="tel" inputmode="numeric" placeholder="12" maxlength="3"></div>
+        </div>
+        <div class="field">
+          <label for="legaluse">法定用途</label>
+          <select id="legaluse">
+            <option value="">未選擇</option>
+            <option>住家用</option>
+            <option>商業用</option>
+            <option>住商混合</option>
+            <option>工業用</option>
+            <option>其他</option>
+          </select>
+        </div>
+
+        <div class="sect">③ 費用資訊</div>
+        <div class="field" id="rentWrap">
+          <label for="rent">月租金(NT$)*</label>
+          <input id="rent" type="tel" inputmode="numeric" placeholder="例:15800" maxlength="9">
+          <p class="hint" id="hint-rent" aria-live="polite"></p>
+        </div>
+        <div class="field" id="depositWrap">
+          <label for="deposit">押金(NT$,留空=未填)</label>
+          <input id="deposit" type="tel" inputmode="numeric" placeholder="例:31600(兩個月)" maxlength="9">
+        </div>
+        <div class="field" id="saleWrap" style="display:none">
+          <label for="sale">售價(NT$)*</label>
+          <input id="sale" type="tel" inputmode="numeric" placeholder="例:16800000" maxlength="12">
+          <p class="hint" id="hint-sale" aria-live="polite"></p>
+        </div>
+        <div class="field" id="mgmtWrap">
+          <label for="mgmt">管理費(NT$/月,留空=無)</label>
+          <input id="mgmt" type="tel" inputmode="numeric" placeholder="例:2000" maxlength="9">
+        </div>
+        <div class="field" id="erateWrap">
+          <label for="erate">電費計價方式</label>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button type="button" class="mini-btn mode-opt on" data-mode="flat">固定每度</button>
+            <button type="button" class="mini-btn line mode-opt" data-mode="taipower">台電累進計價</button>
+          </div>
+          <input id="erate" type="tel" inputmode="decimal" placeholder="每度 NT$(例:5.5)" maxlength="5">
+          <p class="hint" id="modeHint">固定單價:用電度數 × 此單價</p>
+        </div>
+        <div class="field" id="minleaseWrap">
+          <label for="minlease">最短租期</label>
+          <select id="minlease">
+            <option value="">未填</option>
+            <option>3 個月</option>
+            <option>半年</option>
+            <option>一年</option>
+            <option>一年以上</option>
+          </select>
+        </div>
+
+        <div class="sect">④ 條件與設備</div>
+        <div class="field" id="statusWrap">
+          <label for="status">刊登現況</label>
+          <select id="status">
+            <option value="vacant">空置中(可看房)</option>
+            <option value="rented">已出租</option>
+          </select>
+        </div>
+        <div class="field" id="genderWrap">
+          <label for="gender">性別限制</label>
+          <select id="gender">
+            <option value="any">不限</option>
+            <option value="female">限女性</option>
+            <option value="male">限男性</option>
+          </select>
+        </div>
+        <div class="field" id="availWrap">
+          <label for="available">可遷入日</label>
+          <input id="available" type="date">
+        </div>
+        <div class="checks" style="display:flex;gap:18px;margin:2px 2px 12px;font-size:13.5px;color:var(--brown);font-weight:700;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="parking" style="width:17px;height:17px;accent-color:var(--wood-d)">車位</label>
+          <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="pet" style="width:17px;height:17px;accent-color:var(--wood-d)">寵物</label>
+          <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="cook" style="width:17px;height:17px;accent-color:var(--wood-d)">開伙</label>
+        </div>
+        <div class="field">
+          <label for="facilities">生活機能/設備(逗號分隔)</label>
+          <input id="facilities" type="text" placeholder="例:近捷運,冷氣,洗衣機,冰箱,網路" maxlength="255">
+        </div>
+
+        <div class="sect">⑤ 房屋照片</div>
+        <div class="field">
+          <label for="photos">照片(最多 12 張,首張自動設為封面)</label>
+          <input id="photos" type="file" accept="image/*" multiple style="padding:10px">
+          <p class="hint" id="hint-photos" aria-live="polite"></p>
+          <div id="preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+        </div>
+
+        <div class="field">
+          <label for="note">備註(看房方式等)</label>
+          <input id="note" type="text" placeholder="例:含管理費 2000、第四台;看房請先預約" maxlength="255">
+        </div>
+
+        <label class="agree"><input type="checkbox" id="confirmOk">我確認上述房屋資訊正確,並瞭解自管戶數將計入訂閱級距。</label>
+        <button type="submit" class="btn primary" id="submitBtn">建立房源</button>
+      </form>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="create_property.js?v=20261113e"></script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>

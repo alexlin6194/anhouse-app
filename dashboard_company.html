@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>公司後台|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>公司後台</h2>
+    <p>組織管理、員工帳號<br>訂閱與稽核</p>
+    <div class="feat">
+      <div>🏢 組織審核狀態一目瞭然</div>
+      <div>👥 員工帳號與級距額度</div>
+      <div>💳 訂閱戶數跨分店合計</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="dash-head">
+        <div class="avatar" id="avatar">…</div>
+        <div class="who"><b id="greet">載入中…</b><span class="pill" id="rolePill">公司</span><span id="orgLine"></span></div>
+        <a class="bell" href="notifications.html" aria-label="通知中心">🔔<i id="bellBadge" style="display:none"></i></a>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="card" id="orgCard"><div class="row"><div class="ico">🏢</div>
+        <div><span class="tagline">組織狀態</span><h4 id="orgName"></h4><p id="orgNote"></p></div>
+        <span class="st idle" id="orgSt"></span></div>
+      </div>
+
+      <div class="card"><div class="row"><div class="ico">💳</div>
+        <div><span class="tagline">訂閱方案|由公司付款</span><h4 id="subTier"></h4><p id="subDesc"></p></div>
+        <div class="money" id="subFee"></div></div>
+        <button class="mini-btn line" onclick="toast('方案管理開發中')">方案管理</button><button class="mini-btn" onclick="location.href='invite_employee.html'">邀請員工</button>
+      </div>
+
+      <div class="sect">員工帳號</div>
+      <div class="card" style="padding:6px 16px" id="memberList"></div>
+
+      <div class="sect">常用功能</div>
+      <div class="grid-fn">
+        <div class="fn" onclick="toast('資格審核開發中')"><i>🪪</i><span>資格審核</span></div>
+        <div class="fn" onclick="toast('分店管理開發中')"><i>🏬</i><span>分店管理</span></div>
+        <div class="fn" onclick="toast('房屋指派開發中')"><i>🏠</i><span>房屋指派</span></div>
+        <div class="fn" onclick="location.href='messages.html'"><i>💬</i><span>訊息</span></div>
+        <div class="fn" onclick="location.href='notifications.html'"><i>🔔</i><span>通知</span></div>
+        <div class="fn" onclick="toast('稽核報表開發中')"><i>📊</i><span>稽核報表</span></div>
+      </div>
+
+      <p class="foot">本 APP 由 安家生活GO・安家生活網・房產與生活服務平台・互動開發工作室 聯合開發<br>© Copyright 2026 All Rights Reserved</p>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="dashboard_company.js?v=20261113e"></script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>

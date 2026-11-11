@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>訊息|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+<style>
+  .conv{display:flex;align-items:center;gap:12px;padding:14px 4px;border-bottom:1px dashed var(--beige2);cursor:pointer}
+  .conv:last-child{border-bottom:none}
+  .conv .cav{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#E9C98D,#D3A25F);color:#FFFDF7;
+    display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;flex-shrink:0}
+  .conv b{font-size:14.5px;display:block}
+  .conv span{font-size:11.5px;color:var(--brown2);display:block;margin-top:2px;max-width:52vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .conv .ct{margin-left:auto;text-align:right;font-size:10.5px;color:#C4AC84;flex-shrink:0}
+  .conv .cb{display:inline-block;min-width:20px;text-align:center;background:var(--pink-d);color:#FFFDF7;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 6px;margin-top:4px}
+  .newconv{display:none}
+  .newconv.show{display:block}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>訊息</h2>
+    <p>房東與房客、管理員<br>的雙向對話都在這</p>
+    <div class="feat">
+      <div>💬 對話泡泡+即時輪詢</div>
+      <div>👀 顯示已讀狀態</div>
+      <div>🔔 新訊息自動進通知中心</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="dashboard.html" aria-label="返回房東主頁">←</a> 訊息
+        <button class="btn small primary" id="newBtn" style="margin-left:auto">＋ 新對話</button>
+      </div>
+
+      <div class="card newconv" id="newConv">
+        <div class="field">
+          <label for="ncPhone">對方手機(須已註冊 APP)</label>
+          <input id="ncPhone" type="tel" inputmode="numeric" placeholder="09xxxxxxxx" maxlength="10">
+          <p class="hint" id="hint-phone" aria-live="polite"></p>
+        </div>
+        <div class="field">
+          <label for="ncFirst">第一句話(選填)</label>
+          <input id="ncFirst" type="text" placeholder="例:您好,關於 302 房的帳單…" maxlength="500">
+        </div>
+        <button class="btn primary" id="createBtn">建立對話</button>
+      </div>
+
+      <div class="card" style="padding:6px 16px;min-height:120px" id="convList"></div>
+      <p class="foot">本 APP 由 安家生活GO・安家生活網・房產與生活服務平台・互動開發工作室 聯合開發<br>© Copyright 2026 All Rights Reserved</p>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="messages.js?v=20261113e"></script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>

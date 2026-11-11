@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>邀請員工|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+<style>
+  .roleChecks{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .roleChecks label{display:flex;align-items:center;gap:8px;background:var(--surface);border:2px solid var(--beige2);
+    border-radius:14px;padding:12px 14px;font-size:14px;font-weight:700;color:var(--brown);cursor:pointer}
+  .roleChecks input{width:18px;height:18px;accent-color:var(--wood-d)}
+  .roleChecks label:has(input:checked){border-color:var(--wood-d);background:#FBF0DA}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>邀請員工</h2>
+    <p>輸入手機+勾選職務<br>職務權限可複選</p>
+    <div class="feat">
+      <div>👤 員工須已註冊才能收到邀請</div>
+      <div>🔀 行政+會計等可一人多用</div>
+      <div>⚠️ 不相容組合系統會提醒</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="dashboard_company.html" aria-label="返回公司後台">←</a> 邀請員工</div>
+      <form id="inviteForm" novalidate>
+        <div class="field">
+          <label for="phone">員工手機號碼(須已註冊 APP)</label>
+          <input id="phone" type="tel" inputmode="numeric" placeholder="09xxxxxxxx" maxlength="10">
+          <p class="hint" id="hint-phone" aria-live="polite"></p>
+        </div>
+        <div class="sect">職務權限(可複選)</div>
+        <div class="roleChecks">
+          <label><input type="checkbox" value="manager">管理員</label>
+          <label><input type="checkbox" value="agent">業務</label>
+          <label><input type="checkbox" value="admin_staff">行政人員</label>
+          <label><input type="checkbox" value="accountant">會計人員</label>
+        </div>
+        <p class="hint" id="hint-roles" aria-live="polite"></p>
+        <button type="submit" class="btn primary" id="sendBtn" style="margin-top:16px">送出邀請</button>
+        <p class="foot">對方於其帳號同意後即加入組織;邀請碼 7 天內有效。員工離職時可於員工列表停用帳號。</p>
+      </form>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const RE_PHONE = /^09\d{8}$/;
+  const state = { exists: false };
+  let checkTimer, toastTimer;
+  function showToast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2400); }
+  function hint(type, text){ const el=$('#hint-phone'); el.textContent=text||''; el.classList.toggle('err',type==='err'); el.classList.toggle('ok',type==='ok'); }
+
+  const phoneEl = $('#phone');
+  phoneEl.addEventListener('input', () => {
+    phoneEl.value = phoneEl.value.replace(/\D/g,'').slice(0,10);
+    state.exists = false;
+    if (!RE_PHONE.test(phoneEl.value)) { hint(phoneEl.value?'err':'', phoneEl.value?'手機須為 09 開頭共 10 碼':''); return; }
+    hint('', '檢查中…');
+    clearTimeout(checkTimer);
+    checkTimer = setTimeout(async () => {
+      try {
+        const res = await fetch('api/check_phone.php?phone=' + phoneEl.value);
+        const data = await res.json();
+        if (data.exists) { state.exists = true; hint('ok', '✓ 已註冊,可發送邀請'); }
+        else { state.exists = false; hint('err', '✗ 尚未註冊,無法接收邀請'); }
+      } catch(e){ hint('',''); }
+    }, 400);
+  });
+
+  $('#inviteForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const roles = [...document.querySelectorAll('.roleChecks input:checked')].map(c=>c.value);
+    if (!RE_PHONE.test(phoneEl.value)) { showToast('請輸入正確的員工手機號碼'); return; }
+    if (!state.exists) { showToast('此號碼尚未註冊,無法接收邀請'); return; }
+    if (!roles.length) { showToast('請至少勾選一個職務權限'); return; }
+    const btn = $('#sendBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('api/create_employee_invite.php', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ phone: phoneEl.value, roles })
+      });
+      const data = await res.json();
+      showToast(data.message);
+      if (data.ok) setTimeout(()=>location.href='dashboard_company.html', 1800);
+      else btn.disabled=false;
+    } catch(err){ btn.disabled=false; showToast('連線異常'); }
+  });
+})();
+</script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>

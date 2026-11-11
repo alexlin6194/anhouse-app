@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>業務主頁|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>業務主頁</h2>
+    <p>我的房源、帶看、簽約<br>成交後一鍵移交</p>
+    <div class="feat">
+      <div>🏠 房源建檔(591 規格欄位)</div>
+      <div>📅 帶看行事曆(開發中)</div>
+      <div>🤝 成交移交管理員接手(開發中)</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="dash-head">
+        <div class="avatar" id="avatar">…</div>
+        <div class="who"><b id="greet">載入中…</b><span class="pill">業務</span><span id="orgLine"></span></div>
+        <a class="bell" href="notifications.html" aria-label="通知中心">🔔<i id="bellBadge" style="display:none"></i></a>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="card" id="orgCard"><div class="row"><div class="ico">🏢</div>
+        <div><span class="tagline">所屬組織</span><h4 id="orgName"></h4><p id="orgNote"></p></div>
+        <span class="st idle" id="orgSt"></span></div>
+      </div>
+
+      <div style="display:flex;align-items:center;margin-top:16px">
+        <div class="sect" style="flex:1;margin:0">我的房源</div>
+        <button class="mini-btn" style="margin:0" onclick="location.href='create_property.html'">+ 建立房源</button>
+      </div>
+      <div class="card" style="padding:6px 16px" id="listingList"></div>
+
+      <div class="sect">常用功能</div>
+      <div class="grid-fn">
+        <div class="fn" onclick="toast('帶看行事曆開發中')"><i>📅</i><span>帶看行事曆</span></div>
+        <div class="fn" onclick="toast('客戶線索開發中')"><i>🤝</i><span>客戶線索</span></div>
+        <div class="fn" onclick="toast('電子簽約開發中')"><i>✍️</i><span>電子簽約</span></div>
+        <div class="fn" onclick="location.href='messages.html'"><i>💬</i><span>訊息</span></div>
+        <div class="fn" onclick="location.href='notifications.html'"><i>🔔</i><span>通知</span></div>
+        <div class="fn" onclick="toast('成交移交開發中')"><i>🔄</i><span>成交移交</span></div>
+      </div>
+
+      <p class="foot">本 APP 由 安家生活GO・安家生活網・房產與生活服務平台・互動開發工作室 聯合開發<br>© Copyright 2026 All Rights Reserved</p>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="dashboard_agent.js?v=20261113e"></script>
+<script src="assets/js/notify.js?v=20261113e"></script>
+<script src="assets/js/tabbar.js?v=20261113e"></script>
+</body>
+</html>
