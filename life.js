@@ -36,6 +36,22 @@
   }
 
   let ubikeHtml = '';
+  let motoHtml = '';
+
+  function buildMoto() {
+    const lat = cache && cache.property ? cache.property.lat : '';
+    const lng = cache && cache.property ? cache.property.lng : '';
+    if (!lat || !lng) { motoHtml = ''; return; }
+    const q = (kw) => 'https://www.google.com/maps/search/' + encodeURIComponent(kw) + '/' + lat + ',' + lng + ',17z';
+    motoHtml = '<div class="sect" style="margin-top:12px">🛵 共享運具</div>' +
+      '<p style="font-size:11.5px;color:var(--brown2);margin:2px 2px">即時車輛位置與租借請使用各家官方 App(無公開資料可介接)</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 2px">' +
+      '<a class="mini-btn line" style="text-decoration:none" target="_blank" rel="noopener" href="' + q('WeMo 電動機車租借') + '">🛵 WeMo 附近</a>' +
+      '<a class="mini-btn line" style="text-decoration:none" target="_blank" rel="noopener" href="' + q('GoShare 租車') + '">⚡ GoShare 附近</a>' +
+      '<a class="mini-btn line" style="text-decoration:none" target="_blank" rel="noopener" href="' + q('iRent 機車租賃') + '">🚗 iRent 附近</a>' +
+      '<a class="mini-btn line" style="text-decoration:none" target="_blank" rel="noopener" href="' + q('GoSmart 租車') + '">🔑 GoSmart 附近</a>' +
+      '</div>';
+  }
 
   function render() {
     const catsEl = $('#cats');
@@ -68,8 +84,9 @@
       html.push('<div class="sect" style="margin-top:14px">' + CAT_LABEL[c.id] + '(' + (s.items || []).length + ')</div>' +
         (s.note ? '<p style="font-size:12px;color:var(--brown2);margin:4px 2px">' + esc(s.note) + '</p>' : '') +
         (items || '<p style="font-size:12.5px;color:var(--brown2);margin:4px 2px">附近 5 公里內沒有資料</p>'));
+      if (c.id === 'transport') html.push(ubikeHtml + motoHtml);
     }
-    listEl.innerHTML = (current === null && ubikeHtml ? ubikeHtml : '') + html.join('');
+    listEl.innerHTML = html.join('');
   }
 
   async function fetchUbike() {
@@ -79,17 +96,17 @@
       if (!d.ok) return;
       if (!d.city_ok) {
         ubikeHtml = '';
-        if (current === null) render();
+        render();
         return;
       }
-      ubikeHtml = '<div class="sect" style="margin-top:14px">🚴 UBike 站點即時</div>' +
+      ubikeHtml = '<div class="sect" style="margin-top:12px">🚴 UBike 站點即時</div>' +
         ((d.ubike || []).length
           ? d.ubike.map(s =>
             '<div class="lrow"><div class="linfo"><b>' + esc(s.name) + '</b>' +
             '<span>可借 ' + s.bikes + ' 台|空位 ' + s.slots + ' 格|' + fmtDist(s.dist) + '</span></div>' +
             '<a class="st idle" target="_blank" rel="noopener" style="text-decoration:none" href="https://www.google.com/maps/search/?api=1&query=' + s.lat + ',' + s.lng + '">📍</a></div>').join('')
           : '<p style="font-size:12.5px;color:var(--brown2);margin:4px 2px">附近沒有 UBike 站點資料</p>');
-      if (current === null) render();
+      render();
     } catch (e) { /* 靜默 */ }
   }
 
@@ -130,6 +147,7 @@
         if (backMap[role]) $('#navBack').setAttribute('href', backMap[role]);
       }
     } catch (e) { /* 忽略 */ }
+    buildMoto();
     render();
     fetchUbike();
   }
