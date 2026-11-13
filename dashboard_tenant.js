@@ -103,6 +103,13 @@
       lc.innerHTML = '<div class="row"><div class="ico">🔑</div>' +
         '<div><span class="tagline">我的租約</span><h4>尚未綁定租約</h4><p>請由房東或公司發送邀請綁定租約後,即可查看帳單、電費明細與線上報修。</p></div></div>';
     }
+
+    const fnLife = $('#fnLife');
+    if (fnLife) fnLife.addEventListener('click', () => {
+      const l = (data.active_leases || [])[0];
+      if (l && l.property_id) location.href = 'life.html?property_id=' + l.property_id;
+      else showToast('請先綁定租約,再使用生活資訊');
+    });
   }
 
   async function respond(id, action) {
