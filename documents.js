@@ -120,16 +120,19 @@
     const isCreator = Number(d.created_by) === Number(cache.my_id);
 
     if (d.status === 'pending' && side === 1) {
+      const myName = esc(cache.my_name || '');
       foot.innerHTML = (isLease
-        ? '<input id="signName" placeholder="請輸入您的全名" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;margin-bottom:8px">' +
+        ? '<input id="signName" value="' + myName + '" placeholder="請輸入您的全名" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;margin-bottom:8px">' +
           '<button class="btn primary" id="signBtn" style="width:100%">🖊 手寫電子簽名</button>' +
           '<p style="font-size:11.5px;color:var(--brown2);text-align:center;margin:8px 0 0">簽名前請詳閱契約全文;簽名後由屋主副署生效</p>'
-        : '<input id="signName" placeholder="請輸入您的全名作為電子簽名" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;margin-bottom:10px">' +
+        : '<input id="signName" value="' + myName + '" placeholder="請輸入您的全名作為電子簽名" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;margin-bottom:10px">' +
           '<div style="display:flex;gap:10px"><button class="btn primary" id="signBtn" style="flex:1">🖊 同意並簽署</button><button class="btn ghost" id="declineBtn" style="flex:1">拒絕簽署</button></div>');
       foot.querySelector('#signBtn').addEventListener('click', async () => {
         if (isLease) {
-          const n = foot.querySelector('#signName').value.trim();
+          const inp = foot.querySelector('#signName');
+          const n = (inp.value.trim() || cache.my_name || '').trim();
           if (n.length < 2) { showToast('請先輸入您的全名'); return; }
+          inp.blur();
           const sig = await openPad('承租人(房客)簽名');
           if (!sig) return;
           await postAction({ doc_id: id, action: 'sign', sign_name: n, signature: sig });
@@ -144,11 +147,13 @@
         await postAction({ doc_id: id, action: 'decline' });
       });
     } else if (d.status === 'partially_signed' && side === 2) {
-      foot.innerHTML = '<input id="signName" placeholder="請輸入您的全名" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;margin-bottom:8px">' +
+      foot.innerHTML = '<input id="signName" value="' + esc(cache.my_name || '') + '" placeholder="請輸入您的全名" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;margin-bottom:8px">' +
         '<div style="display:flex;gap:10px"><button class="btn primary" id="signBtn" style="flex:1">🖊 屋主副署(契約生效)</button><button class="btn ghost" id="declineBtn" style="flex:1">拒簽</button></div>';
       foot.querySelector('#signBtn').addEventListener('click', async () => {
-        const n = foot.querySelector('#signName').value.trim();
+        const inp = foot.querySelector('#signName');
+        const n = (inp.value.trim() || cache.my_name || '').trim();
         if (n.length < 2) { showToast('請先輸入您的全名'); return; }
+        inp.blur();
         const sig = await openPad('出租人(屋主)簽名');
         if (!sig) return;
         await postAction({ doc_id: id, action: 'sign', sign_name: n, signature: sig });

@@ -98,7 +98,7 @@ input.good{border-color:var(--green-d)}
 .sheet-body .meta{font-size:11.5px;color:var(--brown2);background:var(--cream2);border-radius:12px;padding:9px 13px;line-height:1.7}
 .sheet-foot{padding:12px 20px 20px;border-top:1px solid var(--beige3)}
 
-.toast{position:fixed;left:50%;bottom:36px;transform:translateX(-50%) translateY(20px);background:rgba(74,58,40,.92);
+.toast{position:fixed;left:50%;top:64px;transform:translateX(-50%) translateY(20px);background:rgba(74,58,40,.92);
   color:#FFF7E8;padding:11px 22px;border-radius:999px;font-size:13.5px;opacity:0;transition:.3s;z-index:99;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
