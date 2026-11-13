@@ -72,18 +72,25 @@
     const card = $('#paCard');
     card.style.display = '';
     const dealTxt = { rent: '出租', sale: '出售', both: '出租/出售' };
-    card.innerHTML = items.map(a => {
-      const price = a.listing_type === 'sale' ? '開價 ' + money(a.sale_price) + '元' : '月租 ' + money(a.rent) + '元';
-      const st = a.status === 'invited'
-        ? '<span class="st warn">邀請中</span>'
-        : '<span class="st ' + (Number(a.is_listed) ? 'ok' : 'idle') + '">' + (Number(a.is_listed) ? '已上架' : '未上架') + '</span>';
-      const btns = a.status === 'invited'
-        ? '<div style="display:flex;gap:6px;margin-top:6px"><button type="button" class="mini-btn act-paok" data-id="' + a.id + '">✅ 接受委託</button><button type="button" class="mini-btn line act-pano" data-id="' + a.id + '">婉拒</button></div>'
-        : '<div style="display:flex;gap:6px;margin-top:6px"><button type="button" class="mini-btn act-patoggle" data-pid="' + a.property_id + '" data-on="' + Number(a.is_listed) + '">' + (Number(a.is_listed) ? '⬇️ 下架' : '⬆️ 上架') + '</button>' +
-          '<a class="mini-btn line" style="text-decoration:none" href="property.html?id=' + a.property_id + '">查看房屋</a></div>';
-      return '<div class="list-item" style="flex-wrap:wrap"><div style="flex:1;min-width:150px"><b>' + esc(a.title) + '</b>' +
-        '<span>' + dealTxt[a.deal_type] + '|' + price + '|可改價:' + (Number(a.can_edit_price) ? '是' : '否') + '</span></div>' + st + btns + '</div>';
-    }).join('');
+    let html = '';
+    try {
+      html = items.map(a => {
+        const price = a.listing_type === 'sale' ? '開價 ' + money(a.sale_price) + '元' : '月租 ' + money(a.rent) + '元';
+        const st = a.status === 'invited'
+          ? '<span class="st warn">邀請中</span>'
+          : '<span class="st ' + (Number(a.is_listed) ? 'ok' : 'idle') + '">' + (Number(a.is_listed) ? '已上架' : '未上架') + '</span>';
+        const btns = a.status === 'invited'
+          ? '<div style="display:flex;gap:6px;margin-top:6px"><button type="button" class="mini-btn act-paok" data-id="' + a.id + '">✅ 接受委託</button><button type="button" class="mini-btn line act-pano" data-id="' + a.id + '">婉拒</button></div>'
+          : '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><button type="button" class="mini-btn act-patoggle" data-pid="' + a.property_id + '" data-on="' + Number(a.is_listed) + '">' + (Number(a.is_listed) ? '⬇️ 下架' : '⬆️ 上架') + '</button>' +
+            '<a class="mini-btn line" style="text-decoration:none" href="property.html?id=' + a.property_id + '">查看房屋</a></div>';
+        return '<div class="list-item" style="flex-wrap:wrap"><div style="flex:1;min-width:150px"><b>' + esc(a.title) + '</b>' +
+          '<span>' + (dealTxt[a.deal_type] || a.deal_type) + '|' + price + '|可改價:' + (Number(a.can_edit_price) ? '是' : '否') + '</span></div>' + st + btns + '</div>';
+      }).join('');
+    } catch (err) {
+      html = '<p style="font-size:12px;color:#B00020">渲染錯誤:' + esc(err && err.message ? err.message : err) + '</p>';
+    }
+    if (!html) html = '<p style="font-size:12px;color:var(--brown2)">目前沒有委託資料</p>';
+    card.innerHTML = html;
 
     card.querySelectorAll('.act-paok, .act-pano').forEach(b => b.addEventListener('click', async () => {
       const accept = b.classList.contains('act-paok');
