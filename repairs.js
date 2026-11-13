@@ -474,7 +474,7 @@
         const role = me.user.registration_role;
         const backMap = { manager: 'dashboard_manager.html', tenant: 'dashboard_tenant.html', company_owner: 'dashboard_company.html', admin_staff: 'dashboard_company.html', accountant: 'dashboard_company.html', landlord: 'dashboard.html', vendor: 'dashboard_vendor.html' };
         if (backMap[role]) $('#navBack').setAttribute('href', backMap[role]);
-        canManageAny = role !== 'tenant';
+        canManageAny = role !== 'tenant' && role !== 'vendor';
       }
     } catch (e) { /* 無 me 不影響 */ }
     const wantId = Number(new URLSearchParams(location.search).get('id') || 0);

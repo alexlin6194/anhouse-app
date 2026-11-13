@@ -80,6 +80,23 @@
       data.pay_mode === 'mock'
         ? '目前為「模擬付款」測試模式,不會真的扣款;填入藍新測試憑證後自動改走藍新刷卡頁。'
         : (data.pay_mode === 'test' ? '藍新測試環境(ccore):請用測試卡號付款。' : '藍新正式環境,將真實扣款!');
+
+    /* 平台固定機制(全方案適用) */
+    const fixed = document.createElement('div');
+    fixed.innerHTML = data.audience === 'vendor'
+      ? '<div class="sect" style="margin-top:14px">📌 平台固定機制(所有方案適用)</div>' +
+        '<ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;color:#7a6f58;line-height:2">' +
+        '<li><b>訂閱制不抽成</b> — 工款全數屬於廠商</li>' +
+        '<li><b>每案廣播上限 5 家</b> — 避免惡性比價</li>' +
+        '<li><b>商機 24 小時未回應自動過期</b> — 保持市場流動</li>' +
+        '<li><b>廠商評分制</b> — 完工品質透明化</li></ul>'
+      : '<div class="sect" style="margin-top:14px">📌 平台固定機制(所有方案適用)</div>' +
+        '<ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;color:#7a6f58;line-height:2">' +
+        '<li><b>藍新金流自動對帳</b> — 每筆 NT$30元 全包</li>' +
+        '<li><b>電子簽約文件</b> — 確認函/租約線上簽署</li>' +
+        '<li><b>批次抄錄強制拍照</b> — 帳務零爭議</li>' +
+        '<li><b>生活圈</b> — 房源周邊食衣住行醫</li></ul>';
+    document.getElementById('plans').closest('.card').appendChild(fixed);
   }
 
   async function pay(btn) {
