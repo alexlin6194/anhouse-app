@@ -214,11 +214,13 @@
   function openPad(title) {
     $('#padWho').textContent = '✍ ' + title;
     $('#padMask').classList.add('show');
+    document.querySelector('#padMask .sheet').classList.add('show');
     setTimeout(padInit, 30);
     return new Promise((resolve) => { padDone = resolve; });
   }
   function closePad(val) {
     $('#padMask').classList.remove('show');
+    document.querySelector('#padMask .sheet').classList.remove('show');
     if (padDone) { padDone(val); padDone = null; }
   }
   const padC = $('#padCanvas');
@@ -338,7 +340,7 @@
 
   function closeDoc() {
     $('#docMask').classList.remove('show');
-    document.querySelector('.sheet').classList.remove('show');
+    document.querySelector('#docMask .sheet').classList.remove('show');
   }
   $('#docClose').addEventListener('click', closeDoc);
   $('#docMask').addEventListener('click', (e) => { if (e.target === $('#docMask')) closeDoc(); });
