@@ -19,9 +19,10 @@
     { id: 'hospital', label: '🏥 醫院' },
     { id: 'school', label: '🏫 學校' },
     { id: 'fun', label: '🎤 娛樂' },
-    { id: 'gas', label: '⛽ 加油站' }
+    { id: 'gas', label: '⛽ 加油站' },
+    { id: 'other', label: '🧩 其他' }
   ];
-  const CAT_LABEL = { food: '食|餐廳・美食', cloth: '衣|服飾・鞋包', house: '住|其他註冊房源', transport: '行|公車・捷運・車站', hospital: '醫院', school: '學校', fun: '娛樂|KTV・酒吧・影城', gas: '⛽ 加油站' };
+  const CAT_LABEL = { food: '食|餐廳・美食', cloth: '衣|服飾・鞋包', house: '住|其他註冊房源', transport: '行|公車・捷運・車站', hospital: '醫院', school: '學校', fun: '娛樂|KTV・酒吧・影城', gas: '⛽ 加油站', other: '🧩 其他|超商・藥局・銀行・郵局・公園' };
 
   let propId = new URLSearchParams(location.search).get('property_id');
   let current = null; // null = 全部;否則只顯示該分類
