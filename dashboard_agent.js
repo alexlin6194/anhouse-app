@@ -60,17 +60,19 @@
   }
 
   async function loadPA() {
-    let d;
+    let d = null;
+    let fetchErr = '';
     try {
       const res = await fetch('api/property_agents.php?mine=1', { cache: 'no-store' });
       d = await res.json();
-    } catch (e) { return; }
-    if (!d.ok) return;
-    const items = d.items || [];
-    if (!items.length) return;
+    } catch (e) { fetchErr = (e && e.message) ? e.message : '連線失敗'; }
     $('#paSect').style.display = '';
     const card = $('#paCard');
     card.style.display = '';
+    if (fetchErr) { card.innerHTML = '<p style="font-size:12px;color:#B00020">載入失敗:' + esc(fetchErr) + '</p>'; return; }
+    if (!d || !d.ok) { card.innerHTML = '<p style="font-size:12px;color:#B00020">API:' + esc(d && d.message ? d.message : '無回應') + '</p>'; return; }
+    const items = d.items || [];
+    if (!items.length) { card.innerHTML = '<p style="font-size:12px;color:var(--brown2)">目前沒有委託資料(受邀清單空)</p>'; return; }
     const dealTxt = { rent: '出租', sale: '出售', both: '出租/出售' };
     let html = '';
     try {
