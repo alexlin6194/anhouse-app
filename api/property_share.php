@@ -13,7 +13,7 @@ $pdo = db();
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $token = preg_replace('/[^a-zA-Z0-9]/', '', (string)($_GET['t'] ?? ''));
     if (strlen($token) < 10) respond(false, '連結無效');
-    $s = $pdo->prepare("SELECT p.id, p.title, p.city, p.district, p.address, p.listing_type, p.property_type,
+    $s = $pdo->prepare("SELECT p.id, p.org_id, p.title, p.city, p.district, p.address, p.listing_type, p.property_type,
         p.layout_rooms, p.layout_living, p.layout_bath, p.area_ping, p.floor_current, p.floor_total,
         p.rent, p.mgmt_fee, p.deposit, p.sale_price, p.parking, p.pet_friendly, p.cooking_allowed,
         p.water_fee, p.parking_fee, p.cleaning_fee, p.internet_fee, p.cable_fee,
@@ -26,6 +26,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $ph = $pdo->prepare('SELECT file_path, is_cover FROM property_photos WHERE property_id = ? ORDER BY is_cover DESC, sort_order, id');
     $ph->execute([(int)$p['id']]);
     $photos = $ph->fetchAll();
+
+    /* 聯絡窗口:ref=user_id(須為該房屋的屋主或委託生效業務) */
+    $contact = null;
+    $refId = (int)($_GET['ref'] ?? 0);
+    if ($refId > 0) {
+        $c = $pdo->prepare("SELECT u.name, u.phone,
+            (SELECT COUNT(*) FROM org_members om JOIN organizations o2 ON o2.id = om.org_id
+             WHERE om.user_id = ? AND om.org_id = ? AND om.status = 'active' AND om.role IN ('landlord','manager')) AS is_mgmt,
+            (SELECT COUNT(*) FROM property_agents pa WHERE pa.agent_user_id = ? AND pa.property_id = ? AND pa.status = 'active') AS is_agent
+            FROM users u WHERE u.id = ? LIMIT 1");
+        $c->execute([$refId, (int)$p['org_id'], $refId, (int)$p['id'], $refId]);
+        $cu = $c->fetch();
+        if ($cu && ((int)$cu['is_mgmt'] > 0 || (int)$cu['is_agent'] > 0)) {
+            $contact = ['name' => $cu['name'], 'phone' => $cu['phone']];
+        }
+    }
 
     respond(true, 'ok', [
         'property' => [
@@ -57,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'is_listed' => (int)$p['is_listed'],
         ],
         'photos' => $photos,
+        'contact' => $contact,
     ]);
 }
 
@@ -99,6 +116,6 @@ if (!$token) {
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $base = preg_replace('#/api$#', '', str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])));
-$url = $scheme . '://' . $host . $base . '/property_view.html?t=' . $token;
+$url = $scheme . '://' . $host . $base . '/property_view.html?t=' . $token . '&ref=' . $userId;
 
 respond(true, '連結已產生', ['url' => $url, 'token' => $token]);
