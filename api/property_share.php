@@ -113,8 +113,10 @@ if (!$token) {
     $pdo->prepare('UPDATE properties SET share_token = ? WHERE id = ?')->execute([$token, $pid]);
 }
 
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+/* 內網/本機用 http(自簽憑證會被 LINE 等內建瀏覽器擋);對外正式主機用 https */
+$private = (bool)preg_match('/^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|localhost)/i', $host);
+$scheme = $private ? 'http' : (((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')) ? 'https' : 'http');
 $base = preg_replace('#/api$#', '', str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])));
 $url = $scheme . '://' . $host . $base . '/property_view.html?t=' . $token . '&ref=' . $userId;
 
