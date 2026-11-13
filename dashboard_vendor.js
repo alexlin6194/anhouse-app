@@ -43,12 +43,15 @@
 
     const list = d.recent || [];
     $('#recent').innerHTML = list.length
-      ? list.map(r => '<div class="list-item" style="padding:8px 2px"><div style="flex:1;min-width:0"><b>' +
+      ? list.map(r => '<div class="list-item act-open" data-id="' + r.id + '" style="padding:8px 2px;cursor:pointer;flex-wrap:wrap"><div style="flex:1;min-width:0"><b>' +
           (r.property_title || '') + '</b><span>' + (r.description || '').slice(0, 24) +
           (r.updated_at ? '|' + r.updated_at.slice(5, 10) : '') + '</span></div>' +
           '<span class="st ' + (['assigned', 'inspected', 'repairing'].includes(r.status) ? 'warn' : (['done', 'billed'].includes(r.status) ? 'ok' : '')) + '">' +
           ({ pending: '待處理', assigned: '施工中', inspected: '已查修', repairing: '施工中', done: '已完工', billed: '已請款', cancelled: '已取消' }[r.status] || r.status) +
           '</span></div>').join('')
       : '<p style="color:#a09070;margin:0;font-size:13.5px">尚無工單,接到商機後會顯示在這裡。</p>';
+    document.querySelectorAll('.act-open').forEach(el => el.addEventListener('click', () => {
+      location.href = 'repairs.html?id=' + el.dataset.id;
+    }));
   } catch (e) { /* 保留骨架 */ }
 })();

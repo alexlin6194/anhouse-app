@@ -35,12 +35,19 @@
   let payByRepair = {};
   let billRepairId = 0;
   let billProofFiles = [];
+  let billPhotoFiles = [];
+  let billNeedComplete = false;
   const payState = { pending: { label: '待付', cls: 'warn' }, reminded: { label: '已催收', cls: 'warn' }, paid: { label: '已付', cls: 'ok' }, failed: { label: '付款失敗', cls: 'bad' } };
 
   function payReqHtml(cm, r, amIWorker) {
     const vp = payByRepair[r.id];
     if (amIWorker && r.vendor_paid !== 'yes' && ['assigned', 'inspected', 'repairing', 'done', 'billed'].includes(r.status)) {
-      if (!vp) return '<div class="bd-sec">🧾 請款</div><div style="margin-top:4px"><button type="button" class="mini-btn act-bill" data-id="' + r.id + '">向屋主/管理員請款(附憑證)</button></div>';
+      if (!vp) {
+        if (['assigned', 'inspected', 'repairing'].includes(r.status)) {
+          return '<div class="bd-sec">🧾 完工+請款</div><div style="margin-top:4px"><button type="button" class="mini-btn act-complete-bill" data-id="' + r.id + '">🏁 完工+請款(說明+照片+憑證)</button><div style="font-size:11.5px;color:var(--brown2);margin-top:4px">一次完成:完工回報+工款請款,屋主查看憑證後直接線上付款</div></div>';
+        }
+        return '<div class="bd-sec">🧾 請款</div><div style="margin-top:4px"><button type="button" class="mini-btn act-bill" data-id="' + r.id + '">向屋主/管理員請款(附憑證)</button></div>';
+      }
       const ps = payState[vp.status] || { label: vp.status, cls: 'warn' };
       return '<div class="bd-sec">🧾 請款</div><div style="font-size:12.5px;line-height:1.9">已請款 <b>NT$' + money(vp.amount) + '元</b>' +
         (vp.paid_at ? '|✅ 已付款(' + dstr(vp.paid_at) + ')' : '|' + ps.label + '(' + dstr(vp.created_at) + ')' +
@@ -123,13 +130,20 @@
     }));
   }
 
-  function openBillModal(repairId, defaultAmount) {
+  function openBillModal(repairId, defaultAmount, needComplete) {
     billRepairId = repairId;
     billProofFiles = [];
+    billPhotoFiles = [];
+    billNeedComplete = !!needComplete;
     $('#billAmount').value = defaultAmount ? String(defaultAmount) : '';
     $('#billNote').value = '';
+    $('#billSolution').value = '';
+    $('#billPhotos').value = '';
     $('#billProof').value = '';
     $('#billProofPrev').innerHTML = '';
+    $('#billPhotosPrev').innerHTML = '';
+    $('#billSolutionWrap').style.display = needComplete ? '' : 'none';
+    $('#billPhotosWrap').style.display = needComplete ? '' : 'none';
     $('#billModal').style.display = 'flex';
   }
 
@@ -138,18 +152,28 @@
       billProofFiles = Array.from($('#billProof').files || []).slice(0, 3);
       $('#billProofPrev').innerHTML = billProofFiles.map(f => '<img src="' + URL.createObjectURL(f) + '" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1.5px solid var(--beige2)">').join('');
     });
+    $('#billPhotos').addEventListener('change', () => {
+      billPhotoFiles = Array.from($('#billPhotos').files || []).slice(0, 3);
+      $('#billPhotosPrev').innerHTML = billPhotoFiles.map(f => '<img src="' + URL.createObjectURL(f) + '" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1.5px solid var(--beige2)">').join('');
+    });
     $('#billCancel').addEventListener('click', () => { $('#billModal').style.display = 'none'; });
     $('#billSubmit').addEventListener('click', async () => {
       const amount = parseInt($('#billAmount').value, 10);
       if (!billRepairId) return;
+      if (billNeedComplete) {
+        const sol = $('#billSolution').value.trim();
+        if (sol.length < 3) { showToast('請填寫完工說明(至少 3 字)'); return; }
+      }
       if (!amount || amount <= 0) { showToast('請輸入工款金額'); return; }
-      if (!billProofFiles.length) { showToast('請上傳請款憑證照片'); return; }
+      if (!billProofFiles.length) { showToast('請上傳請款憑證照片(收據/發票)'); return; }
       const fd = new FormData();
-      fd.append('action', 'request');
+      fd.append('action', billNeedComplete ? 'complete_bill' : 'request');
       fd.append('repair_id', billRepairId);
       fd.append('amount', amount);
       fd.append('note', $('#billNote').value);
+      if (billNeedComplete) fd.append('solution', $('#billSolution').value);
       billProofFiles.forEach(f => fd.append('proof[]', f));
+      billPhotoFiles.forEach(f => fd.append('photos[]', f));
       const btn = $('#billSubmit');
       btn.disabled = true;
       try {
@@ -260,12 +284,11 @@
       btns.push('<button type="button" class="mini-btn line act-reject" data-id="' + r.id + '">↩ 退回重新評估</button>');
     }
     if (amIWorker && r.status === 'assigned') btns.push('<button type="button" class="mini-btn act-quote" data-id="' + r.id + '">📋 查修回報(原因+報價)</button>');
-    if (amIWorker && ['repairing', 'assigned', 'inspected'].includes(r.status)) btns.push('<button type="button" class="mini-btn act-complete" data-id="' + r.id + '">🏁 完工回報(費用+說明+照片)</button>');
     if (cm && r.status === 'done') {
       btns.push('<button type="button" class="mini-btn act-doc-charge" data-id="' + r.id + '">📄 發自費確認函</button>');
       btns.push('<button type="button" class="mini-btn act-charge-none" data-id="' + r.id + '">🏠 房東吸收(不向房客收)</button>');
     }
-    if (cm && r.vendor_user_id && r.vendor_paid !== 'yes' && ['inspected', 'repairing', 'done', 'billed'].includes(r.status)) {
+    if (cm && r.vendor_user_id && r.vendor_paid !== 'yes' && ['inspected', 'repairing', 'done', 'billed'].includes(r.status) && !payByRepair[r.id]) {
       const fee = r.actual_amount != null ? r.actual_amount : r.quote_amount;
       btns.push('<button type="button" class="mini-btn line act-pay-vendor" data-id="' + r.id + '">🧾 付清廠商工款' + (fee ? '(NT$' + money(fee) + '元)' : '') + '</button>');
     }
@@ -314,7 +337,7 @@
       photoHtml + quoteHtml + vendorHtml + solutionHtml + marketHtml + payReqHtml(cm, r, amIWorker) +
       (btns.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' + btns.join('') + '</div>' : '') +
       '</div>';
-    panel.querySelectorAll('.act-start, .act-assign, .act-approve, .act-reject, .act-charge-bill, .act-charge-cash, .act-charge-none, .act-pay-vendor, .act-doc-charge, .act-cancel, .act-award, .act-send, .act-broadcast, .act-bill').forEach(b => {
+    panel.querySelectorAll('.act-start, .act-assign, .act-approve, .act-reject, .act-charge-bill, .act-charge-cash, .act-charge-none, .act-pay-vendor, .act-doc-charge, .act-cancel, .act-award, .act-send, .act-broadcast, .act-bill, .act-complete-bill').forEach(b => {
       b.addEventListener('click', (e) => {
         e.stopPropagation();
         if (b.classList.contains('act-award')) {
@@ -441,12 +464,21 @@
       const me = await (await fetch('api/me.php', { cache: 'no-store' })).json();
       if (me.ok && me.authenticated) {
         const role = me.user.registration_role;
-        const backMap = { manager: 'dashboard_manager.html', tenant: 'dashboard_tenant.html', company_owner: 'dashboard_company.html', admin_staff: 'dashboard_company.html', accountant: 'dashboard_company.html', landlord: 'dashboard.html' };
+        const backMap = { manager: 'dashboard_manager.html', tenant: 'dashboard_tenant.html', company_owner: 'dashboard_company.html', admin_staff: 'dashboard_company.html', accountant: 'dashboard_company.html', landlord: 'dashboard.html', vendor: 'dashboard_vendor.html' };
         if (backMap[role]) $('#navBack').setAttribute('href', backMap[role]);
         canManageAny = role !== 'tenant';
       }
     } catch (e) { /* 無 me 不影響 */ }
+    const wantId = Number(new URLSearchParams(location.search).get('id') || 0);
     render();
+    if (wantId) {
+      const row = document.querySelector('.repair-row[data-id="' + wantId + '"]');
+      if (row) {
+        openId = null;
+        toggleDetail(row, wantId);
+        try { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+      }
+    }
     fillProperties();
     renderVendors();
   }
@@ -661,7 +693,12 @@
     }
     if (btn.classList.contains('act-bill')) {
       const r = (cache.repairs || []).find(x => Number(x.id) === id);
-      openBillModal(id, r ? (r.actual_amount != null ? r.actual_amount : r.quote_amount) : 0);
+      openBillModal(id, r ? (r.actual_amount != null ? r.actual_amount : r.quote_amount) : 0, false);
+      return;
+    }
+    if (btn.classList.contains('act-complete-bill')) {
+      const r = (cache.repairs || []).find(x => Number(x.id) === id);
+      openBillModal(id, r ? (r.actual_amount != null ? r.actual_amount : r.quote_amount) : 0, true);
       return;
     }
     if (btn.classList.contains('act-charge-cash')) {

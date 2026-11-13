@@ -13,13 +13,32 @@
     return hit ? hit.label : (data.audience === 'vendor' ? plan : plan + '會員');
   }
 
+  const PLAN_FEATURES = {
+    vendor: {
+      basic: ['承接案件數不限', '指名+廣播商機(5 公里)', '施工回報+請款憑證', '工款線上付款+紀錄'],
+      pro: ['基本方案全部功能', '商機優先排序曝光', '自訂承接半徑 15 公里', '訂閱專屬客服']
+    },
+    member: {
+      light: ['房源與租約管理', '帳單+電費度數計價', '報修派工+工款線上付款', '電子簽約文件'],
+      pro: ['輕量方案全部功能', '多物件/多人代管', '藍新自動對帳(每筆 NT$30元)', '進階報表與匯出'],
+      manager: ['管家工作台', '代管房源操作', '帳單與報修協助', '工款線上付款(代付)'],
+      tenant: ['線上繳租+自動提醒', '報修與進度查詢', '生活圈周邊食衣住行', '租約文件保存'],
+      agent: ['代管房源操作', '帶看與報修協助', '工作統計', '聯絡紀錄'],
+      company: ['多據點/多人管理', '全部輕量功能', '公司報表與對帳', '員工權限管理']
+    }
+  };
+  function planFeatures(plan) {
+    const arr = (PLAN_FEATURES[data.audience] || {})[plan] || [];
+    return arr.length ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:#8a7a5c;line-height:1.8">' +
+      arr.map(f => '<li>' + f + '</li>').join('') + '</ul>' : '';
+  }
   function planCard(p) {
     const perk = data.audience === 'vendor'
       ? (p.plan === 'pro' ? '優先排序 + 自訂承接半徑 15 公里' : '承接案件數不限 + 5 公里廣播')
       : (p.plan === 'pro' ? '多物件管理 + 藍新自動對帳 + 進階報表' : '基本租賃管理 + 電子簽約');
-    return '<div class="list-item" style="align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:0">' +
+    return '<div class="list-item" style="align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:0">' +
       '<b>' + p.label + '</b><span>NT$' + p.amount.toLocaleString() + '元 / ' + (p.months === 12 ? '年' : '月') + '</span>' +
-      '<span style="color:#8a7a5c">' + perk + '</span></div>' +
+      '<span style="color:#8a7a5c">' + perk + '</span>' + planFeatures(p.plan) + '</div>' +
       '<button type="button" class="mini-btn act-pay" data-plan="' + p.plan + '" data-months="' + p.months + '">訂閱</button></div>';
   }
 

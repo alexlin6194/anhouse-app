@@ -94,6 +94,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     respond(true, 'ok', ['scope' => 'payer', 'items' => $items]);
 }
 
+/* ── POST:完工+請款 一次完成(廠商) ──────────── */
+if ($action === 'complete_bill') {
+    if (!$isVendor) respond(false, '僅廠商可操作');
+    $rid = (int)($_POST['repair_id'] ?? 0);
+    $amount = (int)($_POST['amount'] ?? 0);
+    $note = mb_substr(clean($_POST['note'] ?? ''), 0, 200);
+    $solution = clean($_POST['solution'] ?? '');
+    $r = pay_repair($pdo, $rid);
+    if (!$r) respond(false, '查無此工單');
+    if ((int)$r['vendor_user_id'] !== $meId) respond(false, '此工單非您的承接單');
+    if ($amount <= 0 || $amount > 9999999) respond(false, '工款金額不正確');
+    $open = $pdo->prepare("SELECT COUNT(*) FROM vendor_payments WHERE repair_id=? AND status IN ('pending','reminded')");
+    $open->execute([$rid]);
+    if ((int)$open->fetchColumn() > 0) respond(false, '此工單已有請款進行中');
+
+    $photos = $r['photos'] ? (json_decode($r['photos'], true) ?: []) : [];
+    if (!empty($_FILES['photos'])) {
+        $dir = UPLOAD_DIR . '/repairs/' . (int)$r['property_id'];
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        $files = $_FILES['photos'];
+        $n = min(count($files['name']), 3);
+        for ($i = 0; $i < $n; $i++) {
+            if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
+            $ext = strtolower(pathinfo((string)$files['name'][$i], PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) continue;
+            if ((int)$files['size'][$i] <= 0 || (int)$files['size'][$i] > UPLOAD_MAX_BYTES) continue;
+            $name = bin2hex(random_bytes(16)) . '.' . $ext;
+            if (move_uploaded_file($files['tmp_name'][$i], $dir . '/' . $name)) $photos[] = 'repairs/' . (int)$r['property_id'] . '/' . $name;
+        }
+    }
+
+    $newlyDone = false;
+    if (!in_array($r['status'], ['done', 'billed'], true)) {
+        if (!in_array($r['status'], ['assigned', 'inspected', 'repairing'], true)) respond(false, '此單狀態無法完工');
+        if (mb_strlen($solution) < 3) respond(false, '請填寫完工說明(至少 3 字)');
+        $pdo->prepare("UPDATE repairs SET status='done', solution=?, actual_amount=?, photos=? WHERE id=?")
+            ->execute([$solution, $amount, $photos ? json_encode($photos, JSON_UNESCAPED_SLASHES) : null, $rid]);
+        $newlyDone = true;
+    } else {
+        $pdo->prepare("UPDATE repairs SET photos=? WHERE id=?")
+            ->execute([$photos ? json_encode($photos, JSON_UNESCAPED_SLASHES) : null, $rid]);
+    }
+
+    $proofs = !empty($_FILES['proof']) ? pay_save_proofs($_FILES['proof'], (int)$r['property_id']) : [];
+    if (!$proofs) respond(false, '請上傳請款憑證照片(收據/發票)');
+
+    $trade = 'ANP' . date('YmdHis') . str_pad((string)random_int(0, 999), 3, '0', STR_PAD_LEFT);
+    $pdo->prepare("INSERT INTO vendor_payments (repair_id, vendor_user_id, payer_org_id, amount, note, proof, trade_no, method, created_at)
+        VALUES (?,?,?,?,?,?,?,?,'')")
+        ->execute([$rid, $meId, (int)$r['p_org_id'], $amount, $note, json_encode($proofs, JSON_UNESCAPED_SLASHES), $trade, NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
+
+    foreach (pay_payers($pdo, (int)$r['p_org_id']) as $uid) {
+        notify($uid, 'pay_request', ($newlyDone ? '完工+請款|' : '廠商請款|') . $r['property_title'],
+            '「' . $r['property_title'] . '」' . $r['category'] . '工單#' . $rid . ($newlyDone ? '已完工,' : '') . '工款 NT$' . number_format($amount) . '元' . ($note ? ':' . mb_substr($note, 0, 30) : '') . ',請查看憑證並線上付款。', $rid);
+    }
+    /* 完工也通知報修人 */
+    if ($newlyDone && $r['created_by'] && (int)$r['created_by'] !== $meId) {
+        notify((int)$r['created_by'], 'repair_done', '報修已完成|' . $r['property_title'],
+            '您回報的「' . $r['property_title'] . '」' . $r['category'] . '問題已完工:' . mb_substr($solution, 0, 50), $rid);
+    }
+    respond(true, '完工+請款已送出,待屋主/管理員查看憑證後線上付款', ['trade_no' => $trade]);
+}
+
 /* ── POST:請款 ───────────────────────────── */
 if ($action === 'request') {
     if (!$isVendor) respond(false, '僅廠商可請款');

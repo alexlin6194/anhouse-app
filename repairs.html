@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>報修管理|安家生活GO</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20261113z">
+<link rel="stylesheet" href="assets/css/style.css?v=20261114a">
 </head>
 <body>
 <div class="shell">
@@ -38,8 +38,15 @@
 
       <div id="billModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center;padding:18px">
         <div class="card" style="max-width:420px;width:100%;max-height:86vh;overflow:auto">
-          <div class="bd-sec" style="margin-top:0">🧾 請款(索取工款憑證)</div>
-          <p style="font-size:12.5px;color:#8a7a5c;margin:0 0 8px">請填寫工款金額並上傳收據/發票憑證,屋主或管理員查看後會透過藍新金流付款。</p>
+          <div class="bd-sec" style="margin-top:0">🧾 完工+請款</div>
+          <div id="billSolutionWrap">
+            <label style="font-size:13px">完工說明*</label>
+            <textarea id="billSolution" rows="2" maxlength="500" placeholder="例:更換加熱棒,測試點火正常" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--beige2);border-radius:10px;margin:4px 0 10px;font-family:inherit"></textarea>
+          </div>
+          <div id="billPhotosWrap">
+            <label style="font-size:13px">施工照片(選填,最多 3 張)</label>
+            <input type="file" id="billPhotos" accept="image/*" multiple style="margin:4px 0 12px;font-size:13px">
+          </div>
           <label style="font-size:13px">工款金額(元)*</label>
           <input type="number" id="billAmount" min="1" step="1" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--beige2);border-radius:10px;margin:4px 0 10px">
           <label style="font-size:13px">備註(選填)</label>
@@ -108,9 +115,9 @@
   </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
-<script src="assets/js/lightbox.js?v=20261113z"></script>
-<script src="repairs.js?v=20261113z"></script>
-<script src="assets/js/notify.js?v=20261113z"></script>
-<script src="assets/js/tabbar.js?v=20261113z"></script>
+<script src="assets/js/lightbox.js?v=20261114a"></script>
+<script src="repairs.js?v=20261114a"></script>
+<script src="assets/js/notify.js?v=20261114a"></script>
+<script src="assets/js/tabbar.js?v=20261114a"></script>
 </body>
 </html>
