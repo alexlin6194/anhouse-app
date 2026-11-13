@@ -201,7 +201,10 @@
     const area = $('#printArea');
     area.innerHTML = '<h2 style="font-size:16px">' + esc(d.title) + '</h2>' +
       '<pre>' + esc(d.content) + '</pre>' + sigBlock(d).replace(/class="st[^"]*"/g, '');
+    const oldTitle = document.title;
+    document.title = '租賃合約_安家生活GO';
     window.print();
+    setTimeout(() => { document.title = oldTitle; }, 2000);
   }
 
   /* ───────── 手寫簽名板 ───────── */
