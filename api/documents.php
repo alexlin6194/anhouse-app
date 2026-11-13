@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/notify.php';
+require_once __DIR__ . '/../includes/contract.php';
 
 require_methods('GET', 'POST');
 
@@ -123,8 +124,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     respond(true, 'ok', ['authenticated' => true, 'docs' => $rows, 'my_role' => $myRole, 'my_name' => $myName, 'my_id' => $userId]);
 }
 
+function doc_trail_append(PDO $pdo, int $docId, string $event): void
+{
+    $s = $pdo->prepare('SELECT trail FROM documents WHERE id = ?');
+    $s->execute([$docId]);
+    $trail = json_decode((string)($s->fetch()['trail'] ?? '[]'), true) ?: [];
+    $trail[] = ['event' => $event, 'by' => (int)$_SESSION['user_id'], 'name' => $_SESSION['name'] ?? '', 'ip' => $_SERVER['REMOTE_ADDR'] ?? '', 'at' => date('Y-m-d H:i:s')];
+    $pdo->prepare('UPDATE documents SET trail = ? WHERE id = ?')
+        ->execute([json_encode($trail, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $docId]);
+}
+
+/* 手寫簽名圖(dataURL PNG/JPEG)存檔 */
+function doc_save_signature(int $docId, string $which, string $dataUrl): ?string
+{
+    if (!preg_match('/^data:image\/(png|jpe?g);base64,(.+)$/s', $dataUrl, $m)) {
+        return null;
+    }
+    $bin = base64_decode($m[2], true);
+    if ($bin === false || strlen($bin) < 200 || strlen($bin) > 2 * 1024 * 1024) {
+        return null;
+    }
+    $info = @getimagesizefromstring($bin);
+    if (!$info || !in_array($info[2], [IMAGETYPE_PNG, IMAGETYPE_JPEG], true)) {
+        return null;
+    }
+    $dir = UPLOAD_DIR . '/documents/signatures';
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+        return null;
+    }
+    $name = 'sign_' . $docId . '_' . $which . '_' . time() . '.' . ($info[2] === IMAGETYPE_PNG ? 'png' : 'jpg');
+    if (!file_put_contents($dir . '/' . $name, $bin)) {
+        return null;
+    }
+    return 'documents/signatures/' . $name;
+}
+
 $in = json_input();
 $action = clean($in['action'] ?? '');
+
+/* 發起租約電子簽約(屋主/管理員;產生完整契約書全文,雙方先後電子簽名) */
+if ($action === 'create_lease_contract') {
+    $leaseId = (int)($in['lease_id'] ?? 0);
+    $lStmt = $pdo->prepare('SELECT l.*, p.org_id, p.delegated_user_id, p.title AS property_title FROM leases l JOIN properties p ON p.id = l.property_id WHERE l.id = ? LIMIT 1');
+    $lStmt->execute([$leaseId]);
+    $lease = $lStmt->fetch();
+    if (!$lease) {
+        respond(false, '找不到此租約');
+    }
+    $isManagerHere = ($myOrgId > 0 && (int)$lease['org_id'] === $myOrgId) || ($lease['delegated_user_id'] && (int)$lease['delegated_user_id'] === $userId);
+    if (!$isManagerHere) {
+        respond(false, '僅屋主或管理員可發起租約電子簽約');
+    }
+    [$ok, $msg] = contract_create_for_lease($pdo, $leaseId, $userId, (string)($in['extra_terms'] ?? ''));
+    if (!$ok) {
+        respond(false, $msg);
+    }
+    $docId = (int)$msg;
+    doc_trail_append($pdo, $docId, 'sent');
+    $gStmt = $pdo->prepare('SELECT signer_user_id, signer2_user_id FROM documents WHERE id = ?');
+    $gStmt->execute([$docId]);
+    $sides = $gStmt->fetch();
+    notify((int)$sides['signer_user_id'], 'system', '租賃契約書待您簽署|' . $lease['property_title'],
+        '屋主已發起「房屋租賃契約書」電子簽約,請至「文件簽署」詳閱契約全文,完成手寫電子簽名後由屋主副署生效。', $docId);
+    if ((int)$sides['signer2_user_id'] !== $userId) {
+        notify((int)$sides['signer2_user_id'], 'system', '租賃契約書已發起|' . $lease['property_title'],
+            '您已發起「房屋租賃契約書」電子簽約,待房客完成電子簽名後,請至「文件簽署」副署完成歸檔。', $docId);
+    }
+    respond(true, '租賃契約書已發起,待房客電子簽名', ['doc_id' => $docId]);
+}
 
 if ($action === 'create_repair_charge') {
     $rid = (int)($in['repair_id'] ?? 0);
@@ -207,43 +274,112 @@ if ($action === 'sign') {
     if (!$d) {
         respond(false, '找不到這份文件或無權限');
     }
-    if ((int)$d['signer_user_id'] !== $userId) {
-        respond(false, '僅文件指定的簽署人可簽署');
+    $isLease = ($d['type'] === 'lease_contract');
+    $side = 0;
+    if ((int)$d['signer_user_id'] === $userId) {
+        $side = 1;
+    } elseif ($isLease && (int)($d['signer2_user_id'] ?? 0) === $userId) {
+        $side = 2;
+    } else {
+        respond(false, $isLease ? '僅契約雙方當事人可簽署' : '僅文件指定的簽署人可簽署');
     }
-    if ($d['status'] !== 'pending') {
-        respond(false, '此文件已簽署或已拒絕');
+    if ($side === 1 && $d['status'] !== 'pending') {
+        respond(false, '此文件已簽署或已結案');
+    }
+    if ($side === 2 && $d['status'] !== 'partially_signed') {
+        respond(false, $d['status'] === 'pending' ? '請先等待房客完成電子簽名' : '此契約已完成或已結案');
     }
     $signName = clean($in['sign_name'] ?? '');
     if (mb_strlen($signName) < 2) {
         respond(false, '請輸入完整姓名作為電子簽名');
     }
-    $pdo->prepare("UPDATE documents SET status = 'signed', signed_at = NOW(), sign_name = ? WHERE id = ?")
-        ->execute([$signName, $did]);
-    foreach (doc_managers($pdo, (int)$d['property_id']) as $uid) {
-        notify($uid, 'system', '文件已簽署|' . $d['title'],
-            ($_SESSION['name'] ?? '房客') . ' 已於 ' . date('Y-m-d H:i') . ' 完成電子簽署(簽名:' . $signName . ')。', $did);
+    $sigPath = null;
+    if ($isLease) {
+        $sigPath = doc_save_signature($did, $side === 1 ? 't' : 'l', (string)($in['signature'] ?? ''));
+        if (!$sigPath) {
+            respond(false, '請在手寫簽名板簽名後送出(空白簽名無效)');
+        }
     }
-    respond(true, '簽署完成,文件已生效');
+
+    if ($side === 1) {
+        $newStatus = ($isLease && (int)($d['signer2_user_id'] ?? 0) > 0) ? 'partially_signed' : 'signed';
+        $pdo->prepare("UPDATE documents SET status = ?, signed_at = NOW(), sign_name = ?, signature_img = ?, sign_ip = ?, sign_ua = ? WHERE id = ?")
+            ->execute([$newStatus, $signName, $sigPath, $_SERVER['REMOTE_ADDR'] ?? '', substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 250), $did]);
+        doc_trail_append($pdo, $did, $newStatus === 'signed' ? 'signed' : 'tenant_signed');
+        if ($newStatus === 'partially_signed') {
+            notify((int)$d['signer2_user_id'], 'system', '房客已簽名,待您副署|' . $d['title'],
+                ($_SESSION['name'] ?? '房客') . ' 已於 ' . date('Y-m-d H:i') . ' 完成租賃契約電子簽名,請至「文件簽署」檢視並完成屋主副署,契約即生效歸檔。', $did);
+            respond(true, '簽名完成!已通知屋主副署,契約於屋主副署後正式生效');
+        }
+        foreach (doc_managers($pdo, (int)$d['property_id']) as $uid) {
+            if ($uid !== $userId) {
+                notify($uid, 'system', '文件已簽署|' . $d['title'], ($_SESSION['name'] ?? '房客') . ' 已完成電子簽署(簽名:' . $signName . ')。', $did);
+            }
+        }
+        respond(true, '簽署完成,文件已生效');
+    }
+
+    $pdo->prepare("UPDATE documents SET status = 'signed', sign2_name = ?, sign2_at = NOW(), signature2_img = ?, sign2_ip = ?, sign2_ua = ? WHERE id = ?")
+        ->execute([$signName, $sigPath, $_SERVER['REMOTE_ADDR'] ?? '', substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 250), $did]);
+    doc_trail_append($pdo, $did, 'countersigned');
+    if ((int)$d['ref_id'] > 0 && $d['ref_id']) {
+        $lStmt = $pdo->prepare('SELECT status FROM leases WHERE id = ?');
+        $lStmt->execute([(int)$d['ref_id']]);
+        $leaseRow = $lStmt->fetch();
+        if ($leaseRow && $leaseRow['status'] === 'pending') {
+            $pdo->prepare("UPDATE leases SET status = 'active', responded_at = NOW() WHERE id = ?")->execute([(int)$d['ref_id']]);
+            $pdo->prepare("UPDATE properties SET status = 'rented' WHERE id = ? AND status <> 'rented'")->execute([(int)$d['property_id']]);
+            notify((int)$d['signer_user_id'], 'lease_accepted', '租約已生效|' . $d['title'],
+                '雙方已完成租賃契約電子簽署,租約正式生效!每月帳單將自動產生。', (int)$d['ref_id']);
+        }
+    }
+    notify((int)$d['signer_user_id'], 'system', '租賃契約已生效|' . $d['title'],
+        '屋主 ' . ($_SESSION['name'] ?? '') . ' 已於 ' . date('Y-m-d H:i') . ' 完成副署,「房屋租賃契約書」正式生效,雙方均可至「文件簽署」查看簽名與下載存檔。', $did);
+    respond(true, '屋主副署完成!租賃契約正式生效,已歸檔留存雙方簽名與紀錄');
 }
 
-if ($action === 'reject') {
+if ($action === 'decline') {
     $did = (int)($in['doc_id'] ?? 0);
     $d = doc_scope($pdo, $userId, $myOrgId, $did);
     if (!$d) {
         respond(false, '找不到這份文件或無權限');
     }
-    if ((int)$d['signer_user_id'] !== $userId) {
-        respond(false, '僅文件指定的簽署人可操作');
+    $isLease = ($d['type'] === 'lease_contract');
+    $isParty = ((int)$d['signer_user_id'] === $userId) || ($isLease && (int)($d['signer2_user_id'] ?? 0) === $userId);
+    if (!$isParty) {
+        respond(false, '僅契約雙方當事人可操作');
     }
-    if ($d['status'] !== 'pending') {
-        respond(false, '此文件已簽署或已拒絕');
+    if (!in_array($d['status'], ['pending', 'partially_signed'], true)) {
+        respond(false, '此文件已簽署或已結案');
     }
     $pdo->prepare("UPDATE documents SET status = 'rejected' WHERE id = ?")->execute([$did]);
+    doc_trail_append($pdo, $did, $isLease ? 'declined' : 'rejected');
     foreach (doc_managers($pdo, (int)$d['property_id']) as $uid) {
-        notify($uid, 'system', '文件被拒絕|' . $d['title'],
-            ($_SESSION['name'] ?? '房客') . ' 拒絕簽署「' . $d['title'] . '」,該筆費用請改由屋主吸收或另行溝通。', $did);
+        if ($uid !== $userId) {
+            notify($uid, 'system', '文件被拒絕|' . $d['title'],
+                ($_SESSION['name'] ?? '房客') . ' 拒絕簽署「' . $d['title'] . '」' . ($isLease ? ',請重新確認契約內容或改以紙本簽約。' : ',該筆費用請改由屋主吸收或另行溝通。'), $did);
+        }
     }
-    respond(true, '已拒絕簽署,已通知屋主/管理員');
+    respond(true, $isLease ? '已拒簽,對方會收到通知;需要時可重新發起' : '已拒絕簽署,已通知屋主/管理員');
+}
+
+if ($action === 'cancel') {
+    $did = (int)($in['doc_id'] ?? 0);
+    $d = doc_scope($pdo, $userId, $myOrgId, $did);
+    if (!$d) {
+        respond(false, '找不到這份文件或無權限');
+    }
+    if ((int)$d['created_by'] !== $userId) {
+        respond(false, '僅發起人可撤回');
+    }
+    if (!in_array($d['status'], ['pending', 'partially_signed'], true)) {
+        respond(false, '此文件已簽署完成,無法撤回');
+    }
+    $pdo->prepare("UPDATE documents SET status = 'rejected' WHERE id = ?")->execute([$did]);
+    doc_trail_append($pdo, $did, 'cancelled');
+    notify((int)$d['signer_user_id'], 'system', '簽約邀請已撤回|' . $d['title'],
+        '發起人已撤回此份契約,您不需再簽署。', $did);
+    respond(true, '已撤回此份契約');
 }
 
 respond(false, '動作不正確');

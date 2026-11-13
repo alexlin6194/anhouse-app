@@ -4,25 +4,53 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>文件簽署|安家生活GO</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20261114e">
+<link rel="stylesheet" href="assets/css/style.css?v=20261114h">
+<style>
+  #padCanvas { touch-action: none; width: 100%; height: 190px; border: 1.8px dashed var(--beige2); border-radius: 14px; background: #fff; display: block; }
+  #printArea { display: none; }
+  @media print {
+    body > *:not(#printArea) { display: none !important; }
+    #printArea { display: block !important; padding: 24px 8px; color: #000; }
+    #printArea pre { white-space: pre-wrap; font-family: inherit; font-size: 13px; line-height: 1.8; }
+  }
+</style>
 </head>
 <body>
 <div class="shell">
   <aside class="side">
     <h2>文件簽署</h2>
-    <p>電子合同・確認函</p>
+    <p>電子合約・確認函</p>
     <div class="feat">
-      <div>📜 租約合同:簽約後自動生成</div>
-      <div>🧾 維修自費:房客簽署後收費才生效</div>
-      <div>🖊 簽署需輸入全名作為電子簽名</div>
-      <div>🕒 簽署時間與文件內容永久留存</div>
+      <div>📜 租賃契約書:房東發起・房客簽名・屋主副署</div>
+      <div>🖊 手寫電子簽名,留存簽名影像</div>
+      <div>🕒 簽署時間/IP 全程軌跡留存</div>
+      <div>🖨 簽署完成可列印或存成 PDF</div>
     </div>
   </aside>
   <main class="main">
     <div class="wrap">
       <div class="nav"><a class="back" href="dashboard.html" id="navBack" aria-label="返回首頁">←</a> 文件簽署</div>
 
-      <div class="lhead" style="margin-top:14px"><div class="sect">文件列表</div></div>
+      <div class="lhead" style="margin-top:14px">
+        <div class="sect">文件列表</div>
+        <button type="button" class="btn small" id="newContractBtn" style="display:none;letter-spacing:1px">+ 發起租約簽約</button>
+      </div>
+      <form id="newContractForm" novalidate style="display:none">
+        <div class="sect">發起租約電子簽約</div>
+        <div class="field">
+          <label for="ncLease">選擇租約*</label>
+          <select id="ncLease"></select>
+          <p class="hint">將依租約資料自動產生完整「房屋租賃契約書」,房客先簽名、屋主副署後生效</p>
+        </div>
+        <div class="field">
+          <label for="ncExtra">特別約定事項(選填,如:含家具清單、可養寵物、押金返還條件)</label>
+          <textarea id="ncExtra" rows="4" maxlength="1000" placeholder="例:房屋含冷氣、洗衣機各一台;房客得飼養寵物;退租時維持清潔即可全額退還押金"></textarea>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button type="submit" class="btn primary" style="flex:1">📜 產生契約書並發起簽署</button>
+          <button type="button" class="btn ghost" id="ncCancel">取消</button>
+        </div>
+      </form>
       <div id="list"></div>
     </div>
   </main>
@@ -32,9 +60,23 @@
   <div class="sheet-body" id="docBody" style="white-space:pre-wrap;font-size:13.5px"></div>
   <div class="sheet-foot" id="docFoot"></div>
 </div></div>
+<div class="modal-mask" id="padMask">
+  <div class="sheet" style="height:auto;max-width:430px;width:92%">
+    <div class="sheet-head"><b id="padWho">✍ 手寫簽名</b><button class="sheet-close" id="padClose">✕</button></div>
+    <div class="sheet-body" style="padding:12px 16px">
+      <p style="font-size:12px;color:var(--brown2);margin:0 0 8px">請用手指(或滑鼠)在白框內簽名,簽名將作為電子簽章存檔</p>
+      <canvas id="padCanvas"></canvas>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button type="button" class="btn ghost" id="padClear" style="flex:1">清除重簽</button>
+        <button type="button" class="btn primary" id="padOk" style="flex:1">確認簽名</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="printArea"></div>
 <div class="toast" id="toast" role="status"></div>
-<script src="documents.js?v=20261114e"></script>
-<script src="assets/js/notify.js?v=20261114e"></script>
-<script src="assets/js/tabbar.js?v=20261114e"></script>
+<script src="documents.js?v=20261114h"></script>
+<script src="assets/js/notify.js?v=20261114h"></script>
+<script src="assets/js/tabbar.js?v=20261114h"></script>
 </body>
 </html>

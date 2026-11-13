@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/notify.php';
 require_once __DIR__ . '/../includes/billing.php';
+require_once __DIR__ . '/../includes/contract.php';
 ensure_active_lease_bills();
 
 require_methods('GET', 'POST');
@@ -54,7 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             l.deposit_amount, l.payment_day, l.status, l.responded_at, l.created_at,
             p.title AS property_title, p.address, p.delegated_user_id,
             tu.name AS tenant_name, tu.phone AS tenant_phone,
-            cu.name AS creator_name, ou.name AS landlord_name
+            cu.name AS creator_name, ou.name AS landlord_name,
+            (SELECT CONCAT(d.id, ':', d.status) FROM documents d WHERE d.type = 'lease_contract' AND d.ref_id = l.id ORDER BY d.id DESC LIMIT 1) AS contract
         FROM leases l
         JOIN properties p ON p.id = l.property_id
         JOIN organizations o ON o.id = p.org_id
@@ -110,42 +112,15 @@ if ($action === 'accept' || $action === 'decline') {
         $billsCreated = generate_lease_bills($lease);
         notify((int)($lease['created_by'] ?? 0), 'lease_accepted', '房客已接受租約', $myName . ' 已接受「' . $lease['property_title'] . '」的租約,租期 ' . $lease['start_date'] . ' 起。每月 1 日自動產生當月帳單,於每月 ' . (int)$lease['payment_day'] . ' 日到期。', $leaseId);
 
-        $dupDoc = $pdo->prepare("SELECT id FROM documents WHERE type = 'lease_contract' AND ref_id = ? LIMIT 1");
-        $dupDoc->execute([$leaseId]);
-        if (!$dupDoc->fetch()) {
-            $metaStmt = $pdo->prepare("SELECT p.title, p.address, p.city, p.district, p.elec_mode, p.elec_rate, o.name AS org_name, ou.name AS owner_name
-                FROM properties p JOIN organizations o ON o.id = p.org_id JOIN users ou ON ou.id = o.owner_user_id
-                WHERE p.id = ? LIMIT 1");
-            $metaStmt->execute([(int)$lease['property_id']]);
-            $meta = $metaStmt->fetch();
-            $docStmt = $pdo->prepare('SELECT name, phone FROM users WHERE id = ?');
-            $docStmt->execute([$userId]);
-            $tenantInfo = $docStmt->fetch();
-            $ownerUidStmt = $pdo->prepare('SELECT owner_user_id FROM organizations WHERE id = ?');
-            $ownerUidStmt->execute([(int)$lease['org_id']]);
-            $ownerUid = (int)$ownerUidStmt->fetch()['owner_user_id'];
-            $loc = $meta ? implode('', array_filter([$meta['city'] ?? '', $meta['district'] ?? '', $meta['address'] ?? ''])) : '';
-            $content = "房屋租賃契約書(電子合約)\n" .
-                "────────────────\n" .
-                "出租人(屋主):" . ($meta['owner_name'] ?? '') . "\n" .
-                "承租人(房客):" . $tenantInfo['name'] . "(" . $tenantInfo['phone'] . ")\n" .
-                "租賃房屋:" . ($meta['title'] ?? '') . ($loc ? '(' . $loc . ')' : '') . "\n" .
-                "租期:" . $lease['start_date'] . " 起" . ($lease['end_date'] ? "至 " . $lease['end_date'] . " 止" : "(不定期)") . "\n" .
-                "月租金:NT$" . number_format((int)$lease['rent_amount']) . "\n" .
-                "押金:NT$" . number_format((int)($lease['deposit_amount'] ?? 0)) . "\n" .
-                "繳租日:每月 " . (int)($lease['payment_day'] ?? 1) . " 日(帳單於繳租日 0 點自動產生,當日繳納)\n" .
-                "電費:依電錶度數實算" . (($meta['elec_mode'] ?? 'flat') === 'taipower' ? "(台電累進計價)" : "(每度 NT$" . (($meta['elec_rate'] !== null && (float)$meta['elec_rate'] > 0) ? rtrim(rtrim(number_format((float)$meta['elec_rate'], 2), '0'), '.') : '5') . ")") . "\n" .
-                "────────────────\n" .
-                "雙方同意以電子文件方式簽訂本契約,承租人於系統完成電子簽署後視為同意上述內容,契約生效。\n" .
-                "簽署日期:" . date('Y-m-d');
-            $pdo->prepare("INSERT INTO documents (type, ref_id, property_id, created_by, signer_user_id, title, content, amount, status)
-                VALUES ('lease_contract', ?, ?, ?, ?, ?, ?, NULL, 'pending')")
-                ->execute([$leaseId, (int)$lease['property_id'], $ownerUid, $userId,
-                    '租賃契約書|' . ($meta['title'] ?? ''), $content]);
-            notify($userId, 'system', '租約合同待您簽署|' . ($meta['title'] ?? ''),
-                '租約已生效!請至「文件簽署」檢視租賃契約書並完成電子簽署,留存雙方紀錄。', (int)$pdo->lastInsertId());
-            notify($ownerUid, 'system', '租賃契約書待房客簽署|' . ($meta['title'] ?? ''),
-                $myName . ' 已接受租約,請提醒房客至「文件簽署」完成電子簽名,完成後契約文件歸檔。', $leaseId);
+        [$okDoc, $docMsg] = contract_create_for_lease($pdo, $leaseId, (int)($lease['created_by'] ?? $userId), '');
+        if ($okDoc) {
+            $gStmt = $pdo->prepare('SELECT signer_user_id, signer2_user_id FROM documents WHERE id = ?');
+            $gStmt->execute([(int)$docMsg]);
+            $sides = $gStmt->fetch();
+            notify((int)$sides['signer_user_id'], 'system', '租賃契約書待您簽署|' . $lease['property_title'],
+                '租約已生效!請至「文件簽署」詳閱「房屋租賃契約書」全文,完成手寫電子簽名,再由屋主副署歸檔。', (int)$docMsg);
+            notify((int)$sides['signer2_user_id'], 'system', '租賃契約書待副署|' . $lease['property_title'],
+                $myName . ' 已接受租約並完成契約簽名,請至「文件簽署」檢視契約並完成屋主副署,契約即正式歸檔。', (int)$docMsg);
         }
 
         respond(true, '已接受租約!房屋「' . $lease['property_title'] . '」正式承租,請至「文件簽署」完成租賃契約電子簽名');

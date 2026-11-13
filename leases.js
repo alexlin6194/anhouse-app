@@ -90,9 +90,10 @@
       const rows = arr.map(l => {
         const st = statusMap[l.status] || { label: l.status, cls: 'idle' };
         const span = [l.start_date ? dstr(l.start_date) + ' 起' : '', l.end_date ? dstr(l.end_date) + ' 止' : '不定期'].filter(Boolean).join('~');
-        const endBtn = l.status === 'active'
-          ? '<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="mini-btn line act-end" data-id="' + l.id + '">結束租約(退租)</button></div>'
-          : '';
+        const endBtn = '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">' +
+          '<button type="button" class="mini-btn act-contract" data-id="' + l.id + '">📜 電子簽約</button>' +
+          (l.status === 'active' ? '<button type="button" class="mini-btn line act-end" data-id="' + l.id + '">結束租約(退租)</button>' : '') +
+          '</div>';
         return '<div class="lrow" style="margin-bottom:10px">' +
           '<div class="ltop"><div class="linfo">' +
           '<b>🏠 ' + esc(l.property_title) + '</b>' +
@@ -100,7 +101,8 @@
           (l.deposit_amount ? '|押金 NT$' + money(l.deposit_amount) + '元' : '') + '|' + esc(span) +
           (l.payment_day ? '|每月 ' + l.payment_day + ' 日繳' : '') +
           (l.creator_name ? '|由 ' + esc(l.creator_name) + ' 發送' : '') + '</span>' +
-          '</div><span class="st ' + st.cls + '">' + st.label + '</span></div>' + endBtn + '</div>';
+          '</div><span class="st ' + st.cls + '">' + st.label + '</span>' +
+          (l.contract ? (String(l.contract).split(':')[1] === 'signed' ? '<span class="st ok">📜 已簽署</span>' : '<span class="st warn">📜 契約待簽</span>') : '') + '</div>' + endBtn + '</div>';
       }).join('');
       return '<div class="lgroup"><button type="button" class="ghead" data-g="' + esc(k) + '">' +
         '<span class="gname">👤 ' + esc(k) + '</span>' +
@@ -108,6 +110,9 @@
         '<div class="gbody">' + rows + '</div></div>';
     }).join('');
     listEl.querySelectorAll('.act-end').forEach(b => b.addEventListener('click', () => endLease(b.dataset.id)));
+    listEl.querySelectorAll('.act-contract').forEach(b => b.addEventListener('click', () => {
+      location.href = 'documents.html?new_lease=' + b.dataset.id;
+    }));
     listEl.querySelectorAll('.ghead').forEach(h => h.addEventListener('click', () => {
       h.classList.toggle('collapsed');
       const body = h.nextElementSibling;
