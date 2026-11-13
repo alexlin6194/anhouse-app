@@ -35,8 +35,18 @@ if (!valid_password($password)) {
 if ($password !== $confirm) {
     respond(false, '兩次輸入的密碼不一致');
 }
-if (!in_array($role, ['landlord', 'manager', 'agent', 'tenant'], true)) {
-    respond(false, '請選擇您的身份(房東/管理員/業務/房客)');
+if (!in_array($role, ['landlord', 'manager', 'agent', 'tenant', 'vendor'], true)) {
+    respond(false, '請選擇您的身份(房東/管理員/業務/房客/維修廠商)');
+}
+$company = clean($in['company'] ?? '');
+$specialty = clean($in['specialty'] ?? '');
+if ($role === 'vendor') {
+    if (mb_strlen($company) < 2 || mb_strlen($company) > 60) {
+        respond(false, '請輸入公司或行號名稱(2–60 字)');
+    }
+    if (mb_strlen($specialty) < 2 || mb_strlen($specialty) > 60) {
+        respond(false, '請輸入專業項目,例如:水電、冷氣、木工(2–60 字)');
+    }
 }
 
 $pdo = db();
@@ -62,6 +72,12 @@ try {
 
         $memStmt = $pdo->prepare('INSERT INTO org_members (org_id, user_id, role, status) VALUES (?, ?, ?, ?)');
         $memStmt->execute([$orgId, $userId, 'landlord', 'active']);
+    }
+
+    if ($role === 'vendor') {
+        $vpStmt = $pdo->prepare("INSERT INTO vendor_profiles (user_id, company, specialty, sub_status, trial_ends)
+            VALUES (?, ?, ?, 'trial', DATE_ADD(CURDATE(), INTERVAL 14 DAY))");
+        $vpStmt->execute([$userId, $company, $specialty]);
     }
 
     $pdo->commit();

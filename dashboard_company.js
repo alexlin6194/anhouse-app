@@ -41,7 +41,7 @@
     const sub = data.subscription;
     $('#subTier').textContent = sub.tier_name + '|組織房屋 ' + sub.units + ' 戶';
     $('#subDesc').textContent = '員工帳號額度 ' + (sub.seats === null ? '不限' : sub.seats) + '(已用 ' + sub.employees + ')|級距以全公司戶數合計(跨分店)';
-    $('#subFee').innerHTML = sub.fee === 0 ? '<b>免費</b><span>入門級</span>' : '<b>' + money(sub.fee) + '</b><span>月費</span>';
+    $('#subFee').innerHTML = sub.fee === 0 ? '<b>免費</b><span>入門級</span>' : '<b>' + money(sub.fee) + '元</b><span>月費</span>';
 
     $('#memberList').innerHTML = data.members.map(m =>
       '<div class="list-item"><span class="dot" style="background:' + (m.status === 'active' ? 'var(--green)' : 'var(--beige2)') + '"></span>' +

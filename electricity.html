@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>電費明細|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113v">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>電費明細</h2>
+    <p>度數・公式・全程透明</p>
+    <div class="feat">
+      <div>🔢 簽約原始度數為計算基準</div>
+      <div>📐 每期電費顯示完整計算公式</div>
+      <div>📸 每期附電錶照片存證</div>
+      <div>⚡ 支援固定單價與台電累進計價</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="dashboard_tenant.html" id="navBack" aria-label="返回首頁">←</a> 電費明細</div>
+      <div id="pickerWrap" style="display:none">
+        <div class="field">
+          <label for="propSel">選擇房屋</label>
+          <select id="propSel"></select>
+        </div>
+      </div>
+      <div id="content"></div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="assets/js/lightbox.js?v=20261113v"></script>
+<script src="electricity.js?v=20261113v"></script>
+<script src="assets/js/notify.js?v=20261113v"></script>
+<script src="assets/js/tabbar.js?v=20261113v"></script>
+</body>
+</html>

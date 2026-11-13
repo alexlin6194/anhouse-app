@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>生活圈|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113v">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>📍 生活圈</h2>
+    <p>房屋周邊 5 公里</p>
+    <div class="feat">
+      <div>🍜 食|餐廳、咖啡店</div>
+      <div>👗 衣|服飾、鞋包、皮件</div>
+      <div>🏠 住|APP 內其他註冊房源</div>
+      <div>🚌 行|公車、捷運、車站</div>
+      <div>🏥 醫院</div>
+      <div>🏫 學校</div>
+      <div>🎤 娛樂|KTV、酒吧、影城</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="dashboard.html" id="navBack" aria-label="返回首頁">←</a> 生活圈</div>
+      <div class="card" id="propCard">
+        <b id="propTitle">載入中…</b>
+        <p id="propAddr" style="font-size:12.5px;color:var(--brown2);margin:4px 0 0"></p>
+      </div>
+      <div id="cats" style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 2px"></div>
+      <div id="list"></div>
+      <p class="foot">資料來源:Google Maps(每日更新);住|其他房源為本平台註冊房源。點項目可開啟 Google 地圖導航。</p>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="assets/js/lightbox.js?v=20261113v"></script>
+<script src="life.js?v=20261113v"></script>
+<script src="assets/js/notify.js?v=20261113v"></script>
+<script src="assets/js/tabbar.js?v=20261113v"></script>
+</body>
+</html>

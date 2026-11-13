@@ -54,8 +54,8 @@
     if (p.legal_use) chips.push('<span class="chip">' + esc(p.legal_use) + '</span>');
 
     const priceLine = p.listing_type === 'sale'
-      ? '售價 NT$' + money(p.sale_price)
-      : '月租 NT$' + money(p.rent) + (p.mgmt_fee ? '|管理費 NT$' + money(p.mgmt_fee) : '') + (p.deposit ? '|押金 NT$' + money(p.deposit) : '');
+      ? '售價 NT$' + money(p.sale_price) + '元'
+      : '月租 NT$' + money(p.rent) + '元' + (p.mgmt_fee ? '|管理費 NT$' + money(p.mgmt_fee) + '元' : '') + (p.deposit ? '|押金 NT$' + money(p.deposit) + '元' : '');
     const loc = [p.city, p.district, p.address].filter(Boolean).join('');
 
     let stateHtml = '';
@@ -73,7 +73,7 @@
       const eRate = (p.elec_rate != null && Number(p.elec_rate) > 0) ? Number(p.elec_rate) : 5;
       const rows = (act.bills || []).map(b => {
         const items = [];
-        if (b.rent_amount != null) items.push('租金 ' + money(b.rent_amount));
+        if (b.rent_amount != null) items.push('租金 ' + money(b.rent_amount) + '元');
         const isSignBill = b.period === startMonth;
         if (isSignBill) {
           items.push('電費:併入下期(簽約基準 ' + money(act.meter_start ?? 0) + ' 度)');
@@ -89,19 +89,19 @@
               : '電費 ' + money(b.electric_amount) + '(用電 ' + money(usage) + ' 度 × NT$' + (eRate % 1 ? eRate.toFixed(1) : eRate) + '/度)';
             items.push(f);
           } else {
-            items.push('電費 ' + money(b.electric_amount));
+            items.push('電費 ' + money(b.electric_amount) + '元');
           }
         }
-        if (b.mgmt_amount != null) items.push('管理費 ' + money(b.mgmt_amount));
-        if (b.parking_amount) items.push('車位費 ' + money(b.parking_amount));
-        if (b.misc_amount) items.push('雜費 ' + money(b.misc_amount) + (b.misc_note ? '(' + esc(b.misc_note) + ')' : ''));
+        if (b.mgmt_amount != null) items.push('管理費 ' + money(b.mgmt_amount) + '元');
+        if (b.parking_amount) items.push('車位費 ' + money(b.parking_amount) + '元');
+        if (b.misc_amount) items.push('雜費 ' + money(b.misc_amount) + '元' + (b.misc_note ? '(' + esc(b.misc_note) + ')' : ''));
         const meterBtn = data.can_manage && b.status !== 'paid' && !isSignBill
           ? '<div style="margin-top:6px"><button type="button" class="mini-btn act-meter" data-id="' + b.id + '">⚡ 抄錄電費(拍照辨識度數)</button></div>'
           : '';
         const remindBtn = data.can_manage && b.status === 'pending'
           ? '<button type="button" class="mini-btn line act-remind" data-id="' + b.id + '">📣 催繳通知</button>'
           : '';
-        return '<div class="leasebox"><b>' + b.period + '月|' + (b.electric_amount == null ? '應收 NT$' + money(b.amount) : '總計 NT$' + money(b.amount)) + '</b>' +
+        return '<div class="leasebox"><b>' + b.period + '月|' + (b.electric_amount == null ? '應收 NT$' + money(b.amount) + '元' : '總計 NT$' + money(b.amount) + '元') + '</b>' +
           (b.status === 'paid' ? '<span class="st ok" style="float:right">已繳</span>' : (b.status === 'draft' ? '<span class="st idle" style="float:right">草稿|待抄錄</span>' : '<span class="st warn" style="float:right">待繳</span>')) +
           '<div style="font-size:12.5px;color:#4A3826;margin-top:4px">' + items.join(' + ') + '</div>' +
           (b.due_date && b.status !== 'paid' ? '<div style="font-size:12px;color:#7A6A55">' + dstr(b.due_date) + ' 前繳納' + (b.status === 'draft' ? '(屆時自動生效)' : '') + '</div>' : '') +
@@ -109,7 +109,7 @@
           '</div>';
       }).join('');
       leaseHtml = '<div class="sect">租約與帳單</div>' +
-        '<p style="font-size:13.5px;color:var(--brown);margin:4px 2px">房客:' + esc(act.tenant_name) + '(' + esc(act.tenant_phone) + ')|租期 ' + dstr(act.start_date) + '~' + (act.end_date ? dstr(act.end_date) : '不定期') + '|月租 NT$' + money(act.rent_amount) + '</p>' +
+        '<p style="font-size:13.5px;color:var(--brown);margin:4px 2px">房客:' + esc(act.tenant_name) + '(' + esc(act.tenant_phone) + ')|租期 ' + dstr(act.start_date) + '~' + (act.end_date ? dstr(act.end_date) : '不定期') + '|月租 NT$' + money(act.rent_amount) + '元</p>' +
         (data.can_manage && !data.is_tenant_here
           ? '<button type="button" class="mini-btn act-chat" data-uid="' + act.tenant_user_id + '">💬 直接聯絡房客</button>'
           : '') + rows;
@@ -134,6 +134,7 @@
       stateHtml +
       '<p style="font-size:14px;color:var(--brown);margin:6px 2px"><b>' + priceLine + '</b></p>' +
       (loc ? '<p style="font-size:13px;color:var(--brown2);margin:2px">📍' + esc(loc) + '</p>' : '') +
+      '<div style="margin:10px 2px"><a class="btn line" href="life.html?property_id=' + p.id + '" style="text-decoration:none;display:block;text-align:center">📍 生活圈(周邊 5 公里:食衣住行/醫院/學校/娛樂)</a></div>' +
       '<div class="kv">' + chips.join('') + '</div>' +
       (p.min_lease ? '<p style="font-size:13px;color:var(--brown2);margin:2px">最短租期:' + esc(p.min_lease) + '</p>' : '') +
       avail + facilities + noteHtml + leaseHtml;

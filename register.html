@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>會員註冊|安家生活GO</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+<link rel="stylesheet" href="assets/css/style.css?v=20261113v">
 </head>
 <body>
 <div class="shell">
@@ -66,6 +66,7 @@
           <button type="button" class="role" data-role="manager"><b>管理員</b><span>物業代管服務</span></button>
           <button type="button" class="role" data-role="agent"><b>業務</b><span>房源開發媒合</span></button>
           <button type="button" class="role" data-role="tenant"><b>房客</b><span>租屋生活服務</span></button>
+          <button type="button" class="role" data-role="vendor"><b>維修廠商</b><span>承接維修・自主報價</span></button>
           <button type="button" class="role wide" onclick="location.href='register_company.html'">
             <b>公司/代管公司|組織申請</b>
             <span>申請母帳號,統一管理分店・員工・房屋(另開申請流程)</span>
@@ -73,6 +74,13 @@
         </div>
         <div class="role-hint" id="roleHint"></div>
         <div class="role-hint bad" id="roleErr" style="display:none"></div>
+        <div id="vendorFields" style="display:none">
+          <label for="f-company">公司/行號名稱 *</label>
+          <input id="f-company" type="text" maxlength="60" placeholder="例如:阿水水電行">
+          <label for="f-specialty">專業項目 *</label>
+          <input id="f-specialty" type="text" maxlength="60" placeholder="例如:水電、冷氣、木工、防水">
+          <p style="font-size:12px;color:var(--brown2);margin:6px 2px">💡 註冊即享 14 天完整試用;試用後需支付月費才能接收維修商機。</p>
+        </div>
 
         <label class="agree"><input type="checkbox" id="agree">我已閱讀並同意 <a class="link" data-sheet="tos">《服務條款》</a> 與 <a class="link" data-sheet="privacy">《隱私政策》</a>,並瞭解身分文件將依規範加密審核。</label>
 
@@ -161,7 +169,7 @@
 </div>
 
 <div class="toast" id="toast" role="status"></div>
-<script src="assets/js/pw.js?v=20261113e"></script>
-<script src="register.js?v=20261113e"></script>
+<script src="assets/js/pw.js?v=20261113v"></script>
+<script src="register.js?v=20261113v"></script>
 </body>
 </html>

@@ -31,7 +31,7 @@
 
     const sub = data.subscription;
     $('#subTier').textContent = sub.tier_name + '|計費 ' + sub.units + ' 戶';
-    $('#subFee').innerHTML = sub.fee === 0 ? '<b>免費</b><span>入門級</span>' : '<b>' + money(sub.fee) + '</b><span>月費</span>';
+    $('#subFee').innerHTML = sub.fee === 0 ? '<b>免費</b><span>入門級</span>' : '<b>' + money(sub.fee) + '元</b><span>月費</span>';
 
     const card = $('#inviteCard');
     if (data.pending_invites.length) {
@@ -51,7 +51,7 @@
     $('#houseList').innerHTML = data.houses.length
       ? data.houses.map(h =>
           '<div class="list-item" style="cursor:pointer" data-id="' + h.id + '"><span class="dot" style="background:' + (h.status === 'rented' ? 'var(--green)' : 'var(--pink)') + '"></span>' +
-          '<div><b>' + h.title + '</b><span>房東:' + h.owner_name + '|' + (h.status === 'rented' ? '出租中|月租 ' + money(h.rent) : '空置中') + '</span></div>' +
+          '<div><b>' + h.title + '</b><span>房東:' + h.owner_name + '|' + (h.status === 'rented' ? '出租中|月租 ' + money(h.rent) + '元' : '空置中') + '</span></div>' +
           '<span class="st ' + (h.status === 'rented' ? 'ok' : 'warn') + '">' + (h.status === 'rented' ? '出租中' : '空置') + '</span></div>'
         ).join('')
       : '<p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">尚未代管房屋:接受房東邀請後,房屋會出現在這裡。</p>';

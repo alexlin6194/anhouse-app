@@ -4,7 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>通知中心|安家生活GO</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20261113e">
+<link rel="stylesheet" href="assets/css/style.css?v=20261113v">
+<style>
+  .nsheet{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.96);width:min(92vw,540px);
+    background:var(--surface);border-radius:20px;z-index:90;max-height:80dvh;overflow:auto;
+    padding:20px 22px;box-shadow:0 18px 60px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:.25s}
+  .nsheet.show{transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:auto}
+  .nsheet h3{font-size:16.5px;display:flex;align-items:flex-start;gap:8px;margin-bottom:10px}
+  .nsheet .nbody{font-size:14.5px;line-height:2;color:var(--brown);white-space:pre-wrap;word-break:break-word}
+  .nsheet .ntime{font-size:11.5px;color:var(--brown2);margin-top:14px}
+</style>
 <style>
   .filter{display:flex;gap:8px;margin:6px 0 12px}
   .filter button{border:1.5px solid var(--beige2);background:var(--surface);color:var(--brown);
@@ -47,9 +56,16 @@
     </div>
   </main>
 </div>
+<div class="modal-mask" id="nMask"></div>
+<div class="nsheet" id="nSheet">
+  <h3 id="nIcon"></h3>
+  <div class="nbody" id="nBody"></div>
+  <div class="ntime" id="nTime"></div>
+  <button class="btn primary" id="nGo" style="margin-top:16px">前往處理 →</button>
+</div>
 <div class="toast" id="toast" role="status"></div>
-<script src="notifications.js?v=20261113e"></script>
-<script src="assets/js/notify.js?v=20261113e"></script>
-<script src="assets/js/tabbar.js?v=20261113e"></script>
+<script src="notifications.js?v=20261113v"></script>
+<script src="assets/js/notify.js?v=20261113v"></script>
+<script src="assets/js/tabbar.js?v=20261113v"></script>
 </body>
 </html>

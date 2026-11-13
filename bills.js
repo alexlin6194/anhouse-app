@@ -58,7 +58,7 @@
       }
     });
     $('#stOverdue').textContent = od;
-    $('#stPending').textContent = '$' + money(pend);
+    $('#stPending').textContent = '$' + money(pend) + '元';
     $('#stPaid').textContent = paid;
 
     const listEl = $('#list');
@@ -73,7 +73,7 @@
       return '<div class="lrow bill-row" data-id="' + b.id + '" style="cursor:pointer">' +
         '<div class="ltop"><div class="linfo">' +
         '<b>🏠 ' + esc(b.property_title) + '<span style="font-weight:400;font-size:12px;color:var(--brown2)">|' + esc(b.period) + '月</span></b>' +
-        '<span>' + (b.status === 'draft' ? '草稿 NT$' : (b.electric_amount == null ? '應收 NT$' : '總計 NT$')) + money(b.amount) + (isSign ? '|簽約當天已收' : '') + dd + '</span>' +
+        '<span>' + (b.status === 'draft' ? '草稿 NT$' : (b.electric_amount == null ? '應收 NT$' : '總計 NT$')) + money(b.amount) + '元' + (isSign ? '|簽約當天已收' : '') + dd + '</span>' +
         '</div>' + chip(b) + '</div>' +
         '<div class="bdetail" id="bd-' + b.id + '" style="display:none"></div>' +
         '</div>';
@@ -126,7 +126,7 @@
           const usage = cur - prev;
           eLabel = b.elec_mode === 'taipower'
             ? ['電費(用電 ' + money(usage) + ' 度,台電累進計價)', b.electric_amount, '']
-            : ['電費(用電 ' + money(usage) + ' 度 × NT$' + (eRateD % 1 ? eRateD.toFixed(1) : eRateD) + '/度)', b.electric_amount, ''];
+            : ['電費(用電 ' + money(usage) + ' 度 × NT$' + (eRateD % 1 ? eRateD.toFixed(1) : eRateD) + '元/度)', b.electric_amount, ''];
         } else {
           eLabel = ['電費', b.electric_amount, ''];
         }
@@ -137,7 +137,7 @@
     items.push(['車位費', b.parking_amount]);
     items.push(['雜費', b.misc_amount]);
     const rows = items.filter(i => (i[1] !== null && i[1] !== '' && Number(i[1]) !== 0) || i[2])
-      .map(i => '<div style="display:flex;justify-content:space-between"><span>' + i[0] + (i[2] || '') + '</span><b>' + (i[1] === null || i[1] === '' ? '—' : 'NT$' + money(i[1])) + '</b></div>').join('');
+      .map(i => '<div style="display:flex;justify-content:space-between"><span>' + i[0] + (i[2] || '') + '</span><b>' + (i[1] === null || i[1] === '' ? '—' : 'NT$' + money(i[1]) + '元') + '</b></div>').join('');
     const isTenantView = !(cache.bills && cache.bills.length) && !!(cache.my_bills && cache.my_bills.length);
     const canRemind = b.status === 'pending' && b.tenant_name && !isTenantView;
     const draftBanner = b.status === 'draft'
@@ -166,7 +166,7 @@
         : '') +
       '<div class="bd-sec">🧾 帳單明細|' + esc(b.period) + '月</div>' +
       '<div style="font-size:12.5px;line-height:1.9;display:grid;gap:2px">' + rows +
-      '<div style="display:flex;justify-content:space-between;border-top:1.5px solid var(--beige2);padding-top:4px"><span><b>應收總額</b></span><b style="color:var(--wood-d)">NT$' + money(b.amount) + '</b></div>' +
+      '<div style="display:flex;justify-content:space-between;border-top:1.5px solid var(--beige2);padding-top:4px"><span><b>應收總額</b></span><b style="color:var(--wood-d)">NT$' + money(b.amount) + '元</b></div>' +
       '<div style="color:var(--brown2);font-size:11.5px">到期日:' + dstr(b.due_date) + (b.status === 'paid' ? '|已於 ' + dstr(b.paid_at) + ' 繳納' + (b.paid_by === 'tenant' ? '(房客回報)' : '') : '') + '</div></div>' +
       proofImg + meterBtn + payBtn2 + undoBtn +
       (canRemind ? '<button type="button" class="mini-btn act-remind" data-id="' + b.id + '">📣 發送' + (overdueDays(b) > 0 ? '催繳' : '繳費提醒') + '通知</button>' : '') +

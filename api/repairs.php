@@ -46,6 +46,23 @@ function repair_scope(PDO $pdo, int $userId, int $myOrgId, int $rid, bool $isVen
     return $s->fetch() ?: null;
 }
 
+function lead_distance(float $alat, float $alng, float $blat, float $blng): float
+{
+    $r = 6371000.0;
+    $dLat = deg2rad($blat - $alat);
+    $dLng = deg2rad($blng - $alng);
+    $a = sin($dLat / 2) ** 2 + cos(deg2rad($alat)) * cos(deg2rad($blat)) * sin($dLng / 2) ** 2;
+    return 2 * $r * asin(min(1.0, sqrt($a)));
+}
+
+function vendor_sub_ok(?array $p): bool
+{
+    if (!$p) return true;
+    if ($p['sub_status'] === 'expired') return false;
+    if ($p['sub_status'] === 'trial' && $p['trial_ends'] !== null && $p['trial_ends'] < date('Y-m-d')) return false;
+    return true;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (isset($_GET['id'])) {
         $rid = (int)$_GET['id'];
@@ -67,6 +84,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ORDER BY FIELD(r.status,'assigned','repairing','inspected','pending','done','billed','cancelled'), r.id DESC LIMIT 100");
         $rows->execute([$userId]);
         $list = $rows->fetchAll();
+        $leads = $pdo->prepare("SELECT l.*, r.category, r.description, r.status AS repair_status, r.property_id,
+                p.title AS property_title, p.address AS property_address,
+                p.lat AS prop_lat, p.lng AS prop_lng, vp.lat AS vlat, vp.lng AS vlng, v.company
+            FROM repair_leads l
+            JOIN repairs r ON r.id = l.repair_id
+            JOIN properties p ON p.id = r.property_id
+            LEFT JOIN vendor_profiles vp ON vp.user_id = l.vendor_user_id
+            LEFT JOIN vendors v ON v.user_id = l.vendor_user_id
+            WHERE l.vendor_user_id = ?
+            ORDER BY FIELD(l.status,'sent','accepted','won','declined','lost'), l.id DESC LIMIT 100");
+        $leads->execute([$userId]);
+        $leadList = $leads->fetchAll();
+        foreach ($leadList as &$ld) {
+            $ld['distance_m'] = ($ld['prop_lat'] !== null && $ld['vlat'] !== null)
+                ? (int)lead_distance((float)$ld['prop_lat'], (float)$ld['prop_lng'], (float)$ld['vlat'], (float)$ld['vlng'])
+                : null;
+        }
+        unset($ld);
+        $profStmt = $pdo->prepare('SELECT company, specialty, lat, lng, service_radius_km, sub_status, trial_ends FROM vendor_profiles WHERE user_id = ? LIMIT 1');
+        $profStmt->execute([$userId]);
+        $myProfile = $profStmt->fetch() ?: null;
     } else {
         $parts = [];
         if ($myOrgId > 0) $parts[] = "p.org_id = {$myOrgId}";
@@ -88,15 +126,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     unset($r);
 
+    $leadList = [];
+    if (!$isVendor && $list) {
+        $ids = array_map(fn($r) => (int)$r['id'], $list);
+        $inSql = implode(',', $ids);
+        $leadList = $pdo->query("SELECT l.*, u.name AS vendor_name, v.company
+            FROM repair_leads l
+            JOIN users u ON u.id = l.vendor_user_id
+            LEFT JOIN vendors v ON v.user_id = l.vendor_user_id
+            WHERE l.repair_id IN ({$inSql})
+            ORDER BY l.id DESC")->fetchAll();
+    }
+
     $vendors = [];
     $canSeeVendors = !$isVendor && ($myOrgId > 0 || $myRole === 'manager');
     if ($canSeeVendors) {
         $vSql = $myOrgId > 0 ? 'org_id = ' . $myOrgId : 'org_id IN (SELECT org_id FROM properties WHERE delegated_user_id = ' . $userId . ')';
         $vendors = $pdo->query("SELECT v.user_id, v.company, v.specialty, u.name, u.phone
             FROM vendors v JOIN users u ON u.id = v.user_id WHERE {$vSql} ORDER BY v.user_id")->fetchAll();
+        $mkt = $pdo->query("SELECT vp.user_id, vp.company, vp.specialty, u.name, u.phone
+            FROM vendor_profiles vp JOIN users u ON u.id = vp.user_id
+            WHERE u.registration_role = 'vendor' AND vp.sub_status IN ('trial','active')
+              AND NOT EXISTS (SELECT 1 FROM vendors v2 WHERE v2.user_id = vp.user_id AND {$vSql})
+            ORDER BY vp.user_id")->fetchAll();
+        $vendors = array_merge($vendors, $mkt);
     }
 
-    respond(true, 'ok', ['authenticated' => true, 'repairs' => $list, 'vendors' => $vendors, 'my_id' => $userId, 'my_role' => $myRole]);
+    respond(true, 'ok', ['authenticated' => true, 'repairs' => $list, 'vendors' => $vendors, 'leads' => $leadList,
+        'my_profile' => $isVendor ? $myProfile : null, 'my_id' => $userId, 'my_role' => $myRole]);
 }
 
 $in = json_input();
@@ -144,10 +201,224 @@ if ($action === 'create_vendor') {
     $pdo->prepare('INSERT INTO vendors (user_id, org_id, company, specialty) VALUES (?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE company = VALUES(company), specialty = VALUES(specialty)')
         ->execute([$vendorUserId, $orgId, $company !== '' ? $company : null, $specialty !== '' ? $specialty : null]);
+    $pdo->prepare("INSERT INTO vendor_profiles (user_id, company, specialty, sub_status, trial_ends)
+        VALUES (?, ?, ?, 'active', NULL)
+        ON DUPLICATE KEY UPDATE company = VALUES(company), specialty = VALUES(specialty), sub_status = 'active'")
+        ->execute([$vendorUserId, $company !== '' ? $company : null, $specialty !== '' ? $specialty : null]);
     respond(true, '維修廠商已建立' . ($tempPass ? ',廠商登入密碼:' . $tempPass . '(請轉告對方,登入後請對方自行修改)' : ',已加入您的廠商名單'), [
         'vendor_user_id' => $vendorUserId,
         'temp_password' => $tempPass,
     ]);
+}
+
+if ($action === 'vendor_location') {
+    if (!$isVendor) {
+        respond(false, '無權限');
+    }
+    $lat = (float)($in['lat'] ?? 0);
+    $lng = (float)($in['lng'] ?? 0);
+    if ($lat == 0 && $lng == 0 || abs($lat) > 90 || abs($lng) > 180) {
+        respond(false, '定位資訊不正確,請重新取得');
+    }
+    $pdo->prepare('UPDATE vendor_profiles SET lat = ?, lng = ? WHERE user_id = ?')->execute([$lat, $lng, $userId]);
+    respond(true, '✓ 服務位置已更新,將以此接收方圓5公里內的維修商機');
+}
+
+if ($action === 'send_to_vendor') {
+    if ($isVendor) {
+        respond(false, '無權限');
+    }
+    $rid = (int)($in['repair_id'] ?? 0);
+    $vid = (int)($in['vendor_user_id'] ?? 0);
+    $r = repair_scope($pdo, $userId, $myOrgId, $rid, $isVendor);
+    if (!$r) {
+        respond(false, '找不到這筆報修或無權限');
+    }
+    if ($r['status'] !== 'pending') {
+        respond(false, '此報修已有廠商承接中,無法再發送比價');
+    }
+    $wonStmt = $pdo->prepare("SELECT COUNT(*) AS c FROM repair_leads WHERE repair_id = ? AND status = 'won'");
+    $wonStmt->execute([$rid]);
+    if ((int)$wonStmt->fetch()['c'] > 0) {
+        respond(false, '此報修已選定得標廠商');
+    }
+    $vStmt = $pdo->prepare("SELECT u.name, vp.company, vp.sub_status, vp.trial_ends
+        FROM users u LEFT JOIN vendor_profiles vp ON vp.user_id = u.id
+        WHERE u.id = ? AND u.registration_role = 'vendor' LIMIT 1");
+    $vStmt->execute([$vid]);
+    $v = $vStmt->fetch();
+    if (!$v) {
+        respond(false, '找不到該維修廠商');
+    }
+    if (!vendor_sub_ok($v['sub_status'] !== null ? ['sub_status' => $v['sub_status'], 'trial_ends' => $v['trial_ends']] : null)) {
+        respond(false, '「' . $v['company'] . '」的服務已到期,無法發送');
+    }
+    $dupStmt = $pdo->prepare('SELECT id FROM repair_leads WHERE repair_id = ? AND vendor_user_id = ? LIMIT 1');
+    $dupStmt->execute([$rid, $vid]);
+    if ($dupStmt->fetch()) {
+        respond(false, '該廠商已收到此報修邀請');
+    }
+    $pdo->prepare("INSERT INTO repair_leads (repair_id, vendor_user_id, source) VALUES (?, ?, 'single')")
+        ->execute([$rid, $vid]);
+    notify($vid, 'repair_new', '維修商機邀請', '「' . $r['property_title'] . '」有維修案場(' . $r['category'] . ')邀請您承接估價,請至報修管理查看', $rid);
+    respond(true, '已發送給「' . ($v['company'] ?: $v['name']) . '」,等待對方承接/婉拒');
+}
+
+if ($action === 'broadcast_radius') {
+    if ($isVendor) {
+        respond(false, '無權限');
+    }
+    $rid = (int)($in['repair_id'] ?? 0);
+    $r = repair_scope($pdo, $userId, $myOrgId, $rid, $isVendor);
+    if (!$r) {
+        respond(false, '找不到這筆報修或無權限');
+    }
+    if ($r['status'] !== 'pending') {
+        respond(false, '此報修已有廠商承接中,無法再廣播');
+    }
+    $wonStmt = $pdo->prepare("SELECT COUNT(*) AS c FROM repair_leads WHERE repair_id = ? AND status = 'won'");
+    $wonStmt->execute([$rid]);
+    if ((int)$wonStmt->fetch()['c'] > 0) {
+        respond(false, '此報修已選定得標廠商');
+    }
+    $pStmt = $pdo->prepare('SELECT lat, lng FROM properties WHERE id = ? LIMIT 1');
+    $pStmt->execute([(int)$r['property_id']]);
+    $p = $pStmt->fetch();
+    if ($p === null || $p['lat'] === null || $p['lng'] === null) {
+        respond(false, '此房屋尚未建立 GPS 座標:請先到房屋頁按「取得GPS定位」');
+    }
+    $radiusKm = max(1, min(30, (int)($in['radius_km'] ?? 5)));
+    $cands = $pdo->query("SELECT vp.user_id, vp.company, vp.lat, vp.lng, vp.sub_status, vp.trial_ends, u.name
+        FROM vendor_profiles vp JOIN users u ON u.id = vp.user_id
+        WHERE vp.lat IS NOT NULL AND vp.lng IS NOT NULL AND vp.user_id <> {$userId}
+          AND vp.sub_status IN ('trial','active')
+          AND (vp.sub_status <> 'trial' OR vp.trial_ends IS NULL OR vp.trial_ends >= CURDATE())")->fetchAll();
+    $sent = [];
+    $insStmt = $pdo->prepare("INSERT IGNORE INTO repair_leads (repair_id, vendor_user_id, source) VALUES (?, ?, 'radius')");
+    foreach ($cands as $c) {
+        $dist = lead_distance((float)$p['lat'], (float)$p['lng'], (float)$c['lat'], (float)$c['lng']);
+        if ($dist > $radiusKm * 1000) {
+            continue;
+        }
+        $insStmt->execute([$rid, (int)$c['user_id']]);
+        if ($insStmt->rowCount() > 0) {
+            $sent[] = $c['company'] ?: $c['name'];
+            notify((int)$c['user_id'], 'repair_new', '維修商機(方圓' . $radiusKm . '公里)', '「' . $r['property_title'] . '」有維修案場(' . $r['category'] . '),距離約 ' . (int)round($dist / 100) / 10 . ' 公里,有意願請儘速承接估價', $rid);
+        }
+    }
+    if (!$sent) {
+        respond(false, '方圓' . $radiusKm . '公里內目前沒有可推送的註冊廠商(或有廠商已收過邀請)');
+    }
+    respond(true, '已廣播給 ' . count($sent) . ' 家廠商:' . implode('、', array_slice($sent, 0, 3)) . (count($sent) > 3 ? ' 等' . count($sent) . ' 家' : ''), ['sent' => $sent]);
+}
+
+if ($action === 'accept_lead') {
+    if (!$isVendor) {
+        respond(false, '無權限');
+    }
+    $lid = (int)($in['lead_id'] ?? 0);
+    $lStmt = $pdo->prepare("SELECT l.*, r.status AS repair_status, r.category, r.created_by, p.title AS property_title
+        FROM repair_leads l JOIN repairs r ON r.id = l.repair_id JOIN properties p ON p.id = r.property_id
+        WHERE l.id = ? AND l.vendor_user_id = ? LIMIT 1");
+    $lStmt->execute([$lid, $userId]);
+    $lead = $lStmt->fetch();
+    if (!$lead) {
+        respond(false, '找不到此商機或無權限');
+    }
+    if ($lead['status'] !== 'sent') {
+        respond(false, '此邀請已處理過');
+    }
+    if ($lead['repair_status'] !== 'pending') {
+        respond(false, '此案場已由其他廠商承接');
+    }
+    $profStmt = $pdo->prepare('SELECT sub_status, trial_ends FROM vendor_profiles WHERE user_id = ? LIMIT 1');
+    $profStmt->execute([$userId]);
+    $prof = $profStmt->fetch() ?: null;
+    if (!vendor_sub_ok($prof)) {
+        respond(false, '您的試用已到期,請支付月費後再承接(月費 $300元/月)');
+    }
+    $pdo->prepare("UPDATE repair_leads SET status = 'accepted', responded_at = NOW() WHERE id = ?")->execute([$lid]);
+    notify((int)$lead['created_by'], 'lead_accept', '廠商已承接', '「' . $lead['property_title'] . '」報修案(' . $lead['category'] . ')已有廠商承接,待廠商估價', (int)$lead['repair_id']);
+    respond(true, '✓ 已承接!請儘快前往現場查看狀況,並提交估價供屋主比價');
+}
+
+if ($action === 'decline_lead') {
+    if (!$isVendor) {
+        respond(false, '無權限');
+    }
+    $lid = (int)($in['lead_id'] ?? 0);
+    $reason = mb_substr(clean($in['reason'] ?? ''), 0, 200);
+    $lStmt = $pdo->prepare("SELECT l.*, r.category, r.created_by, p.title AS property_title
+        FROM repair_leads l JOIN repairs r ON r.id = l.repair_id JOIN properties p ON p.id = r.property_id
+        WHERE l.id = ? AND l.vendor_user_id = ? LIMIT 1");
+    $lStmt->execute([$lid, $userId]);
+    $lead = $lStmt->fetch();
+    if (!$lead || $lead['status'] !== 'sent') {
+        respond(false, '找不到此商機或已處理過');
+    }
+    $pdo->prepare("UPDATE repair_leads SET status = 'declined', decline_reason = ?, responded_at = NOW() WHERE id = ?")
+        ->execute([$reason !== '' ? $reason : null, $lid]);
+    notify((int)$lead['created_by'], 'lead_decline', '廠商婉拒', '「' . $lead['property_title'] . '」報修案有廠商婉拒' . ($reason !== '' ? ':' . $reason : ''), (int)$lead['repair_id']);
+    respond(true, '已婉拒此案');
+}
+
+if ($action === 'submit_quote') {
+    if (!$isVendor) {
+        respond(false, '無權限');
+    }
+    $lid = (int)($in['lead_id'] ?? 0);
+    $amount = (int)round((float)($in['quote_amount'] ?? 0));
+    $memo = mb_substr(clean($in['quote_memo'] ?? ''), 0, 500);
+    if ($amount < 100 || $amount > 10000000) {
+        respond(false, '請輸入合理的估價金額(NT$100元以上)');
+    }
+    $lStmt = $pdo->prepare("SELECT l.*, r.status AS repair_status, r.category, r.created_by, p.title AS property_title
+        FROM repair_leads l JOIN repairs r ON r.id = l.repair_id JOIN properties p ON p.id = r.property_id
+        WHERE l.id = ? AND l.vendor_user_id = ? LIMIT 1");
+    $lStmt->execute([$lid, $userId]);
+    $lead = $lStmt->fetch();
+    if (!$lead || !in_array($lead['status'], ['accepted'], true)) {
+        respond(false, '請先承接此案再估價');
+    }
+    if ($lead['repair_status'] !== 'pending') {
+        respond(false, '此案場已由其他廠商得標');
+    }
+    $pdo->prepare("UPDATE repair_leads SET quote_amount = ?, quote_memo = ?, quoted_at = NOW() WHERE id = ?")
+        ->execute([$amount, $memo !== '' ? $memo : null, $lid]);
+    notify((int)$lead['created_by'], 'lead_quote', '收到估價', '「' . $lead['property_title'] . '」報修案收到估價 NT$' . number_format($amount) . '元,請至報修管理比價選擇', (int)$lead['repair_id']);
+    respond(true, '✓ 估價已送出(NT$' . number_format($amount) . '元),待屋主比價');
+}
+
+if ($action === 'award_lead') {
+    if ($isVendor) {
+        respond(false, '無權限');
+    }
+    $lid = (int)($in['lead_id'] ?? 0);
+    $lStmt = $pdo->prepare("SELECT l.*, r.status AS repair_status, r.property_id, p.title AS property_title
+        FROM repair_leads l JOIN repairs r ON r.id = l.repair_id JOIN properties p ON p.id = r.property_id
+        WHERE l.id = ? LIMIT 1");
+    $lStmt->execute([$lid]);
+    $lead = $lStmt->fetch();
+    if (!$lead) {
+        respond(false, '找不到此估價');
+    }
+    $r = repair_scope($pdo, $userId, $myOrgId, (int)$lead['repair_id'], $isVendor);
+    if (!$r) {
+        respond(false, '無權限');
+    }
+    if ($lead['status'] !== 'accepted' || $lead['quote_amount'] === null) {
+        respond(false, '此廠商尚未完成承接估價');
+    }
+    if ($lead['repair_status'] !== 'pending') {
+        respond(false, '此報修已進入施工流程');
+    }
+    $pdo->prepare("UPDATE repair_leads SET status = 'won' WHERE id = ?")->execute([$lid]);
+    $pdo->prepare("UPDATE repair_leads SET status = 'lost' WHERE repair_id = ? AND id <> ? AND status IN ('sent','accepted')")
+        ->execute([(int)$lead['repair_id'], $lid]);
+    $pdo->prepare("UPDATE repairs SET vendor_user_id = ?, status = 'assigned', source = 'market' WHERE id = ?")
+        ->execute([(int)$lead['vendor_user_id'], (int)$lead['repair_id']]);
+    notify((int)$lead['vendor_user_id'], 'lead_won', '🎉 您已得標', '「' . $lead['property_title'] . '」維修案您已得標,請依估價內容安排施工;完工後提交完工報告與最終報價', (int)$lead['repair_id']);
+    respond(true, '✓ 已選定得標廠商,報修進入施工流程');
 }
 
 if ($action === 'create') {

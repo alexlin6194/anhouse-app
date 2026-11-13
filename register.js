@@ -97,7 +97,8 @@
     landlord: '您將以「房東」身分註冊:可自行管理租務,或委託管理員/公司代管,自己保留檢視版。',
     manager: '您將以「管理員/物管」身分註冊:實際可管理範圍由公司或房東指派房屋。',
     agent: '「業務」身分需上傳身分證明與經紀營業員證明,資格審核通過後才開通業務功能。',
-    tenant: '「房客」身分免費使用:由房東或公司發送邀請綁定租約後,即可查看帳單與報修。'
+    tenant: '「房客」身分免費使用:由房東或公司發送邀請綁定租約後,即可查看帳單與報修。',
+    vendor: '「維修廠商」身分:自主註冊接收維修商機(方圓5公里廣播或屋主指名),承接後報價供屋主比價。14 天完整試用,試用後月費 $300元。'
   };
   const roleErr = $('#roleErr');
 
@@ -110,6 +111,7 @@
       const h = $('#roleHint');
       h.textContent = '💡 ' + hints[state.role];
       h.classList.add('show');
+      $('#vendorFields').style.display = state.role === 'vendor' ? '' : 'none';
     });
   });
 
@@ -149,7 +151,11 @@
     if (!state.emailOk) { showToast('請輸入正確的電子郵件'); emailEl.focus(); return; }
     if (!state.passOk) { showToast('密碼需 8 碼以上,含英文與數字'); passEl.focus(); return; }
     if (!state.confirmOk) { showToast('兩次輸入的密碼不一致'); confirmEl.focus(); return; }
-    if (!state.role) { roleErr.textContent = '請先選擇您的身份(房東/管理員/業務/房客)'; roleErr.style.display = 'block'; roleErr.scrollIntoView({ block: 'center' }); return; }
+    if (!state.role) { roleErr.textContent = '請先選擇您的身份(房東/管理員/業務/房客/維修廠商)'; roleErr.style.display = 'block'; roleErr.scrollIntoView({ block: 'center' }); return; }
+    if (state.role === 'vendor') {
+      if ($('#f-company').value.trim().length < 2) { showToast('請輸入公司/行號名稱'); $('#f-company').focus(); return; }
+      if ($('#f-specialty').value.trim().length < 2) { showToast('請輸入專業項目'); $('#f-specialty').focus(); return; }
+    }
     if (!$('#agree').checked) { showToast('請先閱讀並同意《服務條款》與《隱私政策》'); return; }
 
     const btn = $('#submitBtn');
@@ -165,6 +171,8 @@
           password: passEl.value,
           confirm_password: confirmEl.value,
           role: state.role,
+          company: $('#f-company') ? $('#f-company').value.trim() : '',
+          specialty: $('#f-specialty') ? $('#f-specialty').value.trim() : '',
           agree: '1'
         })
       });

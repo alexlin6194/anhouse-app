@@ -29,7 +29,7 @@
       pc.innerHTML = data.pending_leases.map(l =>
         '<div class="row" style="margin-bottom:6px"><div class="ico">📄</div>' +
         '<div><span class="tagline">租約邀請待您回覆</span><h4>' + l.property_title + '</h4>' +
-        '<p>月租 NT$' + money(l.rent_amount) + (l.deposit_amount ? '|押金 NT$' + money(l.deposit_amount) : '') +
+        '<p>月租 NT$' + money(l.rent_amount) + '元' + (l.deposit_amount ? '|押金 NT$' + money(l.deposit_amount) + '元' : '') +
         '|' + dstr(l.start_date) + ' 起租' + (l.end_date ? '|' + dstr(l.end_date) + ' 到期' : '') +
         (l.landlord_name ? '|屋主 ' + l.landlord_name : '') + '</p></div></div>' +
         '<div style="display:flex;gap:8px"><button type="button" class="mini-btn act-accept" data-id="' + l.id + '">接受租約</button>' +
@@ -48,7 +48,7 @@
       const dueTxt = cb
         ? (cb.status === 'paid'
           ? '<span class="st ok">本月已繳</span>'
-          : '<span class="st warn">本月應繳 NT$' + money(cb.amount) + (cb.due_date ? '|' + dstr(cb.due_date) + ' 前' : '') + '</span>')
+          : '<span class="st warn">本月應繳 NT$' + money(cb.amount) + '元' + (cb.due_date ? '|' + dstr(cb.due_date) + ' 前' : '') + '</span>')
         : '<span class="st idle">本月無帳單</span>';
       const eRate = (l.elec_rate != null && Number(l.elec_rate) > 0) ? Number(l.elec_rate) : 5;
       const billRows = (l.bills || []).map(b => {
@@ -56,7 +56,7 @@
         const periodTxt = String(b.period) + '月';
         const isSign = b.status === 'paid' && b.period === startMonth;
         const parts = [];
-        if (b.rent_amount != null) parts.push('租金 NT$' + money(b.rent_amount));
+        if (b.rent_amount != null) parts.push('租金 NT$' + money(b.rent_amount) + '元');
         if (isSign) {
           parts.push('電費:併入下期(簽約基準 ' + money(l.meter_start ?? 0) + ' 度)');
         } else if (b.electric_amount == null) {
@@ -67,19 +67,19 @@
           if (cur != null && prev != null) {
             const usage = cur - prev;
             const f = l.elec_mode === 'taipower'
-              ? '電費 NT$' + money(b.electric_amount) + '(用電 ' + money(usage) + ' 度,台電累進計價)'
-              : '電費 NT$' + money(b.electric_amount) + '(用電 ' + money(usage) + ' 度 × NT$' + (eRate % 1 ? eRate.toFixed(1) : eRate) + '/度)';
+              ? '電費 NT$' + money(b.electric_amount) + '元' + '(用電 ' + money(usage) + ' 度,台電累進計價)'
+              : '電費 NT$' + money(b.electric_amount) + '元' + '(用電 ' + money(usage) + ' 度 × NT$' + (eRate % 1 ? eRate.toFixed(1) : eRate) + '元/度)';
             parts.push(f);
           } else {
-            parts.push('電費 NT$' + money(b.electric_amount));
+            parts.push('電費 NT$' + money(b.electric_amount) + '元');
           }
         }
-        if (b.mgmt_amount) parts.push('管理費 NT$' + money(b.mgmt_amount));
-        if (b.parking_amount) parts.push('車位費 NT$' + money(b.parking_amount));
-        if (b.misc_amount) parts.push('雜費 NT$' + money(b.misc_amount) + (b.misc_note ? '(' + b.misc_note + ')' : ''));
+        if (b.mgmt_amount) parts.push('管理費 NT$' + money(b.mgmt_amount) + '元');
+        if (b.parking_amount) parts.push('車位費 NT$' + money(b.parking_amount) + '元');
+        if (b.misc_amount) parts.push('雜費 NT$' + money(b.misc_amount) + '元' + (b.misc_note ? '(' + b.misc_note + ')' : ''));
         const totalTxt = b.electric_amount == null || isSign
-          ? '應繳 NT$' + money(b.amount)
-          : '總計 NT$' + money(b.amount);
+          ? '應繳 NT$' + money(b.amount) + '元'
+          : '總計 NT$' + money(b.amount) + '元';
         const payBtn = b.status !== 'paid'
           ? '<div style="margin-top:6px"><button type="button" class="mini-btn pay-btn" data-id="' + b.id + '">💳 我要繳費(附轉帳證明)</button></div>'
           : '';
@@ -94,6 +94,7 @@
         '|' + dstr(l.start_date) + ' 起租' + (l.end_date ? '|' + dstr(l.end_date) + ' 到期' : '|不定期') +
         (l.payment_day ? '|每月 ' + l.payment_day + ' 日繳租' : '') +
         (l.landlord_name ? '|屋主 ' + l.landlord_name : '') + '</p></div></div>' +
+        '<div style="display:flex;gap:8px;margin-top:8px"><a class="mini-btn line" href="life.html?property_id=' + l.property_id + '" style="text-decoration:none">📍 生活圈(周邊食衣住行)</a></div>' +
         ((l.bills || []).length
           ? '<div class="sect" style="margin-top:10px">繳費紀錄</div><div style="max-height:260px;overflow:auto">' + billRows + '</div>'
           : '');

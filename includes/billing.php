@@ -72,6 +72,19 @@ function taipower_cost(int $usage, bool $summer): float
     return round($cost);
 }
 
+function taipower_breakdown(int $usage, bool $summer): array
+{
+    $rows = [];
+    $prev = 0;
+    foreach (taipower_tiers($summer) as $t) {
+        if ($usage <= $prev) break;
+        $deg = min($usage, $t['max']) - $prev;
+        $rows[] = ['label' => $prev + 1 . '–' . min($usage, $t['max']) . ' 度', 'rate' => (float)$t['rate'], 'degrees' => $deg, 'subtotal' => round($deg * $t['rate'])];
+        $prev = $t['max'];
+    }
+    return $rows;
+}
+
 function is_summer_month(string $date): bool
 {
     $m = (int)substr($date, 5, 2);

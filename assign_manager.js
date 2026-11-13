@@ -36,7 +36,7 @@
     }
     list.innerHTML = state.houses.map(h =>
       '<label class="list-item"><input type="checkbox" class="houseChk" value="' + h.id + '">' +
-      '<div><b>' + h.title + '</b><span>' + (h.status === 'rented' ? '出租中|月租 NT$' + Number(h.rent).toLocaleString('zh-TW') : '空置中') + '</span></div></label>'
+      '<div><b>' + h.title + '</b><span>' + (h.status === 'rented' ? '出租中|月租 NT$' + Number(h.rent).toLocaleString('zh-TW') + '元' : '空置中') + '</span></div></label>'
     ).join('');
     document.querySelectorAll('.houseChk').forEach(c => c.addEventListener('change', syncCount));
     $('#selAll').addEventListener('change', () => {

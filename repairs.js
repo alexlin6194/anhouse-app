@@ -72,6 +72,14 @@
     });
   }
 
+  let vendorsFetchedOnce = false;
+  async function loadVendorsFresh() {
+    try {
+      const res = await fetch('api/repairs.php', { cache: 'no-store' });
+      const d = await res.json();
+      if (d.ok && (d.vendors || []).length) { cache.vendors = d.vendors; cache.leads = d.leads || cache.leads; render(); }
+    } catch (e) { /* 忽略 */ }
+  }
   function toggleDetail(row, id) {
     const panel = row.querySelector('.bdetail');
     if (openId === id) {
@@ -79,6 +87,7 @@
       openId = null;
       return;
     }
+    if (!vendorsFetchedOnce) { vendorsFetchedOnce = true; if (!(cache.vendors || []).length) loadVendorsFresh(); }
     document.querySelectorAll('.bdetail').forEach(p => { p.style.display = 'none'; });
     openId = id;
     panel.style.display = '';
@@ -95,13 +104,13 @@
       : '';
     const quoteHtml = (r.quote_text || r.quote_amount != null)
       ? '<div class="bd-sec">📋 查修報告</div><div style="font-size:12.5px;line-height:1.8">' + esc(r.quote_text || '') +
-        (r.quote_amount != null ? '<br>預估費用:NT$' + money(r.quote_amount) : '') + '</div>'
+        (r.quote_amount != null ? '<br>預估費用:NT$' + money(r.quote_amount) + '元' : '') + '</div>'
       : '';
     const vendorHtml = r.vendor_user_id
       ? '<div class="bd-sec">🧰 維修廠商</div><div style="font-size:12.5px;line-height:1.8">' + esc(r.company_name || '') +
         (r.visit_at ? '|約定 ' + dstr(r.visit_at) : '') +
-        (r.actual_amount != null ? '|廠商工款 NT$' + money(r.actual_amount) + (r.vendor_paid === 'yes' ? '(✓ 已付清' + dstr(r.vendor_paid_at) + ')' : '(未付)') : '') +
-        (r.tenant_charge ? '|房客端:' + (r.tenant_charge === 'none' ? '屋主吸收' : (r.tenant_charge === 'bill' ? '併入帳單 NT$' + money(r.tenant_amount || 0) : '現金收取 NT$' + money(r.tenant_amount || 0))) : '') +
+        (r.actual_amount != null ? '|廠商工款 NT$' + money(r.actual_amount) + '元' + (r.vendor_paid === 'yes' ? '(✓ 已付清' + dstr(r.vendor_paid_at) + ')' : '(未付)') : '') +
+        (r.tenant_charge ? '|房客端:' + (r.tenant_charge === 'none' ? '屋主吸收' : (r.tenant_charge === 'bill' ? '併入帳單 NT$' + money(r.tenant_amount || 0) + '元' : '現金收取 NT$' + money(r.tenant_amount || 0) + '元')) : '') +
         (r.paid_method ? '' : '') + '</div>'
       : '';
     const btns = [];
@@ -123,7 +132,7 @@
     }
     if (cm && r.vendor_user_id && r.vendor_paid !== 'yes' && ['inspected', 'repairing', 'done', 'billed'].includes(r.status)) {
       const fee = r.actual_amount != null ? r.actual_amount : r.quote_amount;
-      btns.push('<button type="button" class="mini-btn line act-pay-vendor" data-id="' + r.id + '">🧾 付清廠商工款' + (fee ? '(NT$' + money(fee) + ')' : '') + '</button>');
+      btns.push('<button type="button" class="mini-btn line act-pay-vendor" data-id="' + r.id + '">🧾 付清廠商工款' + (fee ? '(NT$' + money(fee) + '元)' : '') + '</button>');
     }
     if (cm && r.creator_phone && !amIWorker) btns.push('<button type="button" class="mini-btn line act-chat" data-phone="' + esc(r.creator_phone) + '">💬 聯絡報修人</button>');
     if (cm && r.vendor_user_id) {
@@ -131,16 +140,64 @@
       if (vp) btns.push('<button type="button" class="mini-btn line act-chat" data-phone="' + esc(vp) + '">📞 聯絡廠商</button>');
     }
     if (!cm && r.status === 'pending' && Number(r.created_by) === Number(cache.my_id || 0)) btns.push('<button type="button" class="mini-btn line act-cancel" data-id="' + r.id + '">取消報修</button>');
+    let marketHtml = '';
+    const myLeads = (cache.leads || []).filter(l => Number(l.repair_id) === Number(r.id));
+    const hasWon = myLeads.some(l => l.status === 'won');
+    const vendorCount = (cache.vendors || []).length;
+    if (cm && r.status === 'pending' && !hasWon) {
+      const leadRows = myLeads.map(l => {
+        const ls = leadStatus[l.status] || { label: l.status, cls: 'idle' };
+        const when = l.responded_at || l.created_at;
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--beige2)">' +
+          '<span style="font-size:12.5px">🧰 ' + esc(l.company || l.vendor_name || '') +
+          (l.source === 'radius' ? '(廣播)' : '(指名)') + '|' + ls.label +
+          (l.quote_amount != null ? '|估價 <b>NT$' + money(l.quote_amount) + '元</b>' + (l.quote_memo ? '(' + esc(l.quote_memo) + ')' : '') : '') +
+          (l.status === 'declined' && l.decline_reason ? '|理由:' + esc(l.decline_reason) : '') +
+          '<span style="color:var(--brown2)">' + dstr(when) + '</span></span>' +
+          (l.status === 'accepted' && l.quote_amount != null
+            ? '<button type="button" class="mini-btn act-award" data-lead="' + l.id + '">🏆 選定得標</button>'
+            : '') +
+          '</div>';
+      }).join('');
+      marketHtml = '<div class="bd-sec">📡 比價/派發' + (myLeads.length ? '(' + myLeads.length + ' 家回應中)' : '') + '</div>' +
+        (leadRows ? '<div style="margin-bottom:6px">' + leadRows + '</div>' : '<div style="font-size:12px;color:var(--brown2);margin-bottom:6px">尚未派發:可指名發送給特定廠商,或廣播給方圓5公里內所有註冊廠商比價</div>') +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
+        '<select id="selVendor-' + r.id + '" style="flex:1;min-width:150px;border:1.5px solid var(--beige2);border-radius:10px;padding:8px;font-family:inherit;color:var(--brown);background:var(--surface)">' +
+        '<option value="">— 指名廠商(' + vendorCount + ' 家)—</option>' +
+        (cache.vendors || []).map(v => '<option value="' + v.user_id + '">' + esc(v.company || v.name) + (v.specialty ? '(' + esc(v.specialty) + ')' : '') + '</option>').join('') +
+        '</select>' +
+        '<button type="button" class="mini-btn act-send" data-id="' + r.id + '">發送</button>' +
+        '<button type="button" class="mini-btn line act-broadcast" data-id="' + r.id + '">📡 廣播方圓5公里</button>' +
+        '</div>' +
+        (!vendorCount ? '<p style="font-size:11.5px;color:var(--brown2);margin:6px 2px 0">廠商名單載入中或尚無廠商:請稍後重開本頁,或到「🔧 廠商名單」新增</p>' : '');
+    }
     panel.innerHTML =
       '<div style="border-top:1.5px dashed var(--beige2);margin-top:10px;padding-top:10px">' +
       '<div style="font-size:12.5px;line-height:1.9;color:var(--brown)">' + esc(r.description) + '</div>' +
       '<div style="font-size:11.5px;color:var(--brown2);margin-top:6px">狀態:' + st.label + '|建立:' + dstr(r.created_at) +
       (r.creator_name && !cm ? '|報修人:' + esc(r.creator_name) : '') + '</div>' +
-      photoHtml + quoteHtml + vendorHtml + solutionHtml +
+      photoHtml + quoteHtml + vendorHtml + solutionHtml + marketHtml +
       (btns.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' + btns.join('') + '</div>' : '') +
       '</div>';
-    panel.querySelectorAll('.act-start, .act-assign, .act-approve, .act-reject, .act-charge-bill, .act-charge-cash, .act-charge-none, .act-pay-vendor, .act-doc-charge, .act-cancel').forEach(b => {
-      b.addEventListener('click', (e) => { e.stopPropagation(); handleStatus(b, e); });
+    panel.querySelectorAll('.act-start, .act-assign, .act-approve, .act-reject, .act-charge-bill, .act-charge-cash, .act-charge-none, .act-pay-vendor, .act-doc-charge, .act-cancel, .act-award, .act-send, .act-broadcast').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (b.classList.contains('act-award')) {
+          if (confirm('確認選此廠商得標?其他未得標廠商將收到通知,報修進入施工流程。')) act({ action: 'award_lead', lead_id: Number(b.dataset.lead) });
+          return;
+        }
+        if (b.classList.contains('act-send')) {
+          const sel = panel.querySelector('select[id^="selVendor-"]');
+          if (!sel || !sel.value) { showToast('請先選擇廠商'); return; }
+          act({ action: 'send_to_vendor', repair_id: Number(b.dataset.id), vendor_user_id: Number(sel.value) });
+          return;
+        }
+        if (b.classList.contains('act-broadcast')) {
+          if (confirm('廣播給房屋方圓5公里內所有註冊廠商?')) act({ action: 'broadcast_radius', repair_id: Number(b.dataset.id) });
+          return;
+        }
+        handleStatus(b, e);
+      });
     });
     panel.querySelector('.act-quote')?.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -192,7 +249,7 @@
     }
   }
 
-  async function load() {
+  async function load(force) {
     let data;
     try {
       const res = await fetch('api/repairs.php', { cache: 'no-store' });
@@ -213,8 +270,34 @@
       const b = document.createElement('p');
       b.id = 'vBanner';
       b.style.cssText = 'font-size:12px;color:var(--brown2);margin:0 2px 6px';
-      b.textContent = '🧰 維修廠商您好:這裡是派給您的工單,請依狀態回報查修/完工';
       $('#listTitle').after(b);
+    }
+    if (isVendor && $('#vBanner')) {
+      const p = data.my_profile || {};
+      let subTxt = '服務中';
+      if (p.sub_status === 'trial') subTxt = '試用中(至 ' + (p.trial_ends || '') + ')';
+      if (p.sub_status === 'expired' || (p.sub_status === 'trial' && p.trial_ends && p.trial_ends < new Date().toISOString().slice(0, 10))) subTxt = '⚠ 已到期,請支付月費';
+      const hasGps = p.lat != null && p.lng != null;
+      $('#vBanner').innerHTML = '🧰 ' + esc(p.company || '') + '|' + subTxt +
+        (hasGps ? '|服務位置已設定' : '|尚未設定服務位置') +
+        ' <button type="button" class="mini-btn line" id="vGpsBtn" style="margin:2px 0">' + (hasGps ? '更新服務位置' : '📍 設定服務位置(GPS)') + '</button>';
+      $('#vGpsBtn').addEventListener('click', () => {
+        if (!navigator.geolocation) { showToast('此裝置不支援定位'); return; }
+        showToast('定位中…');
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          try {
+            const res = await fetch('api/repairs.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'vendor_location', lat: pos.coords.latitude, lng: pos.coords.longitude })
+            });
+            const d2 = await res.json();
+            showToast(d2.message);
+            if (d2.ok) load();
+          } catch (err) { showToast('連線異常,請稍後再試'); }
+        }, () => showToast('無法取得定位,請允許瀏覽器使用位置權限'), { enableHighAccuracy: true, timeout: 10000 });
+      });
+      renderLeads(data.leads || []);
     }
     try {
       const me = await (await fetch('api/me.php', { cache: 'no-store' })).json();
@@ -228,6 +311,60 @@
     render();
     fillProperties();
     renderVendors();
+  }
+
+  const leadStatus = {
+    sent: { label: '邀請中', cls: 'idle' },
+    accepted: { label: '已承接', cls: 'warn' },
+    declined: { label: '已婉拒', cls: 'idle' },
+    won: { label: '🏆 得標', cls: 'ok' },
+    lost: { label: '未得標', cls: 'idle' }
+  };
+
+  function renderLeads(leads) {
+    let wrap = $('#leadWrap');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'leadWrap';
+      $('#list').before(wrap);
+    }
+    const active = leads.filter(l => l.status === 'sent');
+    if (!leads.length) {
+      wrap.innerHTML = '';
+      return;
+    }
+    wrap.innerHTML = '<div class="sect" style="margin-top:18px">📡 維修商機(' + active.length + ' 筆待回應)</div>' + leads.map(l => {
+      const ls = leadStatus[l.status] || { label: l.status, cls: 'idle' };
+      const dist = l.distance_m != null ? (l.distance_m >= 1000 ? (l.distance_m / 1000).toFixed(1) + ' 公里' : l.distance_m + ' 公尺') : '';
+      let btns = '';
+      if (l.status === 'sent') {
+        btns = '<button type="button" class="mini-btn act-lead-accept" data-id="' + l.id + '">✋ 承接</button>' +
+          '<button type="button" class="mini-btn line act-lead-decline" data-id="' + l.id + '">婉拒</button>';
+      } else if (l.status === 'accepted' && l.quote_amount == null) {
+        btns = '<button type="button" class="mini-btn act-lead-quote" data-id="' + l.id + '">📋 提交估價</button>';
+      }
+      return '<div class="lrow" style="align-items:flex-start">' +
+        '<div class="linfo"><b>' + (catIcon[l.category] || '🔧') + ' ' + esc(l.property_title) + '</b>' +
+        '<span>' + esc(String(l.description || '').slice(0, 40)) + '…</span>' +
+        '<span>' + (dist ? '📍 距離約 ' + dist + '|' : '') + '報價:' + (l.quote_amount != null ? 'NT$' + money(l.quote_amount) + '元' : '—') +
+        (l.quote_memo ? '|' + esc(l.quote_memo) : '') + '</span></div>' +
+        '<span style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end"><span class="st ' + ls.cls + '">' + ls.label + '</span>' + btns + '</span></div>';
+    }).join('');
+    wrap.querySelectorAll('.act-lead-accept').forEach(b => b.addEventListener('click', () => act({ action: 'accept_lead', lead_id: Number(b.dataset.id) })));
+    wrap.querySelectorAll('.act-lead-decline').forEach(b => b.addEventListener('click', () => {
+      const reason = prompt('婉拒原因(可留空):');
+      if (reason === null) return;
+      act({ action: 'decline_lead', lead_id: Number(b.dataset.id), reason: reason.trim() });
+    }));
+    wrap.querySelectorAll('.act-lead-quote').forEach(b => b.addEventListener('click', () => {
+      const amt = prompt('估價金額(NT$):');
+      if (amt === null) return;
+      const n = Number(String(amt).replace(/\D/g, ''));
+      if (!n || n < 100) { showToast('請輸入合理金額'); return; }
+      const memo = prompt('估價說明(材料/工資/天數):');
+      if (memo === null) return;
+      act({ action: 'submit_quote', lead_id: Number(b.dataset.id), quote_amount: n, quote_memo: memo.trim() });
+    }));
   }
 
   function renderVendors() {

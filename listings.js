@@ -41,7 +41,7 @@
       const meta = ['<span class="chip' + (p.listing_type === 'sale' ? ' sale' : '') + '">' + (typeNames[p.listing_type] || p.listing_type) + '</span>'];
       if (p.property_type && ptypeNames[p.property_type]) meta.push('<span class="chip">' + ptypeNames[p.property_type] + '</span>');
       if (p.layout_text) meta.push('<span class="chip">' + esc(p.layout_text) + '</span>');
-      if (p.area_ping) meta.push('<span class="chip">' + esc(p.area_ping) + ' 坪</span>');
+      if (p.area_ping) meta.push('<span class="chip">' + esc(parseFloat(p.area_ping)) + ' 坪</span>');
       const loc = [p.city, p.district].filter(Boolean).join('');
       const photos = (p.photos || []);
       const cover = photos.length
@@ -58,8 +58,8 @@
         photoStrip +
         '<div class="lmeta">' + meta.join('') + '</div>' +
         (p.is_delegated
-          ? '<div class="lbtns"><button type="button" class="mini-btn line act-edit">編輯屋況/租金</button><button type="button" class="mini-btn" disabled style="opacity:.55">上下架與照片由管理員管理</button></div>'
-          : '<div class="lbtns"><button type="button" class="mini-btn line act-edit">編輯</button><button type="button" class="mini-btn act-toggle">' + (p.is_listed ? '下架' : '重新上架') + '</button></div>') +
+          ? '<div class="lbtns"><button type="button" class="mini-btn line act-edit">編輯屋況/租金</button><button type="button" class="mini-btn line act-life">📍 生活圈</button><button type="button" class="mini-btn" disabled style="opacity:.55">上下架與照片由管理員管理</button></div>'
+          : '<div class="lbtns"><button type="button" class="mini-btn line act-edit">編輯</button><button type="button" class="mini-btn line act-life">📍 生活圈</button><button type="button" class="mini-btn act-toggle">' + (p.is_listed ? '下架' : '重新上架') + '</button></div>') +
         '</div>';
     }).join('');
 
@@ -77,6 +77,9 @@
           showToast(d.message);
           if (d.ok) load();
         } catch (e) { showToast('連線異常,請稍後再試'); }
+      });
+      row.querySelector('.act-life')?.addEventListener('click', () => {
+        location.href = 'life.html?property_id=' + id;
       });
       row.querySelector('.act-edit')?.addEventListener('click', () => openEdit(p));
       row.querySelectorAll('[data-full]').forEach(t => {
@@ -113,7 +116,7 @@
     $('#f_rooms').value = p.layout_rooms == null ? '' : p.layout_rooms;
     $('#f_living').value = p.layout_living == null ? '' : p.layout_living;
     $('#f_bath').value = p.layout_bath == null ? '' : p.layout_bath;
-    $('#f_area').value = p.area_ping == null ? '' : p.area_ping;
+    $('#f_area').value = p.area_ping == null ? '' : String(parseFloat(p.area_ping));
     $('#f_floorcur').value = p.floor_current == null ? '' : p.floor_current;
     $('#f_floortotal').value = p.floor_total == null ? '' : p.floor_total;
     $('#f_rent').value = p.rent ? p.rent : '';
@@ -155,6 +158,8 @@
     $('#f_cook').checked = Number(p.cooking_allowed) === 1;
     renderPhotoManager(p.photos || []);
     syncTypeUI();
+    $('#f_status').value = p.status;
+    $('#f_ptype').value = p.property_type || '';
     editBox.style.display = '';
     editBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -233,7 +238,7 @@
     }
     const r = Number(rentIn.value || 0);
     depHint.textContent = r > 0
-      ? '押金 ' + depMonths + ' 個月 = NT$' + (r * depMonths).toLocaleString('zh-TW')
+      ? '押金 ' + depMonths + ' 個月 = NT$' + (r * depMonths).toLocaleString('zh-TW') + '元'
       : '請先填寫每月租金,系統將自動計算';
   }
 

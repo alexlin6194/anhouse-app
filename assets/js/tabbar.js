@@ -26,10 +26,11 @@
         tenant: 'dashboard_tenant.html',
         company_owner: 'dashboard_company.html',
         admin_staff: 'dashboard_company.html',
-        accountant: 'dashboard_company.html'
+        accountant: 'dashboard_company.html',
+        vendor: 'repairs.html'
       };
-      var home = homes[d.user.registration_role];
-      if (home) bar.querySelector('[data-bt="home"]').setAttribute('href', home);
+      var home = homes[d.user.registration_role] || 'repairs.html';
+      bar.querySelector('[data-bt="home"]').setAttribute('href', home);
     }
   }).catch(function () {});
 })();

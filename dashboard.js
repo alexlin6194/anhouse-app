@@ -21,7 +21,16 @@
       return;
     }
     if (!data.ok || !data.authenticated) { location.href = 'login.html'; return; }
-    if (!data.landlord) { location.href = 'welcome.html'; return; }
+    if (!data.landlord) {
+      try {
+        const me = await (await fetch('api/me.php', { cache: 'no-store' })).json();
+        const role = me.ok && me.authenticated ? me.user.registration_role : null;
+        if (role === 'vendor') { location.replace('repairs.html'); return; }
+        if (me.ok && me.authenticated) { location.replace('welcome.html'); return; }
+      } catch (e) { /* fallthrough */ }
+      location.href = 'login.html';
+      return;
+    }
 
     const name = data.name || '';
     $('#avatar').textContent = name ? name.charAt(0) : '?';
@@ -47,22 +56,22 @@
     const s = data.stats;
     $('#stats').innerHTML =
       '<div class="stat"><b>' + s.self_units + '</b><span>自管計費戶數</span></div>' +
-      '<div class="stat"><b>' + money(s.month_receivable) + '</b><span>本月應收租金</span></div>' +
+      '<div class="stat"><b>' + money(s.month_receivable) + '元</b><span>本月應收租金</span></div>' +
       '<div class="stat"><b>' + s.pending + '</b><span>待處理</span></div>';
 
     const sub = data.subscription;
     $('#subTier').textContent = sub.tier_name + '|計費 ' + sub.units + ' 戶';
     $('#subDesc').textContent = sub.fee === 0
-      ? '入門級永久免費且功能完整;退租釋出後可免費新增房屋(同時在管制)' + (sub.next_tier_name ? ';新增至 ' + sub.next_tier_name.replace(/\(.*/, '') + ' 月費 ' + money(sub.next_fee) : '')
+      ? '入門級永久免費且功能完整;退租釋出後可免費新增房屋(同時在管制)' + (sub.next_tier_name ? ';新增至 ' + sub.next_tier_name.replace(/\(.*/, '') + ' 月費 ' + money(sub.next_fee) + '元' : '')
       : '超出入門級後按級距月費;退租釋出戶數會重新計算級距';
-    $('#subFee').innerHTML = sub.fee === 0 ? '<b>免費</b><span>入門級</span>' : '<b>' + money(sub.fee) + '</b><span>月費</span>';
+    $('#subFee').innerHTML = sub.fee === 0 ? '<b>免費</b><span>入門級</span>' : '<b>' + money(sub.fee) + '元</b><span>月費</span>';
 
     const pc = $('#pendingCard');
     const parts = [];
     if (data.overdue_bills.length) {
       const rows = data.overdue_bills.map(b =>
         '<div class="list-item" style="cursor:pointer" data-bill="' + b.id + '"><span class="dot" style="background:var(--pink)"></span>' +
-        '<div><b>' + b.title + '|' + b.period + ' 帳單</b><span>應繳 ' + money(b.amount) + '|原訂 ' + b.due_date + ' 繳款,已逾期</span></div>' +
+        '<div><b>' + b.title + '|' + b.period + ' 帳單</b><span>應繳 ' + money(b.amount) + '元|原訂 ' + b.due_date + ' 繳款,已逾期</span></div>' +
         '<span class="st warn">逾期 ›</span></div>').join('');
       parts.push('<div class="sect" style="margin-top:4px">逾期帳單(點看明細+催繳)</div>' + rows);
     }
@@ -98,7 +107,7 @@
           detailParts.push(delegated ? '由 ' + h.manager_name + ' 代管' : '自行管理');
           if (rented) detailParts.push('租客:' + h.tenant_name);
           else if (depositHold) detailParts.push('租約邀請:' + h.pending_tenant_name + '(回覆中)');
-          detailParts.push('月租 ' + money(h.rent));
+          detailParts.push('月租 ' + money(h.rent) + '元');
           const authBtns = pendingAuth
             ? '<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="mini-btn act-auth" data-id="' + h.id + '">授權代管</button><button type="button" class="mini-btn line act-decline" data-id="' + h.id + '">婉拒(自行管理)</button></div>'
             : '';

@@ -13,6 +13,9 @@
   };
   let filter = '';
   let toastTimer;
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
 
   function showToast(msg) {
     const t = $('#toast');
@@ -70,13 +73,34 @@
             });
           } catch (e) {}
         }
-        const type = item.dataset.type;
-        if (links[type] && item.dataset.ref) {
-          location.href = links[type](item.dataset.ref);
-        }
+        openSheet(item);
       });
     });
   }
+
+  function openSheet(item) {
+    const type = item.dataset.type;
+    const ref = item.dataset.ref;
+    $('#nIcon').innerHTML = (icons[type] || '🏠') + ' <span>' + esc(item.querySelector('.nt b').textContent) + '</span>';
+    $('#nBody').textContent = item.querySelector('.nt span').textContent;
+    $('#nTime').textContent = timeAgo((item.querySelector('.nt em') || { textContent: '' }).textContent);
+    const go = $('#nGo');
+    if (links[type] && ref) {
+      go.style.display = '';
+      go.onclick = () => { closeSheet(); location.href = links[type](ref); };
+    } else {
+      go.style.display = 'none';
+    }
+    $('#nMask').classList.add('show');
+    $('#nSheet').classList.add('show');
+  }
+
+  function closeSheet() {
+    $('#nMask').classList.remove('show');
+    $('#nSheet').classList.remove('show');
+  }
+  $('#nMask').addEventListener('click', closeSheet);
+  window.nCloseSheet = closeSheet;
 
   document.querySelectorAll('.filter button').forEach(b => {
     b.addEventListener('click', () => {

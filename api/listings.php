@@ -90,6 +90,16 @@ if ($delegatedHouse && in_array($action, ['toggle', 'delete_photo', 'set_cover',
     respond(false, '代管中:上下架與照片由管理員維護;租金與屋況資料請用「編輯」由屋主修改');
 }
 
+if ($action === 'set_location') {
+    $lat = (float)($in['lat'] ?? 0);
+    $lng = (float)($in['lng'] ?? 0);
+    if (($lat == 0 && $lng == 0) || abs($lat) > 90 || abs($lng) > 180) {
+        respond(false, '定位資訊不正確,請重新取得');
+    }
+    $pdo->prepare('UPDATE properties SET lat = ?, lng = ? WHERE id = ?')->execute([$lat, $lng, $id]);
+    respond(true, '✓ 房屋 GPS 座標已儲存,可使用「廣播方圓5公里」派發維修');
+}
+
 if ($action === 'toggle') {
     $new = (int)$prop['is_listed'] ? 0 : 1;
     $pdo->prepare('UPDATE properties SET is_listed = ? WHERE id = ?')->execute([$new, $id]);
@@ -219,10 +229,10 @@ if ($roomsN === false || $livingN === false || $bathN === false) {
 }
 $areaF = null;
 if ($area !== '') {
-    $areaF = (float)$area;
-    if ((string)$areaF !== $area && (string)$areaF . '0' !== $area || $areaF <= 0 || $areaF > 9999) {
+    if (!is_numeric($area) || (float)$area <= 0 || (float)$area > 9999) {
         respond(false, '坪數請輸入大於 0 的數字');
     }
+    $areaF = round((float)$area, 2);
 }
 $fCur = $floorCur === '' ? null : $intOrNull($floorCur, 200);
 $fTotal = $floorTotal === '' ? null : $intOrNull($floorTotal, 200);

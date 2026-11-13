@@ -34,7 +34,7 @@
       return '<div class="lrow doc-row" data-id="' + d.id + '" style="cursor:pointer">' +
         '<div class="ltop"><div class="linfo">' +
         '<b>' + (typeNames[d.type] || '📄') + ' ' + esc(d.title) + '</b>' +
-        '<span>' + (d.amount ? '金額 NT$' + Number(d.amount).toLocaleString('zh-TW') + '|' : '') + '建立 ' + dstr(d.created_at) +
+        '<span>' + (d.amount ? '金額 NT$' + Number(d.amount).toLocaleString('zh-TW') + '元|' : '') + '建立 ' + dstr(d.created_at) +
         (d.status === 'signed' ? '|✍ ' + esc(d.sign_name || '') + ' 於 ' + dstr(d.signed_at) : '') + '</span>' +
         '</div>' + chip(d) + '</div>' +
         '</div>';

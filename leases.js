@@ -96,8 +96,8 @@
         return '<div class="lrow" style="margin-bottom:10px">' +
           '<div class="ltop"><div class="linfo">' +
           '<b>🏠 ' + esc(l.property_title) + '</b>' +
-          '<span>房客:' + esc(l.tenant_name) + '(' + esc(l.tenant_phone) + ')|月租 NT$' + money(l.rent_amount) +
-          (l.deposit_amount ? '|押金 NT$' + money(l.deposit_amount) : '') + '|' + esc(span) +
+          '<span>房客:' + esc(l.tenant_name) + '(' + esc(l.tenant_phone) + ')|月租 NT$' + money(l.rent_amount) + '元' +
+          (l.deposit_amount ? '|押金 NT$' + money(l.deposit_amount) + '元' : '') + '|' + esc(span) +
           (l.payment_day ? '|每月 ' + l.payment_day + ' 日繳' : '') +
           (l.creator_name ? '|由 ' + esc(l.creator_name) + ' 發送' : '') + '</span>' +
           '</div><span class="st ' + st.cls + '">' + st.label + '</span></div>' + endBtn + '</div>';
@@ -141,7 +141,7 @@
     const rentEl = $('#rent_amount');
     if (p && Number(p.rent) > 0) {
       rentEl.value = String(p.rent);
-      $('#propHint').textContent = '租金依屋主「' + p.title + '」的刊登租金 NT$' + Number(p.rent).toLocaleString('zh-TW') + ' 訂定;若房客議價,請與屋主討論後由屋主於房源管理調整租金';
+      $('#propHint').textContent = '租金依屋主「' + p.title + '」的刊登租金 NT$' + Number(p.rent).toLocaleString('zh-TW') + '元 訂定;若房客議價,請與屋主討論後由屋主於房源管理調整租金';
     }
   }
   $('#property_id').addEventListener('change', fillRentFromProperty);
@@ -160,7 +160,7 @@
     }
     const rent = Number(rentEl.value || 0);
     depHint.textContent = rent > 0
-      ? '押金 ' + depMonths + ' 個月 = NT$' + (rent * depMonths).toLocaleString('zh-TW')
+      ? '押金 ' + depMonths + ' 個月 = NT$' + (rent * depMonths).toLocaleString('zh-TW') + '元'
       : '請先填寫每月租金,系統將自動計算';
   }
 
@@ -190,7 +190,7 @@
         const rent = Number(rentEl.value || 0);
         depEl.value = rent > 0 ? String(rent * m) : '';
         depHint.textContent = rent > 0
-          ? '押金 ' + m + ' 個月 = NT$' + (rent * m).toLocaleString('zh-TW')
+          ? '押金 ' + m + ' 個月 = NT$' + (rent * m).toLocaleString('zh-TW') + '元'
           : '請先填寫每月租金,系統將自動計算';
       }
     });

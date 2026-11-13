@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>批次抄錄|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113v">
+<style>
+  .mrow{background:var(--surface);border:1px solid rgba(234,209,160,.6);border-radius:16px;padding:12px 14px;margin-bottom:10px;box-shadow:var(--shadow)}
+  .mrow .mhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .mrow .mhead b{font-size:14.5px}
+  .mrow .mhead span{font-size:11.5px;color:var(--brown2)}
+  .mrow input.mread{flex:1;min-width:0;border:1.8px solid var(--beige2);background:var(--surface);border-radius:12px;padding:10px 12px;font-size:15px;color:var(--brown);font-family:inherit}
+  .mrow .mact{display:flex;gap:8px;margin-top:8px;align-items:center}
+  .mrow .mact .mini-btn{margin:0}
+  .mrow img.mthumb{width:56px;height:56px;object-fit:cover;border-radius:10px;border:1.5px solid var(--beige2);cursor:zoom-in}
+  .mrow.done{opacity:.65}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>批次抄錄</h2>
+    <p>逐戶拍照・一次送出</p>
+    <div class="feat">
+      <div>📷 每戶拍電錶,自動辨識度數</div>
+      <div>🔢 顯示上期基準,防呆比對</div>
+      <div>⚡ 電費依租約單價/台電公式計算</div>
+      <div>🚨 單戶可單獨送出,其餘稍後</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="nav"><a class="back" href="dashboard.html" id="navBack" aria-label="返回首頁">←</a> 批次抄錄</div>
+      <div id="list"></div>
+      <button type="button" class="btn primary" id="submitAll" style="margin-top:14px">📤 全部送出(0 筆)</button>
+      <p class="foot">每戶須拍照存證;辨識值請人工核對後送出。安康巷 5 號這類單一房屋,也可從房屋頁或帳單管理單獨抄錄。</p>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="assets/js/lightbox.js?v=20261113v"></script>
+<script src="meter-batch.js?v=20261113v"></script>
+<script src="assets/js/notify.js?v=20261113v"></script>
+<script src="assets/js/tabbar.js?v=20261113v"></script>
+</body>
+</html>

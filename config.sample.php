@@ -23,3 +23,10 @@ define('BILL_GENERATE_MONTHS', 12);
 define('ELECTRIC_RATE_PER_KWH', 5.0);
 
 date_default_timezone_set('Asia/Taipei');
+
+
+// 生活圈(Google Maps)——Geocoding 與 Places 分開兩把金鑰
+define('GOOGLE_GEOCODING_API_KEY', '');
+define('GOOGLE_PLACES_API_KEY', '');
+define('LIFE_RADIUS_M', 5000);
+define('LIFE_CACHE_HOURS', 12);

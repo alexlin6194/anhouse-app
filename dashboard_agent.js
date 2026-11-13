@@ -50,7 +50,7 @@
           const st = isSale
             ? '<span class="st ' + (l.status === 'sold' ? 'ok' : 'warn') + '">' + (l.status === 'sold' ? '已售出' : '出售中') + '</span>'
             : '<span class="st ' + (l.status === 'rented' ? 'ok' : 'warn') + '">' + (l.status === 'rented' ? '出租中' : '待租') + '</span>';
-          const price = isSale ? '開價 ' + money(l.sale_price) : '月租 ' + money(l.rent);
+          const price = isSale ? '開價 ' + money(l.sale_price) + '元' : '月租 ' + money(l.rent) + '元';
           const info = [typeNames[l.property_type] || '', layoutText(l), price].filter(Boolean).join('|');
           const dot = isSale ? 'var(--pink)' : (l.status === 'rented' || l.status === 'sold' ? 'var(--green)' : 'var(--beige2)');
           return '<div class="list-item"><span class="dot" style="background:' + dot + '"></span>' +
