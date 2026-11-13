@@ -80,6 +80,21 @@
       trail.map(t => '<div style="margin-top:3px">' + esc(eventNames[t.event] || t.event) + '|' + esc(t.name || '') + '|' + dstr(t.at) + (t.ip ? '|IP ' + esc(t.ip) : '') + '</div>').join('') + '</div>';
   }
 
+  /* 簽名完成 → 回到契約頁預覽簽名,檢查無誤才送出 */
+  function renderSignConfirm(foot, id, n, sig, roleLabel) {
+    foot.innerHTML = '<div style="text-align:center;margin-bottom:6px"><b style="font-size:13px">請檢查您的電子簽名</b></div>' +
+      '<div style="display:flex;justify-content:center;margin:8px 0"><img src="' + sig + '" alt="簽名預覽" style="max-width:240px;width:70%;height:70px;object-fit:contain;background:#fff;border:1.5px solid var(--beige2);border-radius:10px"></div>' +
+      '<div style="font-size:12px;color:var(--brown2);text-align:center;margin-bottom:10px">' + esc(n) + '(' + roleLabel + ')|請往上滑詳閱契約全文,確認無誤再送出</div>' +
+      '<div style="display:flex;gap:10px"><button class="btn primary" id="confirmSignBtn" style="flex:1.4">✅ 檢查無誤,送出簽署</button><button class="btn ghost" id="resignBtn" style="flex:1">重新簽名</button></div>';
+    foot.querySelector('#confirmSignBtn').addEventListener('click', () => {
+      postAction({ doc_id: id, action: 'sign', sign_name: n, signature: sig });
+    });
+    foot.querySelector('#resignBtn').addEventListener('click', async () => {
+      const s2 = await openPad(roleLabel + '重新簽名');
+      if (s2) renderSignConfirm(foot, id, n, s2, roleLabel);
+    });
+  }
+
   async function openDoc(id) {
     let d;
     try {
@@ -135,7 +150,7 @@
           inp.blur();
           const sig = await openPad('承租人(房客)簽名');
           if (!sig) return;
-          await postAction({ doc_id: id, action: 'sign', sign_name: n, signature: sig });
+          renderSignConfirm(foot, id, n, sig, '承租人');
         } else {
           const n = foot.querySelector('#signName').value.trim();
           await postAction({ doc_id: id, action: 'sign', sign_name: n });
@@ -156,7 +171,7 @@
         inp.blur();
         const sig = await openPad('出租人(屋主)簽名');
         if (!sig) return;
-        await postAction({ doc_id: id, action: 'sign', sign_name: n, signature: sig });
+        renderSignConfirm(foot, id, n, sig, '出租人');
       });
       foot.querySelector('#declineBtn').addEventListener('click', async () => {
         if (!confirm('確定拒簽此契約?')) return;
