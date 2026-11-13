@@ -7,38 +7,47 @@ function photo_capture_meta(array $tmpNames, ?array $client = null): array
 {
     $out = [];
     $now = time();
+    $tz = new DateTimeZone('Asia/Taipei'); /* EXIF/顯示一律用台灣時間 */
     foreach ($tmpNames as $i => $tmp) {
-        $taken = null;
+        $takenTs = null;
+        $takenAt = null;
         $source = null;
         if (is_string($tmp) && $tmp !== '' && is_file($tmp) && function_exists('exif_read_data')) {
             $ex = @exif_read_data($tmp);
             $raw = $ex['DateTimeOriginal'] ?? $ex['DateTime'] ?? null;
-            if ($raw) {
-                $t = strtotime(str_replace(':', '-', substr($raw, 0, 10)) . ' ' . substr($raw, 11, 8));
-                if ($t && $t <= $now + 300) { $taken = $t; $source = 'exif'; } /* 容許時鐘誤差5分鐘 */
+            if ($raw && preg_match('/^(\d{4})[\/:-](\d{2})[\/:-](\d{2})[ T](\d{2}:\d{2})(:(\d{2}))?$/', trim($raw), $m)) {
+                $dt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $m[1] . '-' . $m[2] . '-' . $m[3] . ' ' . $m[4] . ':' . ($m[6] ?? '00'), $tz);
+                if ($dt && $dt->getTimestamp() <= $now + 300) {
+                    $takenTs = $dt->getTimestamp();
+                    $takenAt = $dt->format('Y-m-d H:i:s');
+                    $source = 'exif';
+                }
             }
         }
         /* 有些手機/瀏覽器的相機管線會剝掉 EXIF → 用前端補送的時間(挑檔當下/檔案時間戳) */
-        if ($taken === null && $client && is_array($client)) {
+        if ($takenTs === null && $client && is_array($client)) {
             $c = $client[$i] ?? null;
             if (is_array($c)) {
-                if (!empty($c['last_modified']) && (int)$c['last_modified'] > 0) {
-                    $t = (int)floor(((int)$c['last_modified']) / 1000);
-                    if ($t > 0 && $t <= $now + 300) { $taken = $t; $source = 'file'; }
-                }
-                if ($taken === null && !empty($c['picked_at']) && (int)$c['picked_at'] > 0) {
-                    $t = (int)floor(((int)$c['picked_at']) / 1000);
-                    if ($t > 0 && $t <= $now + 300) { $taken = $t; $source = 'picked'; }
+                $ms = 0;
+                if (!empty($c['last_modified']) && (int)$c['last_modified'] > 0) $ms = (int)$c['last_modified'];
+                elseif (!empty($c['picked_at']) && (int)$c['picked_at'] > 0) { $ms = (int)$c['picked_at']; $source = 'picked'; }
+                if ($ms > 0) {
+                    $dt = (new DateTimeImmutable('@' . floor($ms / 1000)))->setTimezone($tz);
+                    if ($dt->getTimestamp() <= $now + 300) {
+                        $takenTs = $dt->getTimestamp();
+                        $takenAt = $dt->format('Y-m-d H:i:s');
+                        if ($source === null) $source = 'file';
+                    }
                 }
             }
         }
-        if ($taken === null) {
+        if ($takenTs === null) {
             $out[] = ['taken_at' => null, 'age_min' => null, 'flag' => 'unknown'];
             continue;
         }
-        $age = max(0, (int)round(($now - $taken) / 60));
+        $age = max(0, (int)round(($now - $takenTs) / 60));
         $out[] = [
-            'taken_at' => date('Y-m-d H:i:s', $taken),
+            'taken_at' => $takenAt,
             'age_min' => $age,
             'flag' => $age <= 15 ? 'live' : ($age <= 120 ? 'recent' : 'stale'),
             'source' => $source,

@@ -62,9 +62,11 @@
         let badge = '';
         try {
           const m = r.photo_meta && typeof r.photo_meta === 'object' ? (r.photo_meta[metaName] || null) : null;
-          if (m && m.flag === 'live') badge = '✅ 現場即時拍攝';
-          else if (m && m.flag === 'recent') badge = '🟡 ' + Number(m.age_min) + ' 分鐘前拍攝';
-          else if (m && m.flag === 'stale') { const h = Math.floor(m.age_min / 60); badge = '⚠️ 疑似舊照(' + (h >= 48 ? Math.floor(h / 24) + ' 天前' : h + ' 小時前') + '拍攝)'; }
+          const tm = m && m.taken_at ? String(m.taken_at).match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/) : null;
+          const tstr = tm ? (Number(tm[2]) + '/' + Number(tm[3]) + ' ' + tm[4] + ':' + tm[5]) : '';
+          if (m && m.flag === 'live') badge = '✅ 現場即時拍攝' + (tstr ? '(' + tstr + ')' : '');
+          else if (m && m.flag === 'recent') badge = '🟡 ' + Number(m.age_min) + ' 分鐘前拍攝' + (tstr ? '(' + tstr + ')' : '');
+          else if (m && m.flag === 'stale') badge = '⚠️ 疑似舊照(' + (tstr ? tstr + ' 拍攝' : Number(m.age_min) + ' 分鐘前') + ')';
           else if (m) badge = '❔ 無拍攝時間資訊';
         } catch (e) { badge = ''; }
         const photo = r.electric_photo

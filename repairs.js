@@ -17,10 +17,12 @@
     if (meta && typeof meta === 'object') m = meta[name] || null;
     if (!m && meta && typeof meta === 'string') { try { m = (JSON.parse(meta) || {})[name] || null; } catch (e) { m = null; } }
     if (!m) return '';
+    const tm = m.taken_at ? String(m.taken_at).match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/) : null;
+    const tstr = tm ? (Number(tm[2]) + '/' + Number(tm[3]) + ' ' + tm[4] + ':' + tm[5]) : '';
     let label;
-    if (m.flag === 'live') label = '✅ 現場即時拍攝';
-    else if (m.flag === 'recent') label = '🟡 ' + Number(m.age_min) + ' 分鐘前拍攝';
-    else if (m.flag === 'stale') { const h = Math.floor(m.age_min / 60); label = '⚠️ 疑似舊照(' + (h >= 48 ? Math.floor(h / 24) + ' 天前' : h + ' 小時前') + '拍攝)'; }
+    if (m.flag === 'live') label = '✅ 現場即時拍攝' + (tstr ? '(' + tstr + ')' : '');
+    else if (m.flag === 'recent') label = '🟡 ' + Number(m.age_min) + ' 分鐘前拍攝' + (tstr ? '(' + tstr + ')' : '');
+    else if (m.flag === 'stale') label = '⚠️ 疑似舊照(' + (tstr ? tstr + ' 拍攝' : Number(m.age_min) + ' 分鐘前') + ')';
     else label = '❔ 無拍攝時間資訊';
     return '<div style="font-size:10.5px;color:var(--brown2);margin-top:2px;text-align:left">' + label + '</div>';
   }
