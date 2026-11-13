@@ -254,6 +254,8 @@
     }).join('');
     listEl.querySelectorAll('.repair-row').forEach(row => {
       row.addEventListener('click', () => toggleDetail(row, Number(row.dataset.id)));
+      const pd = row.querySelector('.bdetail');
+      if (pd) pd.addEventListener('click', (e) => e.stopPropagation());
     });
     listEl.querySelectorAll('[data-full]').forEach(t => {
       t.addEventListener('click', (e) => {
@@ -317,6 +319,9 @@
       : '';
     const btns = [];
     const amIWorker = (cache.my_role === 'vendor') && Number(r.vendor_user_id) === Number(cache.my_id);
+    if ((Number(r.created_by) === Number(cache.my_id || 0) || cm || amIWorker) && r.status !== 'cancelled') {
+      btns.push('<button type="button" class="mini-btn line act-addphoto" data-id="' + r.id + '">📷 補充照片(補拍後續狀況)</button>');
+    }
     if (cm && r.status === 'pending') {
       btns.push('<button type="button" class="mini-btn act-assign" data-id="' + r.id + '">🧰 派工給廠商</button>');
       btns.push('<button type="button" class="mini-btn line act-cancel" data-id="' + r.id + '">取消報修</button>');
@@ -380,9 +385,14 @@
       photoHtml + quoteHtml + vendorHtml + solutionHtml + marketHtml + payReqHtml(cm, r, amIWorker) +
       (btns.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' + btns.join('') + '</div>' : '') +
       '</div>';
-    panel.querySelectorAll('.act-start, .act-assign, .act-approve, .act-reject, .act-charge-bill, .act-charge-cash, .act-charge-none, .act-pay-vendor, .act-doc-charge, .act-cancel, .act-award, .act-send, .act-broadcast, .act-bill, .act-complete-bill').forEach(b => {
+    panel.querySelectorAll('.act-start, .act-assign, .act-approve, .act-reject, .act-charge-bill, .act-charge-cash, .act-charge-none, .act-pay-vendor, .act-doc-charge, .act-cancel, .act-award, .act-send, .act-broadcast, .act-bill, .act-complete-bill, .act-addphoto').forEach(b => {
       b.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (b.classList.contains('act-addphoto')) {
+          photoAddTarget = Number(b.dataset.id);
+          addPhotoInput.click();
+          return;
+        }
         if (b.classList.contains('act-award')) {
           if (confirm('確認選此廠商得標?其他未得標廠商將收到通知,報修進入施工流程。')) act({ action: 'award_lead', lead_id: Number(b.dataset.lead) });
           return;
@@ -664,13 +674,17 @@
   document.body.appendChild(photoInput);
   photoBox.addEventListener('click', () => photoInput.click());
   photoInput.addEventListener('change', () => {
-    const f = photoInput.files && photoInput.files[0];
-    if (!f) return;
-    if (photoFiles.length >= 3) { showToast('照片最多 3 張'); return; }
-    photoFiles.push(f);
-    photoMetaList.push({ last_modified: f.lastModified || Date.now(), picked_at: Date.now() });
+    const fs = Array.from(photoInput.files || []);
     photoInput.value = '';
-    renderPreviews();
+    if (!fs.length) return;
+    let added = 0;
+    for (const f of fs) {
+      if (photoFiles.length >= 3) { showToast('照片最多 3 張'); break; }
+      photoFiles.push(f);
+      photoMetaList.push({ last_modified: f.lastModified || Date.now(), picked_at: Date.now() });
+      added++;
+    }
+    if (added) renderPreviews();
   });
   function renderPreviews() {
     $('#r_previews').innerHTML = photoFiles.map((f, i) =>
@@ -789,6 +803,34 @@
   });
 
   let completeWork = null;
+  let photoAddTarget = null;
+  const addPhotoInput = document.createElement('input');
+  addPhotoInput.type = 'file';
+  addPhotoInput.accept = 'image/*';
+  addPhotoInput.setAttribute('capture', 'environment');
+  addPhotoInput.multiple = true;
+  addPhotoInput.style.display = 'none';
+  document.body.appendChild(addPhotoInput);
+  addPhotoInput.addEventListener('change', async () => {
+    const files = Array.from(addPhotoInput.files || []).slice(0, 3);
+    addPhotoInput.value = '';
+    if (!files.length || !photoAddTarget) return;
+    const rid = photoAddTarget;
+    photoAddTarget = null;
+    const fd = new FormData();
+    fd.append('action', 'add_photos');
+    fd.append('repair_id', String(rid));
+    const metaList = [];
+    files.forEach(f => { fd.append('photos[]', f); metaList.push({ last_modified: f.lastModified || Date.now(), picked_at: Date.now() }); });
+    fd.append('photos_meta', JSON.stringify(metaList));
+    showToast('上傳中…');
+    try {
+      const res = await fetch('api/repairs.php', { method: 'POST', body: fd });
+      const d = await res.json();
+      showToast(d.message);
+      if (d.ok) load(true);
+    } catch (e) { showToast('連線異常'); }
+  });
   const completeInput = document.createElement('input');
   completeInput.type = 'file';
   completeInput.accept = 'image/*';

@@ -526,6 +526,39 @@ if (!$isVendor) {
 }
 $isVendorOfTicket = $isVendor && (int)($r['vendor_user_id'] ?? 0) === $userId;
 
+/* 補充照片:報修人/管理方/承接廠商,發送後可補拍後續狀況 */
+if ($action === 'add_photos') {
+    if (!$isCreator && !$canManage && !$isVendorOfTicket) respond(false, '無權限補充照片');
+    if (in_array($r['status'], ['cancelled'], true)) respond(false, '此工單已取消,無法補充照片');
+    if (empty($_FILES['photos'])) respond(false, '請選擇照片');
+    $photos = $r['photos'] ? (json_decode($r['photos'], true) ?: []) : [];
+    $metaMap = !empty($r['photo_meta']) ? (json_decode($r['photo_meta'], true) ?: []) : [];
+    $files = $_FILES['photos'];
+    $clientAdd = json_decode($in['photos_meta'] ?? 'null', true);
+    $dir = UPLOAD_DIR . '/repairs/' . (int)$r['property_id'];
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) respond(false, '伺服器無法建立目錄');
+    $n = min(count($files['name']), 3);
+    $added = 0;
+    for ($i = 0; $i < $n; $i++) {
+        if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
+        if (count($photos) >= 6) { respond(false, '照片總數最多 6 張'); }
+        $ext = strtolower(pathinfo((string)$files['name'][$i], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) continue;
+        if ((int)$files['size'][$i] <= 0 || (int)$files['size'][$i] > UPLOAD_MAX_BYTES) continue;
+        $name = bin2hex(random_bytes(16)) . '.' . $ext;
+        if (move_uploaded_file($files['tmp_name'][$i], $dir . '/' . $name)) {
+            $photos[] = 'repairs/' . (int)$r['property_id'] . '/' . $name;
+            $c = (is_array($clientAdd) && isset($clientAdd[$i])) ? [$clientAdd[$i]] : null;
+            $metaMap[$name] = photo_capture_meta([$files['tmp_name'][$i]], $c)[0];
+            $added++;
+        }
+    }
+    if (!$added) respond(false, '照片格式僅限 JPG/PNG/WEBP,且小於 5MB');
+    $pdo->prepare('UPDATE repairs SET photos = ?, photo_meta = ? WHERE id = ?')
+        ->execute([json_encode($photos, JSON_UNESCAPED_SLASHES), json_encode($metaMap, JSON_UNESCAPED_SLASHES), $rid]);
+    respond(true, '已補充 ' . $added . ' 張照片');
+}
+
 $tenantUid = 0;
 if ($r['lease_id']) {
     $tenantStmt = $pdo->prepare('SELECT tenant_user_id FROM leases WHERE id = ?');
