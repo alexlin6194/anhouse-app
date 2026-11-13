@@ -257,6 +257,11 @@ if ($fCur === false || $fTotal === false) {
 }
 $rent = $rentRaw === '' ? 0 : (int)$rentRaw;
 $mgmtFee = $mgmtRaw === '' ? null : (int)$mgmtRaw;
+$waterFee = clean($in['water_fee'] ?? '') === '' ? null : (int)clean($in['water_fee'] ?? '');
+$parkingFee = clean($in['parking_fee'] ?? '') === '' ? null : (int)clean($in['parking_fee'] ?? '');
+$cleaningFee = clean($in['cleaning_fee'] ?? '') === '' ? null : (int)clean($in['cleaning_fee'] ?? '');
+$internetFee = clean($in['internet_fee'] ?? '') === '' ? null : (int)clean($in['internet_fee'] ?? '');
+$cableFee = clean($in['cable_fee'] ?? '') === '' ? null : (int)clean($in['cable_fee'] ?? '');
 $erateRaw = clean($in['elec_rate'] ?? '');
 $elecRate = $erateRaw === '' ? null : round((float)$erateRaw, 2);
 if ($elecRate !== null && ($elecRate < 0 || $elecRate > 99)) {
@@ -293,12 +298,18 @@ if ($agentRel && !(int)$agentRel['can_edit_price']) {
     $rent = (int)$prop['rent'];
     $salePrice = (int)$prop['sale_price'];
     $deposit = (int)$prop['deposit'];
-    $mgmtFee = (int)$prop['mgmt_fee'];
+    $mgmtFee = $prop['mgmt_fee'] == null ? null : (int)$prop['mgmt_fee'];
+    $waterFee = $prop['water_fee'] == null ? null : (int)$prop['water_fee'];
+    $parkingFee = $prop['parking_fee'] == null ? null : (int)$prop['parking_fee'];
+    $cleaningFee = $prop['cleaning_fee'] == null ? null : (int)$prop['cleaning_fee'];
+    $internetFee = $prop['internet_fee'] == null ? null : (int)$prop['internet_fee'];
+    $cableFee = $prop['cable_fee'] == null ? null : (int)$prop['cable_fee'];
 }
 
 $pdo->prepare('UPDATE properties SET title = ?, city = ?, district = ?, address = ?, listing_type = ?, property_type = ?,
     layout_rooms = ?, layout_living = ?, layout_bath = ?, area_ping = ?, floor_current = ?, floor_total = ?,
     rent = ?, mgmt_fee = ?, elec_rate = ?, min_lease = ?, legal_use = ?, deposit = ?, sale_price = ?, parking = ?, pet_friendly = ?, cooking_allowed = ?, gender_limit = ?,
+    water_fee = ?, parking_fee = ?, cleaning_fee = ?, internet_fee = ?, cable_fee = ?,
     available_date = ?, facilities = ?, status = ?, note = ?
     WHERE id = ?')->execute([
     $title,
@@ -308,6 +319,7 @@ $pdo->prepare('UPDATE properties SET title = ?, city = ?, district = ?, address 
     $roomsN, $livingN, $bathN, $areaF, $fCur, $fTotal,
     $listingType === 'rental' ? $rent : 0, $mgmtFee, $elecRate, $minLease !== '' ? $minLease : null, $legalUse !== '' ? $legalUse : null, $deposit, $salePrice,
     $parking, $pet, $cook, $gender,
+    $listingType === 'rental' ? $waterFee : null, $listingType === 'rental' ? $parkingFee : null, $listingType === 'rental' ? $cleaningFee : null, $listingType === 'rental' ? $internetFee : null, $listingType === 'rental' ? $cableFee : null,
     $available !== '' ? $available : null,
     $facilities !== '' ? $facilities : null,
     $status, $note !== '' ? $note : null,

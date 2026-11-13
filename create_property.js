@@ -49,7 +49,7 @@
       const isSale = listingType === 'sale';
       $('#rentWrap').style.display = isSale ? 'none' : '';
       $('#depositWrap').style.display = isSale ? 'none' : '';
-      $('#mgmtWrap').style.display = isSale ? 'none' : '';
+      ['mgmtWrap','waterWrap','pfeeWrap','cfeeWrap','ifeeWrap','cableWrap'].forEach(id => { $('#' + id).style.display = isSale ? 'none' : ''; });
       $('#erateWrap').style.display = isSale ? 'none' : '';
       $('#erate').disabled = $('.mode-opt.on') && $('.mode-opt.on').dataset.mode === 'taipower';
       if ($('#erate').disabled) $('#erate').value = '';
@@ -153,6 +153,11 @@
     fd.append('deposit', isSale ? '' : num($('#deposit').value));
     fd.append('sale_price', isSale ? num($('#sale').value) : '');
     fd.append('mgmt_fee', isSale ? '' : num($('#mgmt').value));
+    fd.append('water_fee', isSale ? '' : num($('#water').value));
+    fd.append('parking_fee', isSale ? '' : num($('#pfee').value));
+    fd.append('cleaning_fee', isSale ? '' : num($('#cfee').value));
+    fd.append('internet_fee', isSale ? '' : num($('#ifee').value));
+    fd.append('cable_fee', isSale ? '' : num($('#cable').value));
     fd.append('elec_rate', isSale ? '' : $('#erate').value.trim());
     fd.append('elec_mode', (document.querySelector('.mode-opt.on') || {}).dataset ? ((document.querySelector('.mode-opt.on') || {}).dataset.mode || 'flat') : 'flat');
     fd.append('min_lease', isSale ? '' : $('#minlease').value);

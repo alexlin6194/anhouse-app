@@ -56,6 +56,13 @@
     const priceLine = p.listing_type === 'sale'
       ? '售價 NT$' + money(p.sale_price) + '元'
       : '月租 NT$' + money(p.rent) + '元' + (p.mgmt_fee ? '|管理費 NT$' + money(p.mgmt_fee) + '元' : '') + (p.deposit ? '|押金 NT$' + money(p.deposit) + '元' : '');
+    const feeParts = [];
+    if (Number(p.water_fee) > 0) feeParts.push('水費 ' + money(p.water_fee) + '元/月');
+    if (Number(p.parking_fee) > 0) feeParts.push('車位費 ' + money(p.parking_fee) + '元/月');
+    if (Number(p.cleaning_fee) > 0) feeParts.push('清潔費 ' + money(p.cleaning_fee) + '元/月');
+    if (Number(p.internet_fee) > 0) feeParts.push('網路費 ' + money(p.internet_fee) + '元/月');
+    if (Number(p.cable_fee) > 0) feeParts.push('第四台 ' + money(p.cable_fee) + '元/月');
+    const feeLine = feeParts.length ? '<p style="font-size:12.5px;color:var(--brown2);margin:2px">💰 另計:' + feeParts.join('|') + '</p>' : '';
     const loc = [p.city, p.district, p.address].filter(Boolean).join('');
 
     let stateHtml = '';
@@ -134,6 +141,7 @@
       '<div style="display:flex;align-items:flex-start;gap:10px"><h3 style="margin:0;font-size:19px;color:var(--brown)">' + esc(p.title) + '</h3></div>' +
       stateHtml +
       '<p style="font-size:14px;color:var(--brown);margin:6px 2px"><b>' + priceLine + '</b></p>' +
+      feeLine +
       (loc ? '<p style="font-size:13px;color:var(--brown2);margin:2px">📍' + esc(loc) + '</p>' : '') +
       '<div style="margin:10px 2px"><a class="btn line" href="life.html?property_id=' + p.id + '" style="text-decoration:none;display:block;text-align:center">📍 生活圈(周邊 5 公里:食衣住行/醫院/學校/娛樂)</a></div>' +
       '<div class="kv">' + chips.join('') + '</div>' +

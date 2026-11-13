@@ -121,6 +121,11 @@
     $('#f_floortotal').value = p.floor_total == null ? '' : p.floor_total;
     $('#f_rent').value = p.rent ? p.rent : '';
     $('#f_mgmt').value = p.mgmt_fee == null ? '' : p.mgmt_fee;
+    $('#f_water').value = p.water_fee == null ? '' : p.water_fee;
+    $('#f_pfee').value = p.parking_fee == null ? '' : p.parking_fee;
+    $('#f_cfee').value = p.cleaning_fee == null ? '' : p.cleaning_fee;
+    $('#f_ifee').value = p.internet_fee == null ? '' : p.internet_fee;
+    $('#f_cable').value = p.cable_fee == null ? '' : p.cable_fee;
     $('#f_rate').value = p.elec_rate == null ? '' : p.elec_rate;
     document.querySelectorAll('#editBox .mode-opt').forEach(b => {
       const on = (p.elec_mode || 'flat') === b.dataset.mode;
@@ -331,6 +336,11 @@
       deposit: isSale ? '' : num($('#f_deposit').value),
       sale_price: isSale ? num($('#f_sale').value) : '',
       mgmt_fee: isSale ? '' : num($('#f_mgmt').value),
+      water_fee: isSale ? '' : num($('#f_water').value),
+      parking_fee: isSale ? '' : num($('#f_pfee').value),
+      cleaning_fee: isSale ? '' : num($('#f_cfee').value),
+      internet_fee: isSale ? '' : num($('#f_ifee').value),
+      cable_fee: isSale ? '' : num($('#f_cable').value),
       elec_rate: isSale ? '' : $('#f_rate').value.trim(),
       elec_mode: isSale ? 'flat' : ((document.querySelector('#editBox .mode-opt.on') || {}).dataset ? ((document.querySelector('#editBox .mode-opt.on') || {}).dataset.mode || 'flat') : 'flat'),
       min_lease: isSale ? '' : $('#f_minlease').value,

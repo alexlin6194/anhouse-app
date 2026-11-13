@@ -91,6 +91,17 @@ if ($fCur === false || $fTotal === false) {
 }
 $rent = $rentRaw === '' ? 0 : (int)$rentRaw;
 $mgmtFee = $mgmtRaw === '' ? null : (int)$mgmtRaw;
+$intOrNullFee = function (string $v): ?int {
+    $v = trim($v);
+    if ($v === '') return null;
+    $n = (int)$v;
+    return ($n >= 0 && $n <= 999999) ? $n : null;
+};
+$waterFee = $intOrNullFee(clean($in['water_fee'] ?? ''));
+$parkingFee = $intOrNullFee(clean($in['parking_fee'] ?? ''));
+$cleaningFee = $intOrNullFee(clean($in['cleaning_fee'] ?? ''));
+$internetFee = $intOrNullFee(clean($in['internet_fee'] ?? ''));
+$cableFee = $intOrNullFee(clean($in['cable_fee'] ?? ''));
 $erateRaw = clean($in['elec_rate'] ?? '');
 $elecRate = $erateRaw === '' ? null : round((float)$erateRaw, 2);
 if ($elecRate !== null && ($elecRate < 0 || $elecRate > 99)) {
@@ -152,8 +163,8 @@ if (!$mem && $forOrg > 0) {
     $orgId = (int)$mem['org_id'];
 }
 
-$stmt = $pdo->prepare('INSERT INTO properties (org_id, listing_type, created_by, title, city, district, address, property_type, layout_rooms, layout_living, layout_bath, area_ping, floor_current, floor_total, rent, mgmt_fee, elec_rate, elec_mode, min_lease, legal_use, deposit, sale_price, parking, pet_friendly, cooking_allowed, gender_limit, available_date, facilities, status, note, pending_manager_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+$stmt = $pdo->prepare('INSERT INTO properties (org_id, listing_type, created_by, title, city, district, address, property_type, layout_rooms, layout_living, layout_bath, area_ping, floor_current, floor_total, rent, mgmt_fee, elec_rate, elec_mode, min_lease, legal_use, deposit, sale_price, parking, pet_friendly, cooking_allowed, gender_limit, water_fee, parking_fee, cleaning_fee, internet_fee, cable_fee, available_date, facilities, status, note, pending_manager_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 $stmt->execute([
     $orgId, $listingType, $userId, $title,
     $city !== '' ? $city : null, $district !== '' ? $district : null,
@@ -162,6 +173,7 @@ $stmt->execute([
     $roomsN, $livingN, $bathN, $areaF, $fCur, $fTotal,
     $listingType === 'rental' ? $rent : 0, $mgmtFee, $elecRate, $elecMode, $minLease !== '' ? $minLease : null, $legalUse !== '' ? $legalUse : null, $deposit, $salePrice,
     $parking, $pet, $cook, $gender,
+    $listingType === 'rental' ? $waterFee : null, $listingType === 'rental' ? $parkingFee : null, $listingType === 'rental' ? $cleaningFee : null, $listingType === 'rental' ? $internetFee : null, $listingType === 'rental' ? $cableFee : null,
     $available !== '' ? $available : null,
     $facilities !== '' ? $facilities : null,
     $status, $note !== '' ? $note : null,
