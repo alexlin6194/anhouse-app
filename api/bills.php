@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/photo_meta.php';
 require_once __DIR__ . '/../includes/notify.php';
 require_once __DIR__ . '/../includes/billing.php';
 
@@ -118,8 +119,10 @@ if ($action === 'pay_proof') {
     if (!move_uploaded_file($_FILES['photo']['tmp_name'], $dir . '/' . $name)) {
         respond(false, '上傳失敗,請稍後再試');
     }
-    $pdo->prepare("UPDATE bills SET status = 'paid', paid_at = NOW(), paid_proof = 'proofs/" . $name . "', paid_by = 'tenant' WHERE id = ?")
-        ->execute([$billId]);
+    $proofMeta = !empty($bill['photo_meta']) ? (json_decode($bill['photo_meta'], true) ?: []) : [];
+    $proofMeta[$name] = photo_capture_meta([$_FILES['photo']['tmp_name']])[0];
+    $pdo->prepare("UPDATE bills SET status = 'paid', paid_at = NOW(), paid_proof = 'proofs/" . $name . "', paid_by = 'tenant', photo_meta = ? WHERE id = ?")
+        ->execute([json_encode($proofMeta, JSON_UNESCAPED_SLASHES), $billId]);
     $who = [];
     if ($myOrgId > 0) {
         $o = $pdo->prepare('SELECT owner_user_id FROM organizations WHERE id = ?');
@@ -249,13 +252,16 @@ if ($action === 'set_electric') {
     if (!move_uploaded_file($_FILES['photo']['tmp_name'], $dir . '/' . $name)) {
         respond(false, '照片儲存失敗,請稍後再試');
     }
+    $meterMeta = !empty($bill['photo_meta']) ? (json_decode($bill['photo_meta'], true) ?: []) : [];
+    $meterMeta[$name] = photo_capture_meta([$_FILES['photo']['tmp_name']])[0];
+    $meterMetaJson = json_encode($meterMeta, JSON_UNESCAPED_SLASHES);
     $rent = (int)($bill['rent_amount'] ?? 0);
     $mgmt = (int)($bill['mgmt_amount'] ?? 0);
     $park = (int)($bill['parking_amount'] ?? 0);
     $misc = (int)($bill['misc_amount'] ?? 0);
     $total = $rent + $mgmt + $park + $misc + $amount;
-    $pdo->prepare('UPDATE bills SET electric_amount = ?, meter_reading = ?, amount = ?, electric_photo = ? WHERE id = ?')
-        ->execute([$amount, $meterReading, $total, 'meters/' . $name, $billId]);
+    $pdo->prepare('UPDATE bills SET electric_amount = ?, meter_reading = ?, amount = ?, electric_photo = ?, photo_meta = ? WHERE id = ?')
+        ->execute([$amount, $meterReading, $total, 'meters/' . $name, $meterMetaJson, $billId]);
     if ($bill['lease_id'] && $bill['status'] === 'pending') {
         $t = $pdo->prepare('SELECT tenant_user_id FROM leases WHERE id = ?');
         $t->execute([(int)$bill['lease_id']]);

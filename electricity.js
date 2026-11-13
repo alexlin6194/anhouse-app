@@ -58,8 +58,18 @@
           ? '<div style="background:rgba(200,155,107,.1);border-radius:10px;padding:8px 12px;margin-top:6px;font-size:12.5px;line-height:1.8">' +
             '📐 ' + formulaText(r, prop) + '</div>'
           : '<div style="font-size:12.5px;color:var(--brown2);margin-top:6px">電費(待抄錄):房東/管理員將於繳租日前抄錄電錶,金額自動更新</div>';
+        const metaName = r.electric_photo ? String(r.electric_photo).split('/').pop() : '';
+        let badge = '';
+        try {
+          const m = r.photo_meta && typeof r.photo_meta === 'object' ? (r.photo_meta[metaName] || null) : null;
+          if (m && m.flag === 'live') badge = '✅ 現場即時拍攝';
+          else if (m && m.flag === 'recent') badge = '🟡 ' + Number(m.age_min) + ' 分鐘前拍攝';
+          else if (m && m.flag === 'stale') { const h = Math.floor(m.age_min / 60); badge = '⚠️ 疑似舊照(' + (h >= 48 ? Math.floor(h / 24) + ' 天前' : h + ' 小時前') + '拍攝)'; }
+          else if (m) badge = '❔ 無拍攝時間資訊';
+        } catch (e) { badge = ''; }
         const photo = r.electric_photo
-          ? '<img src="uploads/' + esc(r.electric_photo) + '" data-full="uploads/' + esc(r.electric_photo) + '" alt="電錶照片" style="width:72px;height:72px;object-fit:cover;border-radius:10px;border:1.5px solid var(--beige2);cursor:zoom-in;margin-top:8px">'
+          ? '<div style="max-width:72px;margin-top:8px"><img src="uploads/' + esc(r.electric_photo) + '" data-full="uploads/' + esc(r.electric_photo) + '" alt="電錶照片" style="width:72px;height:72px;object-fit:cover;border-radius:10px;border:1.5px solid var(--beige2);cursor:zoom-in">' +
+            (badge ? '<div style="font-size:10.5px;color:var(--brown2);margin-top:2px">' + badge + '</div>' : '') + '</div>'
           : '';
         return '<div class="lrow">' +
           '<div class="ltop"><div class="linfo">' +

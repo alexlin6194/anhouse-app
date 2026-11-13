@@ -45,7 +45,7 @@
           </div>
           <div id="billPhotosWrap">
             <label style="font-size:13px">施工照片(選填,最多 3 張)</label>
-            <input type="file" id="billPhotos" accept="image/*" multiple style="margin:4px 0 12px;font-size:13px">
+            <input type="file" id="billPhotos" accept="image/*" capture="environment" multiple style="margin:4px 0 12px;font-size:13px">
             <div id="billPhotosPrev" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
           </div>
           <label style="font-size:13px">工款金額(元)*</label>
@@ -53,7 +53,7 @@
           <label style="font-size:13px">備註(選填)</label>
           <input type="text" id="billNote" maxlength="200" placeholder="例:熱水器更換零件工資" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--beige2);border-radius:10px;margin:4px 0 10px">
           <label style="font-size:13px">請款憑證照片(收據/發票,必傳)*</label>
-          <input type="file" id="billProof" accept="image/*" multiple style="margin:4px 0 12px;font-size:13px">
+          <input type="file" id="billProof" accept="image/*" capture="environment" multiple style="margin:4px 0 12px;font-size:13px">
           <div id="billProofPrev" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
           <div style="display:flex;gap:8px">
             <button type="button" class="mini-btn" id="billSubmit">送出請款</button>
@@ -117,7 +117,7 @@
 </div>
 <div class="toast" id="toast" role="status"></div>
 <script src="assets/js/lightbox.js?v=20261114u"></script>
-<script src="repairs.js?v=20261114v"></script>
+<script src="repairs.js?v=20261114w"></script>
 <script src="assets/js/notify.js?v=20261114g"></script>
 <script src="assets/js/tabbar.js?v=20261114g"></script>
 </body>

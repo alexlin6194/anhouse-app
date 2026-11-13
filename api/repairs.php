@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/photo_meta.php';
 require_once __DIR__ . '/../includes/notify.php';
 
 require_methods('GET', 'POST');
@@ -123,6 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     foreach ($list as &$r) {
         $r['photos'] = $r['photos'] ? (json_decode($r['photos'], true) ?: []) : [];
+        $r['photo_meta'] = !empty($r['photo_meta']) ? (json_decode($r['photo_meta'], true) ?: []) : [];
     }
     unset($r);
 
@@ -462,6 +464,7 @@ if ($action === 'create') {
     }
 
     $photos = [];
+    $photoMeta = [];
     if (!empty($_FILES['photos'])) {
         $files = $_FILES['photos'];
         $n = min(count($files['name']), 3);
@@ -477,15 +480,17 @@ if ($action === 'create') {
             $name = bin2hex(random_bytes(16)) . '.' . $ext;
             if (move_uploaded_file($files['tmp_name'][$i], $dir . '/' . $name)) {
                 $photos[] = 'repairs/' . $propertyId . '/' . $name;
+                $photoMeta[$name] = photo_capture_meta([$files['tmp_name'][$i]])[0];
             }
         }
     }
 
-    $pdo->prepare("INSERT INTO repairs (property_id, lease_id, created_by, category, urgency, description, photos)
-        VALUES (?, ?, ?, ?, ?, ?, ?)")
+    $pdo->prepare("INSERT INTO repairs (property_id, lease_id, created_by, category, urgency, description, photos, photo_meta)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
         ->execute([
             $propertyId, $leaseId, $userId, $category, $urgency,
             $description, $photos ? json_encode($photos, JSON_UNESCAPED_SLASHES) : null,
+            $photoMeta ? json_encode($photoMeta, JSON_UNESCAPED_SLASHES) : null,
         ]);
     $rid = (int)$pdo->lastInsertId();
 

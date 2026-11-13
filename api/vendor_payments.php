@@ -9,6 +9,7 @@ declare(strict_types=1);
    POST action=mock_confirm → 模擬付款結果(t, result)
 */
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/photo_meta.php';
 require_once __DIR__ . '/../includes/notify.php';
 
 require_methods('GET', 'POST');
@@ -39,9 +40,10 @@ function pay_repair(PDO $pdo, int $rid): ?array {
     $s->execute([$rid]);
     return $s->fetch() ?: null;
 }
-
-function pay_save_proofs(array $files, int $propertyId): array {
+function pay_save_proofs(array $files, int $propertyId): array
+{
     $out = [];
+    $meta = [];
     $dir = UPLOAD_DIR . '/repairs/' . $propertyId;
     if (!is_dir($dir)) mkdir($dir, 0755, true);
     $n = min(count($files['name']), 3);
@@ -51,9 +53,12 @@ function pay_save_proofs(array $files, int $propertyId): array {
         if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) continue;
         if ((int)$files['size'][$i] <= 0 || (int)$files['size'][$i] > UPLOAD_MAX_BYTES) continue;
         $name = bin2hex(random_bytes(16)) . '.' . $ext;
-        if (move_uploaded_file($files['tmp_name'][$i], $dir . '/' . $name)) $out[] = 'repairs/' . $propertyId . '/' . $name;
+        if (move_uploaded_file($files['tmp_name'][$i], $dir . '/' . $name)) {
+            $out[] = 'repairs/' . $propertyId . '/' . $name;
+            $meta[$name] = photo_capture_meta([$files['tmp_name'][$i]])[0];
+        }
     }
-    return $out;
+    return ['files' => $out, 'meta' => $meta];
 }
 
 $action = $_POST['action'] ?? '';
@@ -69,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     if ($isVendor) {
-        $s = $pdo->prepare('SELECT vp.id, vp.repair_id, vp.amount, vp.note, vp.proof, vp.status, vp.trade_no, vp.created_at, vp.paid_at, vp.remind_at,
+        $s = $pdo->prepare('SELECT vp.id, vp.repair_id, vp.amount, vp.note, vp.proof, vp.status, vp.trade_no, vp.created_at, vp.paid_at, vp.remind_at, vp.photo_meta,
                 p.title AS property_title, r.category, r.description
             FROM vendor_payments vp JOIN repairs r ON r.id=vp.repair_id JOIN properties p ON p.id=r.property_id
             WHERE vp.vendor_user_id=? ORDER BY vp.id DESC LIMIT 50');
@@ -84,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $items = [];
     if ($orgIds) {
         $in = implode(',', $orgIds);
-        $s = $pdo->query("SELECT vp.id, vp.repair_id, vp.amount, vp.note, vp.proof, vp.status, vp.trade_no, vp.created_at, vp.paid_at, vp.remind_at,
+        $s = $pdo->query("SELECT vp.id, vp.repair_id, vp.amount, vp.note, vp.proof, vp.status, vp.trade_no, vp.created_at, vp.paid_at, vp.remind_at, vp.photo_meta,
                 p.title AS property_title, r.category, r.description, u.name AS vendor_name, vp.vendor_user_id
             FROM vendor_payments vp JOIN repairs r ON r.id=vp.repair_id JOIN properties p ON p.id=r.property_id
             JOIN users u ON u.id=vp.vendor_user_id
@@ -110,6 +115,7 @@ if ($action === 'complete_bill') {
     if ((int)$open->fetchColumn() > 0) respond(false, '此工單已有請款進行中');
 
     $photos = $r['photos'] ? (json_decode($r['photos'], true) ?: []) : [];
+    $repMeta = !empty($r['photo_meta']) ? (json_decode($r['photo_meta'], true) ?: []) : [];
     if (!empty($_FILES['photos'])) {
         $dir = UPLOAD_DIR . '/repairs/' . (int)$r['property_id'];
         if (!is_dir($dir)) mkdir($dir, 0755, true);
@@ -121,7 +127,10 @@ if ($action === 'complete_bill') {
             if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) continue;
             if ((int)$files['size'][$i] <= 0 || (int)$files['size'][$i] > UPLOAD_MAX_BYTES) continue;
             $name = bin2hex(random_bytes(16)) . '.' . $ext;
-            if (move_uploaded_file($files['tmp_name'][$i], $dir . '/' . $name)) $photos[] = 'repairs/' . (int)$r['property_id'] . '/' . $name;
+            if (move_uploaded_file($files['tmp_name'][$i], $dir . '/' . $name)) {
+                $photos[] = 'repairs/' . (int)$r['property_id'] . '/' . $name;
+                $repMeta[$name] = photo_capture_meta([$files['tmp_name'][$i]])[0];
+            }
         }
     }
 
@@ -129,21 +138,23 @@ if ($action === 'complete_bill') {
     if (!in_array($r['status'], ['done', 'billed'], true)) {
         if (!in_array($r['status'], ['assigned', 'inspected', 'repairing'], true)) respond(false, '此單狀態無法完工');
         if (mb_strlen($solution) < 3) respond(false, '請填寫完工說明(至少 3 字)');
-        $pdo->prepare("UPDATE repairs SET status='done', solution=?, actual_amount=?, photos=? WHERE id=?")
-            ->execute([$solution, $amount, $photos ? json_encode($photos, JSON_UNESCAPED_SLASHES) : null, $rid]);
+        $pdo->prepare("UPDATE repairs SET status='done', solution=?, actual_amount=?, photos=?, photo_meta=? WHERE id=?")
+            ->execute([$solution, $amount, $photos ? json_encode($photos, JSON_UNESCAPED_SLASHES) : null, $repMeta ? json_encode($repMeta, JSON_UNESCAPED_SLASHES) : null, $rid]);
         $newlyDone = true;
     } else {
-        $pdo->prepare("UPDATE repairs SET photos=? WHERE id=?")
-            ->execute([$photos ? json_encode($photos, JSON_UNESCAPED_SLASHES) : null, $rid]);
+        $pdo->prepare("UPDATE repairs SET photos=?, photo_meta=? WHERE id=?")
+            ->execute([$photos ? json_encode($photos, JSON_UNESCAPED_SLASHES) : null, $repMeta ? json_encode($repMeta, JSON_UNESCAPED_SLASHES) : null, $rid]);
     }
 
-    $proofs = !empty($_FILES['proof']) ? pay_save_proofs($_FILES['proof'], (int)$r['property_id']) : [];
+    $pf = !empty($_FILES['proof']) ? pay_save_proofs($_FILES['proof'], (int)$r['property_id']) : ['files' => [], 'meta' => []];
+    $proofs = $pf['files'];
+    $proofMeta = $pf['meta'];
     if (!$proofs) respond(false, '請上傳請款憑證照片(收據/發票)');
 
     $trade = 'ANP' . date('YmdHis') . str_pad((string)random_int(0, 999), 3, '0', STR_PAD_LEFT);
-    $pdo->prepare("INSERT INTO vendor_payments (repair_id, vendor_user_id, payer_org_id, amount, note, proof, trade_no, method, created_at)
-        VALUES (?,?,?,?,?,?,?,?,'')")
-        ->execute([$rid, $meId, (int)$r['p_org_id'], $amount, $note, json_encode($proofs, JSON_UNESCAPED_SLASHES), $trade, NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
+    $pdo->prepare("INSERT INTO vendor_payments (repair_id, vendor_user_id, payer_org_id, amount, note, proof, photo_meta, trade_no, method, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,'')")
+        ->execute([$rid, $meId, (int)$r['p_org_id'], $amount, $note, json_encode($proofs, JSON_UNESCAPED_SLASHES), $proofMeta ? json_encode($proofMeta, JSON_UNESCAPED_SLASHES) : null, $trade, NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
 
     foreach (pay_payers($pdo, (int)$r['p_org_id']) as $uid) {
         notify($uid, 'pay_request', ($newlyDone ? '完工+請款|' : '廠商請款|') . $r['property_title'],
@@ -172,13 +183,15 @@ if ($action === 'request') {
     $open->execute([$rid]);
     if ((int)$open->fetchColumn() > 0) respond(false, '此工單已有請款進行中');
 
-    $proofs = !empty($_FILES['proof']) ? pay_save_proofs($_FILES['proof'], (int)$r['property_id']) : [];
+    $pf = !empty($_FILES['proof']) ? pay_save_proofs($_FILES['proof'], (int)$r['property_id']) : ['files' => [], 'meta' => []];
+    $proofs = $pf['files'];
+    $proofMeta = $pf['meta'];
     if (!$proofs) respond(false, '請上傳請款憑證照片(收據/發票)');
 
     $trade = 'ANP' . date('YmdHis') . str_pad((string)random_int(0, 999), 3, '0', STR_PAD_LEFT);
-    $pdo->prepare("INSERT INTO vendor_payments (repair_id, vendor_user_id, payer_org_id, amount, note, proof, trade_no, method, created_at)
-        VALUES (?,?,?,?,?,?,?,?,'') ")
-        ->execute([$rid, $meId, (int)$r['p_org_id'], $amount, $note, json_encode($proofs, JSON_UNESCAPED_SLASHES), $trade, NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
+    $pdo->prepare("INSERT INTO vendor_payments (repair_id, vendor_user_id, payer_org_id, amount, note, proof, photo_meta, trade_no, method, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,'') ")
+        ->execute([$rid, $meId, (int)$r['p_org_id'], $amount, $note, json_encode($proofs, JSON_UNESCAPED_SLASHES), $proofMeta ? json_encode($proofMeta, JSON_UNESCAPED_SLASHES) : null, $trade, NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
     foreach (pay_payers($pdo, (int)$r['p_org_id']) as $uid) {
         notify($uid, 'pay_request', '廠商請款|' . $r['property_title'],
             '「' . $r['property_title'] . '」' . $r['category'] . '工單#' . $rid . ',廠商請款 NT$' . number_format($amount) . '元' . ($note ? ':' . mb_substr($note, 0, 30) : '') . ',請查看憑證並付款。', $rid);

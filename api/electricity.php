@@ -72,7 +72,7 @@ if ($propId > 0 && (!$myLease || (int)$myLease['property_id'] !== $propId)) {
     }
 }
 
-$bStmt = $pdo->prepare("SELECT id, period, amount, rent_amount, electric_amount, meter_reading, due_date, status, electric_photo, paid_at
+$bStmt = $pdo->prepare("SELECT id, period, amount, rent_amount, electric_amount, meter_reading, due_date, status, electric_photo, photo_meta, paid_at
     FROM bills WHERE lease_id = ? AND status <> 'draft' ORDER BY period ASC LIMIT 60");
 $bStmt->execute([(int)$lease['id']]);
 $bills = $bStmt->fetchAll();
@@ -91,6 +91,7 @@ foreach ($bills as $b) {
         'usage' => $usage,
         'electric_amount' => $b['electric_amount'] !== null ? (int)$b['electric_amount'] : null,
         'electric_photo' => $b['electric_photo'],
+        'photo_meta' => $b['photo_meta'] ? (json_decode($b['photo_meta'], true) ?: null) : null,
         'paid_at' => $b['paid_at'],
         'summer' => is_summer_month((string)$b['due_date']),
         'breakdown' => ($usage !== null && ($lease['elec_mode'] === 'taipower') && $b['electric_amount'] !== null)

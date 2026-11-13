@@ -10,6 +10,20 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
   }
   const money = (n) => Number(n || 0).toLocaleString('zh-TW');
+
+  function photoMetaBadge(meta, url) {
+    const name = String(url || '').split('/').pop();
+    let m = null;
+    if (meta && typeof meta === 'object') m = meta[name] || null;
+    if (!m && meta && typeof meta === 'string') { try { m = (JSON.parse(meta) || {})[name] || null; } catch (e) { m = null; } }
+    if (!m) return '';
+    let label;
+    if (m.flag === 'live') label = '✅ 現場即時拍攝';
+    else if (m.flag === 'recent') label = '🟡 ' + Number(m.age_min) + ' 分鐘前拍攝';
+    else if (m.flag === 'stale') { const h = Math.floor(m.age_min / 60); label = '⚠️ 疑似舊照(' + (h >= 48 ? Math.floor(h / 24) + ' 天前' : h + ' 小時前') + '拍攝)'; }
+    else label = '❔ 無拍攝時間資訊';
+    return '<div style="font-size:10.5px;color:var(--brown2);margin-top:2px;text-align:left">' + label + '</div>';
+  }
   const dstr = (d) => d ? String(d).replace(/-/g, '/').replace('T', ' ').slice(0, 16) : '';
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -56,9 +70,10 @@
     if (cm && vp) {
       const ps = payState[vp.status] || { label: vp.status, cls: 'warn' };
       const proofs = vp.proof ? (JSON.parse(vp.proof) || []) : [];
+      const vpm = vp.photo_meta ? (typeof vp.photo_meta === 'string' ? (function () { try { return JSON.parse(vp.photo_meta); } catch (e) { return null; } })() : vp.photo_meta) : null;
       return '<div class="bd-sec">🧾 廠商請款</div><div style="font-size:12.5px;line-height:1.9">廠商請款 <b>NT$' + money(vp.amount) + '元</b>|' + ps.label +
         (vp.note ? '|備註:' + esc(vp.note) : '') +
-        (proofs.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">' + proofs.map(ph => '<img src="uploads/' + esc(ph) + '" data-full="uploads/' + esc(ph) + '" alt="請款憑證" style="width:84px;height:84px;object-fit:cover;border-radius:10px;border:1.5px solid var(--beige2);cursor:zoom-in">').join('') + '</div>' : '') +
+        (proofs.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">' + proofs.map(ph => '<div style="max-width:84px"><img src="uploads/' + esc(ph) + '" data-full="uploads/' + esc(ph) + '" alt="請款憑證" style="width:84px;height:84px;object-fit:cover;border-radius:10px;border:1.5px solid var(--beige2);cursor:zoom-in">' + photoMetaBadge(vpm, ph) + '</div>').join('') + '</div>' : '') +
         (vp.status !== 'paid' ? '<button type="button" class="mini-btn act-payonline" data-id="' + r.id + '">💳 藍新付款 NT$' + money(vp.amount) + '元</button>' : '') +
         '</div>';
     }
@@ -275,7 +290,7 @@
     const cm = canManageAny;
     const photoHtml = r.photos && r.photos.length
       ? '<div class="bd-sec">📸 現場照片</div><div style="display:flex;gap:8px;flex-wrap:wrap">' +
-        r.photos.map(ph => '<img src="uploads/' + esc(ph) + '" data-full="uploads/' + esc(ph) + '" alt="報修照片" style="width:96px;height:96px;object-fit:cover;border-radius:12px;border:1.5px solid var(--beige2);cursor:zoom-in">').join('') + '</div>'
+        r.photos.map(ph => '<div style="max-width:96px"><img src="uploads/' + esc(ph) + '" data-full="uploads/' + esc(ph) + '" alt="報修照片" style="width:96px;height:96px;object-fit:cover;border-radius:12px;border:1.5px solid var(--beige2);cursor:zoom-in">' + photoMetaBadge(r.photo_meta, ph) + '</div>').join('') + '</div>'
       : '';
     const solutionHtml = r.solution
       ? '<div class="bd-sec">✅ 完工說明</div><div style="font-size:12.5px;line-height:1.8">' + esc(r.solution) + '</div>'
@@ -634,6 +649,7 @@
   const photoInput = document.createElement('input');
   photoInput.type = 'file';
   photoInput.accept = 'image/*';
+  photoInput.setAttribute('capture', 'environment');
   photoInput.multiple = true;
   photoInput.style.display = 'none';
   document.body.appendChild(photoInput);
