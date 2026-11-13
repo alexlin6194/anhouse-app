@@ -13,6 +13,10 @@
 
   const typeNames = { whole_house: '整層住家', independent_suite: '獨立套房', shared_suite: '分租套房', studio: '雅房', apartment: '公寓', building: '電梯大樓', townhouse: '透天', other: '其他' };
 
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
   function layoutText(l) {
     if (l.layout_rooms === null && l.layout_living === null && l.layout_bath === null) return '';
     return (l.layout_rooms ?? '-') + '房' + (l.layout_living ?? '-') + '廳' + (l.layout_bath ?? '-') + '衛';
