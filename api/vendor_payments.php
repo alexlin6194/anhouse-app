@@ -40,7 +40,7 @@ function pay_repair(PDO $pdo, int $rid): ?array {
     $s->execute([$rid]);
     return $s->fetch() ?: null;
 }
-function pay_save_proofs(array $files, int $propertyId): array
+function pay_save_proofs(array $files, int $propertyId, ?array $client = null): array
 {
     $out = [];
     $meta = [];
@@ -55,7 +55,8 @@ function pay_save_proofs(array $files, int $propertyId): array
         $name = bin2hex(random_bytes(16)) . '.' . $ext;
         if (move_uploaded_file($files['tmp_name'][$i], $dir . '/' . $name)) {
             $out[] = 'repairs/' . $propertyId . '/' . $name;
-            $meta[$name] = photo_capture_meta([$files['tmp_name'][$i]])[0];
+            $c = (is_array($client) && isset($client[$i])) ? [$client[$i]] : null;
+            $meta[$name] = photo_capture_meta([$files['tmp_name'][$i]], $c)[0];
         }
     }
     return ['files' => $out, 'meta' => $meta];
@@ -116,6 +117,7 @@ if ($action === 'complete_bill') {
 
     $photos = $r['photos'] ? (json_decode($r['photos'], true) ?: []) : [];
     $repMeta = !empty($r['photo_meta']) ? (json_decode($r['photo_meta'], true) ?: []) : [];
+    $clientPhotos = json_decode($_POST['photos_meta'] ?? 'null', true);
     if (!empty($_FILES['photos'])) {
         $dir = UPLOAD_DIR . '/repairs/' . (int)$r['property_id'];
         if (!is_dir($dir)) mkdir($dir, 0755, true);
@@ -129,7 +131,8 @@ if ($action === 'complete_bill') {
             $name = bin2hex(random_bytes(16)) . '.' . $ext;
             if (move_uploaded_file($files['tmp_name'][$i], $dir . '/' . $name)) {
                 $photos[] = 'repairs/' . (int)$r['property_id'] . '/' . $name;
-                $repMeta[$name] = photo_capture_meta([$files['tmp_name'][$i]])[0];
+                $c = (is_array($clientPhotos) && isset($clientPhotos[$i])) ? [$clientPhotos[$i]] : null;
+                $repMeta[$name] = photo_capture_meta([$files['tmp_name'][$i]], $c)[0];
             }
         }
     }
@@ -146,7 +149,7 @@ if ($action === 'complete_bill') {
             ->execute([$photos ? json_encode($photos, JSON_UNESCAPED_SLASHES) : null, $repMeta ? json_encode($repMeta, JSON_UNESCAPED_SLASHES) : null, $rid]);
     }
 
-    $pf = !empty($_FILES['proof']) ? pay_save_proofs($_FILES['proof'], (int)$r['property_id']) : ['files' => [], 'meta' => []];
+    $pf = !empty($_FILES['proof']) ? pay_save_proofs($_FILES['proof'], (int)$r['property_id'], json_decode($_POST['proof_meta'] ?? 'null', true)) : ['files' => [], 'meta' => []];
     $proofs = $pf['files'];
     $proofMeta = $pf['meta'];
     if (!$proofs) respond(false, '請上傳請款憑證照片(收據/發票)');
@@ -183,7 +186,7 @@ if ($action === 'request') {
     $open->execute([$rid]);
     if ((int)$open->fetchColumn() > 0) respond(false, '此工單已有請款進行中');
 
-    $pf = !empty($_FILES['proof']) ? pay_save_proofs($_FILES['proof'], (int)$r['property_id']) : ['files' => [], 'meta' => []];
+    $pf = !empty($_FILES['proof']) ? pay_save_proofs($_FILES['proof'], (int)$r['property_id'], json_decode($_POST['proof_meta'] ?? 'null', true)) : ['files' => [], 'meta' => []];
     $proofs = $pf['files'];
     $proofMeta = $pf['meta'];
     if (!$proofs) respond(false, '請上傳請款憑證照片(收據/發票)');

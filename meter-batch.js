@@ -125,6 +125,8 @@
     row.mime = f.type || 'image/jpeg';
     row.fname = f.name || 'meter.jpg';
     row.blob = new Blob([buf], { type: row.mime });
+    row.lastModified = f.lastModified || Date.now();
+    row.pickedAt = Date.now();
     if (row.objUrl) URL.revokeObjectURL(row.objUrl);
     row.objUrl = URL.createObjectURL(row.blob);
     showToast('照片辨識中…');
@@ -157,6 +159,7 @@
     fd.append('bill_id', String(bid));
     fd.append('meter_reading', String(reading));
     fd.append('photo', row.blob, row.fname);
+    fd.append('photo_meta_client', JSON.stringify({ last_modified: row.lastModified || Date.now(), picked_at: row.pickedAt || Date.now() }));
     return fd;
   }
 

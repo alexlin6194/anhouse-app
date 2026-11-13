@@ -43,6 +43,7 @@
   let canManageAny = false;
   let urgent = 'normal';
   let photoFiles = [];
+  let photoMetaList = [];
 
   /* ── 工款請款/付款(藍新) ─────────────────── */
   let payItems = [];
@@ -50,6 +51,8 @@
   let billRepairId = 0;
   let billProofFiles = [];
   let billPhotoFiles = [];
+  let billProofMetaList = [];
+  let billPhotoMetaList = [];
   let billNeedComplete = false;
   const payState = { pending: { label: '待付', cls: 'warn' }, reminded: { label: '已催收', cls: 'warn' }, paid: { label: '已付', cls: 'ok' }, failed: { label: '付款失敗', cls: 'bad' } };
 
@@ -157,6 +160,8 @@
     billRepairId = repairId;
     billProofFiles = [];
     billPhotoFiles = [];
+    billProofMetaList = [];
+    billPhotoMetaList = [];
     billNeedComplete = !!needComplete;
     $('#billAmount').value = defaultAmount ? String(defaultAmount) : '';
     $('#billNote').value = '';
@@ -173,10 +178,12 @@
   function bindBillModal() {
     $('#billProof').addEventListener('change', () => {
       billProofFiles = Array.from($('#billProof').files || []).slice(0, 3);
+      billProofMetaList = billProofFiles.map(f => ({ last_modified: f.lastModified || Date.now(), picked_at: Date.now() }));
       $('#billProofPrev').innerHTML = billProofFiles.map(f => '<img src="' + URL.createObjectURL(f) + '" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1.5px solid var(--beige2)">').join('');
     });
     $('#billPhotos').addEventListener('change', () => {
       billPhotoFiles = Array.from($('#billPhotos').files || []).slice(0, 3);
+      billPhotoMetaList = billPhotoFiles.map(f => ({ last_modified: f.lastModified || Date.now(), picked_at: Date.now() }));
       $('#billPhotosPrev').innerHTML = billPhotoFiles.map(f => '<img src="' + URL.createObjectURL(f) + '" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1.5px solid var(--beige2)">').join('');
     });
     $('#billCancel').addEventListener('click', () => { $('#billModal').style.display = 'none'; });
@@ -197,6 +204,8 @@
       if (billNeedComplete) fd.append('solution', $('#billSolution').value);
       billProofFiles.forEach(f => fd.append('proof[]', f));
       billPhotoFiles.forEach(f => fd.append('photos[]', f));
+      fd.append('proof_meta', JSON.stringify(billProofMetaList));
+      fd.append('photos_meta', JSON.stringify(billPhotoMetaList));
       const btn = $('#billSubmit');
       btn.disabled = true;
       try {
@@ -659,6 +668,7 @@
     if (!f) return;
     if (photoFiles.length >= 3) { showToast('照片最多 3 張'); return; }
     photoFiles.push(f);
+    photoMetaList.push({ last_modified: f.lastModified || Date.now(), picked_at: Date.now() });
     photoInput.value = '';
     renderPreviews();
   });
@@ -666,7 +676,7 @@
     $('#r_previews').innerHTML = photoFiles.map((f, i) =>
       '<span class="mini-thumb" style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--brown2);background:var(--cream2);cursor:pointer" data-i="' + i + '">✕ 圖' + (i + 1) + '</span>').join('');
     $('#r_previews').querySelectorAll('.mini-thumb').forEach(t => {
-      t.addEventListener('click', () => { photoFiles.splice(Number(t.dataset.i), 1); renderPreviews(); });
+      t.addEventListener('click', () => { photoFiles.splice(Number(t.dataset.i), 1); photoMetaList.splice(Number(t.dataset.i), 1); renderPreviews(); });
     });
   }
 
@@ -790,13 +800,16 @@
     if (!work) return;
     completeWork = null;
     const files = completeInput.files || [];
+    const metaList = [];
     for (const f of files) {
       if (!f) continue;
+      metaList.push({ last_modified: f.lastModified || Date.now(), picked_at: Date.now() });
       try {
         const buf = await f.arrayBuffer();
         work.fd.append('photos[]', new Blob([buf], { type: f.type || 'image/jpeg' }), f.name || 'photo.jpg');
       } catch (e) { /* 跳過壞檔 */ }
     }
+    work.fd.append('photos_meta', JSON.stringify(metaList));
     completeInput.value = '';
     showToast('上傳中…');
     try {
@@ -833,6 +846,7 @@
     fd.append('urgency', urgent);
     fd.append('description', desc);
     photoFiles.forEach((f, i) => fd.append('photos[]', f));
+    fd.append('photos_meta', JSON.stringify(photoMetaList));
     const btn = $('#r_sendBtn');
     btn.disabled = true;
     try {
@@ -842,6 +856,7 @@
       if (d.ok) {
         $('#r_desc').value = '';
         photoFiles = [];
+        photoMetaList = [];
         renderPreviews();
         $('#repairForm').style.display = 'none';
         $('#newRepairBtn').style.display = '';

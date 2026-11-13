@@ -120,7 +120,8 @@ if ($action === 'pay_proof') {
         respond(false, '上傳失敗,請稍後再試');
     }
     $proofMeta = !empty($bill['photo_meta']) ? (json_decode($bill['photo_meta'], true) ?: []) : [];
-    $proofMeta[$name] = photo_capture_meta([$_FILES['photo']['tmp_name']])[0];
+    $clientPay = json_decode($_POST['pay_meta'] ?? 'null', true);
+    $proofMeta[$name] = photo_capture_meta([$_FILES['photo']['tmp_name']], is_array($clientPay) ? [$clientPay] : null)[0];
     $pdo->prepare("UPDATE bills SET status = 'paid', paid_at = NOW(), paid_proof = 'proofs/" . $name . "', paid_by = 'tenant', photo_meta = ? WHERE id = ?")
         ->execute([json_encode($proofMeta, JSON_UNESCAPED_SLASHES), $billId]);
     $who = [];
@@ -253,7 +254,8 @@ if ($action === 'set_electric') {
         respond(false, '照片儲存失敗,請稍後再試');
     }
     $meterMeta = !empty($bill['photo_meta']) ? (json_decode($bill['photo_meta'], true) ?: []) : [];
-    $meterMeta[$name] = photo_capture_meta([$_FILES['photo']['tmp_name']])[0];
+    $clientMeter = json_decode($_POST['photo_meta_client'] ?? 'null', true);
+    $meterMeta[$name] = photo_capture_meta([$_FILES['photo']['tmp_name']], is_array($clientMeter) ? [$clientMeter] : null)[0];
     $meterMetaJson = json_encode($meterMeta, JSON_UNESCAPED_SLASHES);
     $rent = (int)($bill['rent_amount'] ?? 0);
     $mgmt = (int)($bill['mgmt_amount'] ?? 0);

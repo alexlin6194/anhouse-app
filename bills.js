@@ -254,6 +254,7 @@
     fd.append('action', 'pay_proof');
     fd.append('bill_id', String(billIdAtPick));
     fd.append('photo', new Blob([buf], { type: mime }), fname);
+    fd.append('pay_meta', JSON.stringify({ last_modified: f.lastModified || Date.now(), picked_at: Date.now() }));
     showToast('上傳中…');
     try {
       const res = await fetch('api/bills.php', { method: 'POST', body: fd });

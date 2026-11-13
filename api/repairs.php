@@ -480,7 +480,8 @@ if ($action === 'create') {
             $name = bin2hex(random_bytes(16)) . '.' . $ext;
             if (move_uploaded_file($files['tmp_name'][$i], $dir . '/' . $name)) {
                 $photos[] = 'repairs/' . $propertyId . '/' . $name;
-                $photoMeta[$name] = photo_capture_meta([$files['tmp_name'][$i]])[0];
+                $clientMeta = json_decode($_POST['photos_meta'] ?? 'null', true);
+                $photoMeta[$name] = photo_capture_meta([$files['tmp_name'][$i]], is_array($clientMeta) ? [$clientMeta[$i] ?? null] : null)[0];
             }
         }
     }
@@ -645,6 +646,8 @@ if ($action === 'complete') {
         respond(false, '實際費用不正確');
     }
     $photos = $r['photos'] ? (json_decode($r['photos'], true) ?: []) : [];
+    $repMeta = !empty($r['photo_meta']) ? (json_decode($r['photo_meta'], true) ?: []) : [];
+    $clientComplete = json_decode($_POST['photos_meta'] ?? 'null', true);
     if (!empty($_FILES['photos'])) {
         $files = $_FILES['photos'];
         $n = min(count($files['name']), 3);
@@ -660,11 +663,13 @@ if ($action === 'complete') {
             $name = bin2hex(random_bytes(16)) . '.' . $ext;
             if (move_uploaded_file($files['tmp_name'][$i], $dir . '/' . $name)) {
                 $photos[] = 'repairs/' . (int)$r['property_id'] . '/' . $name;
+                $c = (is_array($clientComplete) && isset($clientComplete[$i])) ? [$clientComplete[$i]] : null;
+                $repMeta[$name] = photo_capture_meta([$files['tmp_name'][$i]], $c)[0];
             }
         }
     }
-    $pdo->prepare("UPDATE repairs SET status = 'done', solution = ?, actual_amount = ?, photos = ? WHERE id = ?")
-        ->execute([$solution, $actualAmount, $photos ? json_encode($photos, JSON_UNESCAPED_SLASHES) : null, $rid]);
+    $pdo->prepare("UPDATE repairs SET status = 'done', solution = ?, actual_amount = ?, photos = ?, photo_meta = ? WHERE id = ?")
+        ->execute([$solution, $actualAmount, $photos ? json_encode($photos, JSON_UNESCAPED_SLASHES) : null, $repMeta ? json_encode($repMeta, JSON_UNESCAPED_SLASHES) : null, $rid]);
     foreach (repair_managers($pdo, $r) as $uid) {
         notify($uid, 'repair_done', '報修完工待收費|' . $r['property_title'],
             '「' . $r['property_title'] . '」' . $r['category'] . '報修已完工:' . mb_substr($solution, 0, 50) . ',實際費用 NT$' . number_format($actualAmount) . ',請確認收費。', $rid);
