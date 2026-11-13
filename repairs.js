@@ -123,7 +123,7 @@
       try {
         const res = await fetch('api/vendor_payments.php', {
           method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: 'action=pay_link&repair_id=' + b.dataset.repair_id
+          body: 'action=pay_link&repair_id=' + b.dataset.id
         });
         const j = await res.json();
         if (!j.ok) { showToast(j.message); b.disabled = false; return; }
