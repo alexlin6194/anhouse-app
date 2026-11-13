@@ -120,6 +120,12 @@
     }));
   }
 
+  (function () {
+    const __pa = $('#paCard');
+    if (__pa) { __pa.style.display = ''; __pa.innerHTML = '<p style="font-size:12px;color:var(--brown2)">載入中…(vC)</p>'; }
+    else { const s = $('#paSect'); if (s) { s.style.display = ''; s.insertAdjacentHTML('afterend', '<div class="card" style="padding:6px 16px"><p style="font-size:12px;color:#B00020">找不到 paCard 元素(HTML 與 JS 版本不符)</p></div>'); } }
+  })();
+
   load();
   loadPA();
 })();
