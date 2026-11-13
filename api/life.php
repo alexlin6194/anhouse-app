@@ -172,7 +172,7 @@ function haversine(float $alat, float $alng, float $blat, float $blng): float
     return 2 * $r * asin(min(1.0, sqrt($a)));
 }
 
-function places_nearby(float $lat, float $lng, array $types): array
+function places_nearby(float $lat, float $lng, array $types, string $rank = 'POPULARITY'): array
 {
     if (!$types) {
         return [];
@@ -180,6 +180,7 @@ function places_nearby(float $lat, float $lng, array $types): array
     $d = places_api_post('https://places.googleapis.com/v1/places:searchNearby', [
         'includedTypes' => $types,
         'maxResultCount' => 20,
+        'rankPreference' => $rank,
         'locationRestriction' => [
             'circle' => [
                 'center' => ['latitude' => $lat, 'longitude' => $lng],
@@ -280,7 +281,7 @@ foreach ($cats as $cat) {
     $cacheKey = 'life_' . $propId . '_' . $cat;
     $items = life_cached($cacheKey);
     if ($items === null) {
-        $items = places_nearby($lat, $lng, $spec[$cat]);
+        $items = places_nearby($lat, $lng, $spec[$cat], in_array($cat, ['other', 'gas'], true) ? 'DISTANCE' : 'POPULARITY');
         usort($items, fn($a, $b) => ($a['name'] . $a['vicinity']) <=> ($b['name'] . $b['vicinity']));
         $uniq = [];
         foreach ($items as $it) {
