@@ -29,6 +29,7 @@
     }
     if (!data.ok || !data.authenticated) { location.href = 'login.html'; return; }
     if (data.view === 'manager') $('#navBack').setAttribute('href', 'dashboard_manager.html');
+    if (data.view === 'agent') $('#navBack').setAttribute('href', 'dashboard_agent.html');
     if (data.view === 'tenant') $('#navBack').setAttribute('href', 'dashboard_tenant.html');
     render(data);
   }
@@ -134,6 +135,9 @@
     const noteHtml = p.note ? '<div class="sect">備註</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + esc(p.note) + '</p>' : '';
     const avail = (p.available_date && p.listing_type === 'rental') ? '<div class="sect">可遷入日</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + dstr(p.available_date) + '</p>' : '';
     const paSection = data.can_manage ? '<div class="sect">🤝 委託業務(一屋可委託多位業務)</div><div id="paBox" style="margin:4px 2px">載入中…</div>' : '';
+    const shareSection = (data.can_manage || data.view === 'agent')
+      ? '<div class="sect">🔗 推廣連結(免註冊即可查看)</div><div style="margin:4px 2px"><button type="button" class="btn line" id="shareBtn" style="width:100%;text-align:center">🔗 複製房源推廣連結</button><p style="font-size:11px;color:var(--brown2);margin:6px 2px 0">連結給準房客/買家開啟,毋需帳號即可看房(顯示城市/區域,完整地址不公開)。</p></div>'
+      : '';
 
     $('#detail').innerHTML =
       '<div class="cover" style="' + (cover ? 'background-image:url(\'uploads/' + esc(cover.file_path) + '\')' : '') + '">' + (cover ? '' : '🏠') + '</div>' +
@@ -146,9 +150,25 @@
       '<div style="margin:10px 2px"><a class="btn line" href="life.html?property_id=' + p.id + '" style="text-decoration:none;display:block;text-align:center">📍 生活圈(周邊 5 公里:食衣住行/醫院/學校/娛樂)</a></div>' +
       '<div class="kv">' + chips.join('') + '</div>' +
       (p.min_lease ? '<p style="font-size:13px;color:var(--brown2);margin:2px">最短租期:' + esc(p.min_lease) + '</p>' : '') +
-      avail + facilities + noteHtml + leaseHtml + paSection;
+      avail + facilities + noteHtml + leaseHtml + paSection + shareSection;
 
     if (data.can_manage) loadAgents(p);
+    const shareBtn = $('#shareBtn');
+    if (shareBtn) shareBtn.addEventListener('click', async () => {
+      shareBtn.disabled = true;
+      try {
+        const res = await fetch('api/property_share.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'link', property_id: p.id })
+        });
+        const r = await res.json();
+        if (r.ok && r.url) {
+          try { await navigator.clipboard.writeText(r.url); showToast('✅ 連結已複製:' + r.url); }
+          catch (e) { showToast('連結:' + r.url); }
+        } else { showToast(r.message); }
+      } catch (e) { showToast('連線異常'); }
+      shareBtn.disabled = false;
+    });
 
     const coverEl = document.querySelector('#detail .cover');
     if (coverEl && cover) {

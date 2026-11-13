@@ -38,6 +38,11 @@ $mem = $memStmt->fetch();
 $isLandlordOwner = $mem && $mem['role'] === 'landlord' && (int)$mem['org_id'] === (int)$p['org_id'];
 $isManager = (int)($p['delegated_user_id'] ?? 0) === $userId;
 
+/* 受託業務(委託生效中)可查看詳情 */
+$paStmt = $pdo->prepare("SELECT id, deal_type, can_edit_price FROM property_agents WHERE property_id = ? AND agent_user_id = ? AND status = 'active' LIMIT 1");
+$paStmt->execute([$id, $userId]);
+$paActive = $paStmt->fetch();
+
 $leaseStmt = $pdo->prepare("SELECT l.id, l.tenant_user_id, l.start_date, l.end_date, l.rent_amount, l.deposit_amount,
         l.payment_day, l.meter_start, l.status, tu.name AS tenant_name, tu.phone AS tenant_phone
     FROM leases l JOIN users tu ON tu.id = l.tenant_user_id
@@ -50,7 +55,7 @@ foreach ($leases as $l) {
     if ((int)$l['tenant_user_id'] === $userId) $isTenantHere = true;
 }
 
-if (!$isLandlordOwner && !$isManager && !$isTenantHere) {
+if (!$isLandlordOwner && !$isManager && !$isTenantHere && !$paActive) {
     respond(false, '您沒有權限查看這筆房屋');
 }
 
@@ -78,11 +83,16 @@ foreach ($leases as &$l) {
 }
 unset($l);
 
+if ($paActive) {
+    /* 受託業務:看得到房源與照片,租約/帳務隱藏 */
+    $leases = [];
+}
+
 respond(true, 'ok', [
     'authenticated' => true,
     'property' => $p,
     'photos' => $photos,
     'leases' => $leases,
-    'can_manage' => ($isLandlordOwner && $p['delegated_user_id'] === null && $p['pending_manager_id'] === null) || $isManager,
-    'view' => $isLandlordOwner ? 'landlord' : ($isManager ? 'manager' : 'tenant'),
+    'can_manage' => (($isLandlordOwner && $p['delegated_user_id'] === null && $p['pending_manager_id'] === null) || $isManager) && !$paActive,
+    'view' => $paActive ? 'agent' : ($isLandlordOwner ? 'landlord' : ($isManager ? 'manager' : 'tenant')),
 ]);
