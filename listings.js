@@ -58,8 +58,8 @@
         photoStrip +
         '<div class="lmeta">' + meta.join('') + '</div>' +
         (p.is_delegated
-          ? '<div class="lbtns"><button type="button" class="mini-btn line act-edit">編輯屋況/租金</button><button type="button" class="mini-btn line act-life">📍 生活圈</button><button type="button" class="mini-btn" disabled style="opacity:.55">上下架與照片由管理員管理</button></div>'
-          : '<div class="lbtns"><button type="button" class="mini-btn line act-edit">編輯</button><button type="button" class="mini-btn line act-life">📍 生活圈</button><button type="button" class="mini-btn act-toggle">' + (p.is_listed ? '下架' : '重新上架') + '</button></div>') +
+          ? '<div class="lbtns"><button type="button" class="mini-btn line act-view">查看詳情</button><button type="button" class="mini-btn line act-edit">編輯屋況/租金</button><button type="button" class="mini-btn line act-life">📍 生活圈</button><button type="button" class="mini-btn" disabled style="opacity:.55">上下架與照片由管理員管理</button></div>'
+          : '<div class="lbtns"><button type="button" class="mini-btn line act-view">查看詳情</button><button type="button" class="mini-btn line act-edit">編輯</button><button type="button" class="mini-btn line act-life">📍 生活圈</button><button type="button" class="mini-btn act-toggle">' + (p.is_listed ? '下架' : '重新上架') + '</button></div>') +
         '</div>';
     }).join('');
 
@@ -82,6 +82,12 @@
         location.href = 'life.html?property_id=' + id;
       });
       row.querySelector('.act-edit')?.addEventListener('click', () => openEdit(p));
+      row.querySelector('.act-view')?.addEventListener('click', () => { location.href = 'property.html?id=' + id; });
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('button') || e.target.closest('[data-full]')) return;
+        location.href = 'property.html?id=' + id;
+      });
+      row.style.cursor = 'pointer';
       row.querySelectorAll('[data-full]').forEach(t => {
         t.addEventListener('click', (e) => {
           e.stopPropagation();
