@@ -179,7 +179,7 @@
   function renderPhotoManager(photos) {
     editPhotos = photos.slice();
     const wrap = $('#photoManager');
-    wrap.innerHTML = editPhotos.length ? '' : '<p class="hint" style="margin:0 2px 8px">尚無照片,下方可新增(最多 12 張)</p>';
+    wrap.innerHTML = '<p class="hint" style="margin:0 2px 8px">📷 已有 ' + editPhotos.length + ' / 12 張' + (editPhotos.length ? '(★ 設封面/✕ 刪除)' : ',下方可新增') + '</p>';
     editPhotos.forEach((ph, i) => {
       const box = document.createElement('div');
       box.style.cssText = 'position:relative;width:74px;height:74px;border-radius:12px;overflow:hidden;border:2px solid var(--beige2)';
@@ -225,6 +225,7 @@
     const f = $('#f_addphoto').files[0];
     $('#f_addphoto').value = '';
     if (!f || !editingId) return;
+    if (editPhotos.length >= 12) { showToast('照片最多 12 張(已達上限),請先刪除再新增'); return; }
     const fd = new FormData();
     fd.append('id', editingId);
     fd.append('action', 'add_photo');

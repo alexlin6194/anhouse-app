@@ -105,6 +105,14 @@
   });
 
   function renderPreviews() {
+    let cnt = $('#photoCount');
+    if (!cnt) {
+      cnt = document.createElement('div');
+      cnt.id = 'photoCount';
+      cnt.style.cssText = 'font-size:12px;color:var(--brown2);margin:6px 2px;font-weight:700';
+      $('#preview').parentNode.insertBefore(cnt, $('#preview'));
+    }
+    cnt.textContent = '📷 已選 ' + files.length + ' / ' + MAX_PHOTOS + ' 張';
     $('#preview').innerHTML = '';
     files.forEach((f, i) => {
       const box = document.createElement('div');
@@ -125,6 +133,7 @@
     });
     $('#hint-photos').textContent = files.length ? '已選 ' + files.length + ' 張(首張為封面)' : '';
   }
+  renderPreviews();
 
   $('#propForm').addEventListener('submit', async (e) => {
     e.preventDefault();
