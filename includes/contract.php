@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /* 房屋租賃契約書內容產生器(依租約+房屋+雙方當事人資料組出完整條款全文) */
-function contract_build_content(array $lease, array $prop, array $tenant, array $owner, string $extraTerms = ''): string
+function contract_build_content(array $lease, array $prop, array $tenant, array $owner, string $extraTerms = '', array $fees = []): string
 {
     $loc = implode('', array_filter([$prop['city'] ?? '', $prop['district'] ?? '', $prop['address'] ?? '']));
     $term = $lease['start_date'] . ' 起' . ($lease['end_date'] ? '至 ' . $lease['end_date'] . ' 止' : ',至雙方合意終止之日止(不定期租賃)');
@@ -12,6 +12,15 @@ function contract_build_content(array $lease, array $prop, array $tenant, array 
     $elec = (($prop['elec_mode'] ?? 'flat') === 'taipower')
         ? '依台灣電力公司累進費率按度實算'
         : '每度 NT$' . $elecRate . ' 元按度實算';
+    $mgmtFee = (int)($prop['mgmt_fee'] ?? 0);
+    $f = function (string $key, string $default) use ($fees): string {
+        $v = trim((string)($fees[$key] ?? ''));
+        return $v !== '' ? $v : $default;
+    };
+    $mgmtTxt = trim((string)($fees['mgmt'] ?? ''));
+    if ($mgmtTxt === '') {
+        $mgmtTxt = $mgmtFee > 0 ? '每月 NT$' . number_format($mgmtFee) . ' 元(社區管理費/清潔費)' : '無社區管理費';
+    }
 
     $L = [];
     $L[] = '房屋租賃契約書(電子合約)';
@@ -20,12 +29,19 @@ function contract_build_content(array $lease, array $prop, array $tenant, array 
     $L[] = '出租人(甲方):' . ($owner['name'] ?? '') . '(' . ($owner['phone'] ?? '') . ')';
     $L[] = '承租人(乙方):' . ($tenant['name'] ?? '') . '(' . ($tenant['phone'] ?? '') . ')';
     $L[] = '';
-    $pTitle = (string)($prop['title'] ?? $prop['property_title'] ?? '');
-    $L[] = '第一條(租賃標的):甲方將其所有之房屋「' . $pTitle . '」' . ($loc ? '(' . $loc . ')' : '') . '出租予乙方居住使用。乙方同意依本契約約定用途使用,未經甲方書面同意,不得轉租、分租、借予第三人,或變更為住宅以外之用途,亦不得供非法之使用。';
+    $L[] = '第一條(租賃標的):甲方將其所有之房屋「' . ($prop['title'] ?? $prop['property_title'] ?? '') . '」' . ($loc ? '(' . $loc . ')' : '') . '出租予乙方居住使用。乙方同意依本契約約定用途使用,未經甲方書面同意,不得轉租、分租、借予第三人,或變更為住宅以外之用途,亦不得供非法之使用。';
     $L[] = '第二條(租賃期間):租期自 ' . $term . '。期滿是否續租,雙方另行協議;乙方欲續租應於期滿前一個月通知甲方。';
     $L[] = '第三條(租金):每月租金 NT$' . number_format((int)$lease['rent_amount']) . ' 元整。乙方應於每月 ' . $payDay . ' 日前給付當月租金;系統將於每月 1 日自動產生當期帳單,乙方依帳單金額於到期日前繳納。';
     $L[] = '第四條(押金):乙方於簽約時給付甲方押金 NT$' . number_format((int)($lease['deposit_amount'] ?? 0)) . ' 元整。租期屆滿或契約終止,乙方交還房屋並結清應付費用後,甲方應無息返還押金;如有欠租、毀損或其他違約情事,甲方得自押金中扣抵,不足部分甲方仍得請求。';
-    $L[] = '第五條(水電及相關費用):水費、電費、瓦斯費、網路費及乙方使用所生之費用,由乙方負擔。電費' . $elec . ';乙方於點交時已確認電(水)表底度,退租時按結算度數計收。房屋稅、地價稅等持有稅捐由甲方負擔。';
+    $L[] = '第五條(費用負擔):租賃期間各項費用負擔如下——';
+    $L[] = '1. 電費:' . $elec . ';乙方於點交時已確認電表底度,退租時按結算度數計收。';
+    $L[] = '2. 水費:' . $f('water', '依自來水公司計價按度實算,由乙方繳付');
+    $L[] = '3. 瓦斯費:' . $f('gas', '由乙方依實際使用向天然瓦斯公司繳付');
+    $L[] = '4. 管理費:' . $mgmtTxt;
+    $L[] = '5. 網路費:' . $f('network', '由乙方自行申裝繳付');
+    $L[] = '6. 車位費:' . $f('parking', ((int)($prop['parking'] ?? 0) === 1) ? '已含租賃房屋附屬車位,不另收費' : '本租約未含車位,如需承租另議');
+    $L[] = '7. 其他費用:' . $f('misc', '第四台有線電視、電話費等由乙方依實際使用自行繳付');
+    $L[] = '上述各項費用如另有約定,以約定內容為準;房屋稅、地價稅等持有稅捐由甲方負擔。';
     $L[] = '第六條(修繕與維護):房屋之自然損壞或原有設備故障,由甲方負責修繕;因乙方或其親友使用不當所致之損壞,由乙方負責修復或負擔費用。房屋有危害居住安全之急迫情事,乙方得先行報請處理,並保留憑證向甲方請求。';
     $L[] = '第七條(乙方之義務):乙方應以善良管理人之注意保管房屋,不得擅自變更房屋結構或裝修;遷出時應將房屋回復原狀(自然耗損除外)。';
     $L[] = '第八條(違約):乙方積欠租金達二個月租金額,經甲方定期催告仍不繳納,或有重大違約情事者,甲方得終止契約收回房屋,並得自押金扣抵積欠款項。';
@@ -49,7 +65,7 @@ function contract_build_content(array $lease, array $prop, array $tenant, array 
 }
 
 /* 建立租約電子合同 documents 資料列(signer=房客, signer2=屋主) */
-function contract_create_for_lease(PDO $pdo, int $leaseId, int $createdBy, string $extraTerms = ''): array
+function contract_create_for_lease(PDO $pdo, int $leaseId, int $createdBy, string $extraTerms = '', array $fees = []): array
 {
     $lStmt = $pdo->prepare('SELECT l.*, p.title AS property_title, p.city, p.district, p.address, p.elec_mode, p.elec_rate, p.org_id
         FROM leases l JOIN properties p ON p.id = l.property_id WHERE l.id = ? LIMIT 1');
@@ -75,7 +91,7 @@ function contract_create_for_lease(PDO $pdo, int $leaseId, int $createdBy, strin
     $uStmt->execute([(int)$lease['tenant_user_id']]);
     $tenant = $uStmt->fetch();
 
-    $content = contract_build_content($lease, $lease, $tenant, $owner, trim($extraTerms));
+    $content = contract_build_content($lease, $lease, $tenant, $owner, trim($extraTerms), $fees);
     $ins = $pdo->prepare("INSERT INTO documents (type, ref_id, property_id, created_by, signer_user_id, signer2_user_id, title, content, status, trail)
         VALUES ('lease_contract', ?, ?, ?, ?, ?, ?, ?, 'pending', ?)");
     $trail = json_encode([['event' => 'created', 'by' => $createdBy, 'at' => date('Y-m-d H:i:s')]], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

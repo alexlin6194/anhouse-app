@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>文件簽署|安家生活GO</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20261114k">
+<link rel="stylesheet" href="assets/css/style.css?v=20261114l">
 <style>
   #padCanvas { touch-action: none; width: 100%; height: 190px; border: 1.8px dashed var(--beige2); border-radius: 14px; background: #fff; display: block; }
   #printArea { display: none; }
@@ -43,8 +43,19 @@
           <p class="hint">將依租約資料自動產生完整「房屋租賃契約書」,房客先簽名、屋主副署後生效</p>
         </div>
         <div class="field">
-          <label for="ncExtra">特別約定事項(選填,如:含家具清單、可養寵物、押金返還條件)</label>
-          <textarea id="ncExtra" rows="4" maxlength="1000" placeholder="例:房屋含冷氣、洗衣機各一台;房客得飼養寵物;退租時維持清潔即可全額退還押金"></textarea>
+          <label>各項費用說明(留空=依標準條款;可填金額如「NT$300 元/月」或自訂說明)</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+            <div><label style="font-size:12px">水費</label><input id="ncWater" maxlength="60" placeholder="留空=按度實算"></div>
+            <div><label style="font-size:12px">瓦斯費</label><input id="ncGas" maxlength="60" placeholder="留空=向瓦斯公司繳付"></div>
+            <div><label style="font-size:12px">管理費</label><input id="ncMgmt" maxlength="60" placeholder="留空=依房屋設定"></div>
+            <div><label style="font-size:12px">網路費</label><input id="ncNetwork" maxlength="60" placeholder="留空=自行申裝"></div>
+            <div><label style="font-size:12px">車位費</label><input id="ncParking" maxlength="60" placeholder="留空=未含車位"></div>
+            <div><label style="font-size:12px">其他費用</label><input id="ncMisc" maxlength="60" placeholder="第四台/電話等"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="ncExtra">現場附加條件/特別約定事項(選填,手動輸入)</label>
+          <textarea id="ncExtra" rows="4" maxlength="1000" placeholder="例:附家具(雙人床、衣櫃、冷氣各一);經點交確認現況;房客得飼養寵物;退租清潔費 NT$1,500 元由房客負擔"></textarea>
         </div>
         <div style="display:flex;gap:10px">
           <button type="submit" class="btn primary" style="flex:1">📜 產生契約書並發起簽署</button>
@@ -75,8 +86,8 @@
 </div>
 <div id="printArea"></div>
 <div class="toast" id="toast" role="status"></div>
-<script src="documents.js?v=20261114k"></script>
-<script src="assets/js/notify.js?v=20261114k"></script>
-<script src="assets/js/tabbar.js?v=20261114k"></script>
+<script src="documents.js?v=20261114l"></script>
+<script src="assets/js/notify.js?v=20261114l"></script>
+<script src="assets/js/tabbar.js?v=20261114l"></script>
 </body>
 </html>

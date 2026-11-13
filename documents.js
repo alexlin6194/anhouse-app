@@ -299,7 +299,19 @@
       const res = await fetch('api/documents.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create_lease_contract', lease_id: leaseId, extra_terms: $('#ncExtra').value.trim() })
+        body: JSON.stringify({
+          action: 'create_lease_contract',
+          lease_id: leaseId,
+          extra_terms: $('#ncExtra').value.trim(),
+          fees: {
+            water: $('#ncWater').value.trim(),
+            gas: $('#ncGas').value.trim(),
+            mgmt: $('#ncMgmt').value.trim(),
+            network: $('#ncNetwork').value.trim(),
+            parking: $('#ncParking').value.trim(),
+            misc: $('#ncMisc').value.trim()
+          }
+        })
       });
       const d = await res.json();
       showToast(d.message);

@@ -175,7 +175,15 @@ if ($action === 'create_lease_contract') {
     if (!$isManagerHere) {
         respond(false, '僅屋主或管理員可發起租約電子簽約');
     }
-    [$ok, $msg] = contract_create_for_lease($pdo, $leaseId, $userId, (string)($in['extra_terms'] ?? ''));
+    $feesIn = (array)($in['fees'] ?? []);
+    $fees = [];
+    foreach (['water', 'gas', 'mgmt', 'network', 'parking', 'misc'] as $fk) {
+        $fv = trim(clean((string)($feesIn[$fk] ?? '')));
+        if ($fv !== '') {
+            $fees[$fk] = mb_substr($fv, 0, 60);
+        }
+    }
+    [$ok, $msg] = contract_create_for_lease($pdo, $leaseId, $userId, (string)($in['extra_terms'] ?? ''), $fees);
     if (!$ok) {
         respond(false, $msg);
     }
