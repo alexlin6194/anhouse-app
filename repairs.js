@@ -30,6 +30,141 @@
   let urgent = 'normal';
   let photoFiles = [];
 
+  /* ── 工款請款/付款(藍新) ─────────────────── */
+  let payItems = [];
+  let payByRepair = {};
+  let billRepairId = 0;
+  let billProofFiles = [];
+  const payState = { pending: { label: '待付', cls: 'warn' }, reminded: { label: '已催收', cls: 'warn' }, paid: { label: '已付', cls: 'ok' }, failed: { label: '付款失敗', cls: 'bad' } };
+
+  function payReqHtml(cm, r, amIWorker) {
+    const vp = payByRepair[r.id];
+    if (amIWorker && r.vendor_paid !== 'yes' && ['assigned', 'inspected', 'repairing', 'done', 'billed'].includes(r.status)) {
+      if (!vp) return '<div class="bd-sec">🧾 請款</div><div style="margin-top:4px"><button type="button" class="mini-btn act-bill" data-id="' + r.id + '">向屋主/管理員請款(附憑證)</button></div>';
+      const ps = payState[vp.status] || { label: vp.status, cls: 'warn' };
+      return '<div class="bd-sec">🧾 請款</div><div style="font-size:12.5px;line-height:1.9">已請款 <b>NT$' + money(vp.amount) + '元</b>' +
+        (vp.paid_at ? '|✅ 已付款(' + dstr(vp.paid_at) + ')' : '|' + ps.label + '(' + dstr(vp.created_at) + ')' +
+        (vp.status !== 'reminded' ? ' <button type="button" class="mini-btn line act-remind" data-id="' + vp.id + '">發送催收提醒</button>' : '')) + '</div>';
+    }
+    if (cm && vp) {
+      const ps = payState[vp.status] || { label: vp.status, cls: 'warn' };
+      const proofs = vp.proof ? (JSON.parse(vp.proof) || []) : [];
+      return '<div class="bd-sec">🧾 廠商請款</div><div style="font-size:12.5px;line-height:1.9">廠商請款 <b>NT$' + money(vp.amount) + '元</b>|' + ps.label +
+        (vp.note ? '|備註:' + esc(vp.note) : '') +
+        (proofs.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">' + proofs.map(ph => '<img src="uploads/' + esc(ph) + '" data-full="uploads/' + esc(ph) + '" alt="請款憑證" style="width:84px;height:84px;object-fit:cover;border-radius:10px;border:1.5px solid var(--beige2);cursor:zoom-in">').join('') + '</div>' : '') +
+        (vp.status !== 'paid' ? '<button type="button" class="mini-btn act-payonline" data-id="' + r.id + '">💳 藍新付款 NT$' + money(vp.amount) + '元</button>' : '') +
+        '</div>';
+    }
+    return '';
+  }
+
+  async function loadPayLedger(isVendor) {
+    try {
+      const res = await fetch('api/vendor_payments.php?list=1', { cache: 'no-store' });
+      const d = await res.json();
+      if (!d.ok) return;
+      payItems = d.items || [];
+      payByRepair = {};
+      payItems.forEach(p => { if (p.status === 'pending' || p.status === 'reminded') payByRepair[p.repair_id] = p; });
+      if (cache) render();
+      const wrap = $('#payLedger');
+      const list = $('#payLedgerList');
+      if (!payItems.length) { wrap.style.display = 'none'; return; }
+      wrap.style.display = '';
+      const openFirst = payItems.filter(p => p.status === 'pending' || p.status === 'reminded');
+      list.innerHTML = '<div style="font-size:12px;color:var(--brown2);margin-bottom:4px">' +
+        (isVendor ? '我的請款' : '待付 ' + openFirst.length + ' 筆') + '|共 ' + payItems.length + ' 筆</div>' +
+        payItems.map(p => {
+          const ps = payState[p.status] || { label: p.status, cls: 'warn' };
+          return '<div class="list-item" style="padding:7px 2px;flex-wrap:wrap"><div style="flex:1;min-width:0">' +
+            '<b>' + esc(p.property_title || '') + '|工單#' + p.repair_id + '</b>' +
+            '<span>NT$' + money(p.amount) + '元|' + dstr(p.created_at) + (isVendor ? '' : '|廠商 ' + esc(p.vendor_name || '')) + '</span></div>' +
+            '<span class="st ' + ps.cls + '">' + ps.label + '</span>' +
+            (!isVendor && (p.status === 'pending' || p.status === 'reminded')
+              ? '<button type="button" class="mini-btn act-payonline" data-id="' + p.repair_id + '" style="margin-left:6px">💳 付款</button>' : '') +
+            (isVendor && p.status === 'pending'
+              ? '<button type="button" class="mini-btn line act-remind" data-id="' + p.id + '" style="margin-left:6px">催收</button>' : '') +
+            '</div>';
+        }).join('');
+      bindPayActions();
+    } catch (e) { /* 靜默 */ }
+  }
+
+  function bindPayActions() {
+    document.querySelectorAll('.act-remind').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try {
+        const res = await fetch('api/vendor_payments.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'action=remind&id=' + b.dataset.id
+        });
+        const j = await res.json();
+        showToast(j.message);
+        if (j.ok) load(true);
+      } catch (e) { showToast('連線異常'); }
+    }));
+    document.querySelectorAll('.act-payonline').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try {
+        const res = await fetch('api/vendor_payments.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'action=pay_link&repair_id=' + b.dataset.repair_id
+        });
+        const j = await res.json();
+        if (!j.ok) { showToast(j.message); b.disabled = false; return; }
+        if (j.mode === 'mock') { location.href = j.pay_url; return; }
+        const form = document.createElement('form');
+        form.method = 'POST'; form.action = j.gateway;
+        ['MerchantID', 'TradeInfo', 'TradeSha', 'Version'].forEach(k => {
+          const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = j[k]; form.appendChild(i);
+        });
+        document.body.appendChild(form); form.submit();
+      } catch (e) { showToast('連線異常'); b.disabled = false; }
+    }));
+  }
+
+  function openBillModal(repairId, defaultAmount) {
+    billRepairId = repairId;
+    billProofFiles = [];
+    $('#billAmount').value = defaultAmount ? String(defaultAmount) : '';
+    $('#billNote').value = '';
+    $('#billProof').value = '';
+    $('#billProofPrev').innerHTML = '';
+    $('#billModal').style.display = 'flex';
+  }
+
+  function bindBillModal() {
+    $('#billProof').addEventListener('change', () => {
+      billProofFiles = Array.from($('#billProof').files || []).slice(0, 3);
+      $('#billProofPrev').innerHTML = billProofFiles.map(f => '<img src="' + URL.createObjectURL(f) + '" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1.5px solid var(--beige2)">').join('');
+    });
+    $('#billCancel').addEventListener('click', () => { $('#billModal').style.display = 'none'; });
+    $('#billSubmit').addEventListener('click', async () => {
+      const amount = parseInt($('#billAmount').value, 10);
+      if (!billRepairId) return;
+      if (!amount || amount <= 0) { showToast('請輸入工款金額'); return; }
+      if (!billProofFiles.length) { showToast('請上傳請款憑證照片'); return; }
+      const fd = new FormData();
+      fd.append('action', 'request');
+      fd.append('repair_id', billRepairId);
+      fd.append('amount', amount);
+      fd.append('note', $('#billNote').value);
+      billProofFiles.forEach(f => fd.append('proof[]', f));
+      const btn = $('#billSubmit');
+      btn.disabled = true;
+      try {
+        const res = await fetch('api/vendor_payments.php', { method: 'POST', body: fd });
+        const j = await res.json();
+        showToast(j.message);
+        if (j.ok) {
+          $('#billModal').style.display = 'none';
+          load(true);
+        }
+      } catch (e) { showToast('連線異常,請稍後再試'); }
+      btn.disabled = false;
+    });
+  }
+
   function render() {
     const q = ($('#repairSearch').value || '').trim().toLowerCase();
     let rows = (cache && cache.repairs) || [];
@@ -176,10 +311,10 @@
       '<div style="font-size:12.5px;line-height:1.9;color:var(--brown)">' + esc(r.description) + '</div>' +
       '<div style="font-size:11.5px;color:var(--brown2);margin-top:6px">狀態:' + st.label + '|建立:' + dstr(r.created_at) +
       (r.creator_name && !cm ? '|報修人:' + esc(r.creator_name) : '') + '</div>' +
-      photoHtml + quoteHtml + vendorHtml + solutionHtml + marketHtml +
+      photoHtml + quoteHtml + vendorHtml + solutionHtml + marketHtml + payReqHtml(cm, r, amIWorker) +
       (btns.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' + btns.join('') + '</div>' : '') +
       '</div>';
-    panel.querySelectorAll('.act-start, .act-assign, .act-approve, .act-reject, .act-charge-bill, .act-charge-cash, .act-charge-none, .act-pay-vendor, .act-doc-charge, .act-cancel, .act-award, .act-send, .act-broadcast').forEach(b => {
+    panel.querySelectorAll('.act-start, .act-assign, .act-approve, .act-reject, .act-charge-bill, .act-charge-cash, .act-charge-none, .act-pay-vendor, .act-doc-charge, .act-cancel, .act-award, .act-send, .act-broadcast, .act-bill').forEach(b => {
       b.addEventListener('click', (e) => {
         e.stopPropagation();
         if (b.classList.contains('act-award')) {
@@ -301,6 +436,7 @@
       });
       renderLeads(data.leads || []);
     }
+    loadPayLedger(isVendor);
     try {
       const me = await (await fetch('api/me.php', { cache: 'no-store' })).json();
       if (me.ok && me.authenticated) {
@@ -523,6 +659,11 @@
       act({ repair_id: id, action: 'pay_vendor', amount: Number(String(amt).replace(/\D/g, '')) || 0 });
       return;
     }
+    if (btn.classList.contains('act-bill')) {
+      const r = (cache.repairs || []).find(x => Number(x.id) === id);
+      openBillModal(id, r ? (r.actual_amount != null ? r.actual_amount : r.quote_amount) : 0);
+      return;
+    }
     if (btn.classList.contains('act-charge-cash')) {
       const r = (cache.repairs || []).find(x => Number(x.id) === id);
       const amt = prompt('向房客收取的金額(NT$):', r && r.actual_amount != null ? String(r.actual_amount) : '');
@@ -642,4 +783,5 @@
   });
 
   load();
+  bindBillModal();
 })();

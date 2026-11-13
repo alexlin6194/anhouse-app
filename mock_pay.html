@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>模擬付款|安家生活GO</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20261113y">
+<link rel="stylesheet" href="assets/css/style.css?v=20261113z">
 <style>
   .nwrap{max-width:420px;margin:24px auto;padding:0 16px}
   .ncard{background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
@@ -34,27 +34,41 @@
 </div>
 <script>
 (async function(){
-  const t = new URLSearchParams(location.search).get('t') || '';
-  const res = await fetch('api/newebpay_mpg.php?status=1', {credentials:'same-origin'});
-  const d = await res.json();
-  const sub = (d.history || []).find(h => h.trade_no === t);
+  const qs = new URLSearchParams(location.search);
+  const t = qs.get('t') || '';
+  const isPay = qs.get('type') === 'pay';
+  let amountTxt = '(查無金額)';
+  if (isPay) {
+    const r = await fetch('api/vendor_payments.php?info=' + encodeURIComponent(t), {credentials:'same-origin'});
+    const j = await r.json();
+    if (j.ok) amountTxt = 'NT$' + Number(j.amount).toLocaleString() + '元(維修工款|工單#' + j.repair_id + ')';
+  } else {
+    const res = await fetch('api/newebpay_mpg.php?status=1', {credentials:'same-origin'});
+    const d = await res.json();
+    const sub = (d.history || []).find(h => h.trade_no === t);
+    if (sub) amountTxt = 'NT$' + sub.amount.toLocaleString() + '元(基本/進階方案)';
+  }
   document.getElementById('tno').value = t;
-  document.getElementById('amt').value = sub ? 'NT$' + sub.amount.toLocaleString() + '元(基本/進階方案)' : '(查無金額)';
+  document.getElementById('amt').value = amountTxt;
 
   async function confirm(result){
-    const r = await fetch('api/newebpay_mock.php', {
+    const url = isPay ? 'api/vendor_payments.php' : 'api/newebpay_mock.php';
+    const body = isPay
+      ? 'action=mock_confirm&t=' + encodeURIComponent(t) + '&result=' + result
+      : 'action=confirm&t=' + encodeURIComponent(t) + '&result=' + result;
+    const r = await fetch(url, {
       method:'POST', credentials:'same-origin',
       headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:'action=confirm&t=' + encodeURIComponent(t) + '&result=' + result
+      body: body
     });
     const j = await r.json();
     document.getElementById('card').style.display = 'none';
     const done = document.getElementById('done');
     done.style.display = 'block';
     done.innerHTML = j.ok
-      ? '<div style="font-size:40px">✅</div><h3>付款成功</h3><p>訂閱已開通,畫面跳轉中…</p>'
+      ? '<div style="font-size:40px">✅</div><h3>付款成功</h3><p>' + (isPay ? '工款已付清,畫面跳轉中…' : '訂閱已開通,畫面跳轉中…') + '</p>'
       : '<div style="font-size:40px">❌</div><h3>付款失敗</h3><p>' + (j.message || '請稍後再試') + '</p>';
-    setTimeout(() => location.href = 'subscription.html?result=' + (j.ok ? 'ok' : 'fail'), 1500);
+    setTimeout(() => location.href = isPay ? 'repairs.html?result=' + (j.ok ? 'paid' : 'fail') : 'subscription.html?result=' + (j.ok ? 'ok' : 'fail'), 1500);
   }
   document.getElementById('ok').addEventListener('click', () => confirm('success'));
   document.getElementById('fail').addEventListener('click', () => confirm('fail'));

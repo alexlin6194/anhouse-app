@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>報修管理|安家生活GO</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20261113y">
+<link rel="stylesheet" href="assets/css/style.css?v=20261113z">
 </head>
 <body>
 <div class="shell">
@@ -27,6 +27,30 @@
         <div style="display:flex;gap:8px">
           <button type="button" class="btn small line" id="vendorBtn" style="letter-spacing:1px">🔧 廠商名單</button>
           <button type="button" class="btn small" id="newRepairBtn" style="letter-spacing:1px">+ 新增報修</button>
+        </div>
+      </div>
+
+      <div class="card" id="payLedger" style="display:none;padding:12px 16px">
+        <div class="bd-sec" style="margin-top:0">💰 工款付款記錄</div>
+        <div id="payLedgerList" style="max-height:280px;overflow:auto"></div>
+        <button type="button" class="mini-btn line" id="payLedgerClose" style="margin-top:8px">收合</button>
+      </div>
+
+      <div id="billModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center;padding:18px">
+        <div class="card" style="max-width:420px;width:100%;max-height:86vh;overflow:auto">
+          <div class="bd-sec" style="margin-top:0">🧾 請款(索取工款憑證)</div>
+          <p style="font-size:12.5px;color:#8a7a5c;margin:0 0 8px">請填寫工款金額並上傳收據/發票憑證,屋主或管理員查看後會透過藍新金流付款。</p>
+          <label style="font-size:13px">工款金額(元)*</label>
+          <input type="number" id="billAmount" min="1" step="1" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--beige2);border-radius:10px;margin:4px 0 10px">
+          <label style="font-size:13px">備註(選填)</label>
+          <input type="text" id="billNote" maxlength="200" placeholder="例:熱水器更換零件工資" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid var(--beige2);border-radius:10px;margin:4px 0 10px">
+          <label style="font-size:13px">請款憑證照片(收據/發票,必傳)*</label>
+          <input type="file" id="billProof" accept="image/*" multiple style="margin:4px 0 12px;font-size:13px">
+          <div id="billProofPrev" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="mini-btn" id="billSubmit">送出請款</button>
+            <button type="button" class="mini-btn line" id="billCancel">取消</button>
+          </div>
         </div>
       </div>
 
@@ -84,9 +108,9 @@
   </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
-<script src="assets/js/lightbox.js?v=20261113y"></script>
-<script src="repairs.js?v=20261113y"></script>
-<script src="assets/js/notify.js?v=20261113y"></script>
-<script src="assets/js/tabbar.js?v=20261113y"></script>
+<script src="assets/js/lightbox.js?v=20261113z"></script>
+<script src="repairs.js?v=20261113z"></script>
+<script src="assets/js/notify.js?v=20261113z"></script>
+<script src="assets/js/tabbar.js?v=20261113z"></script>
 </body>
 </html>
