@@ -1,7 +1,6 @@
 (async function () {
   const $ = (s) => document.querySelector(s);
 
-  $('#goRepairs').addEventListener('click', () => { location.href = 'repairs.html'; });
   $('#goSub').addEventListener('click', () => { location.href = 'subscription.html'; });
   $('#subCard').addEventListener('click', () => { location.href = 'subscription.html'; });
 

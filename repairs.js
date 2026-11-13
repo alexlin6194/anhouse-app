@@ -73,7 +73,15 @@
       payItems = d.items || [];
       payByRepair = {};
       payItems.forEach(p => { if (p.status === 'pending' || p.status === 'reminded') payByRepair[p.repair_id] = p; });
-      if (cache) render();
+      if (cache) {
+        const reopen = openId;
+        openId = null;
+        render();
+        if (reopen) {
+          const row = document.querySelector('.repair-row[data-id="' + reopen + '"]');
+          if (row) { openId = null; toggleDetail(row, reopen); }
+        }
+      }
       const wrap = $('#payLedger');
       const list = $('#payLedgerList');
       if (!payItems.length) { wrap.style.display = 'none'; return; }
