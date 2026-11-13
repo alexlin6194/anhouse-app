@@ -201,7 +201,7 @@ function places_nearby(float $lat, float $lng, array $types): array
 }
 
 $catsIn = clean($_GET['cats'] ?? 'food,cloth,house,transport,hospital,school,fun');
-$cats = array_intersect(explode(',', $catsIn), ['food', 'cloth', 'house', 'transport', 'hospital', 'school', 'fun']);
+$cats = array_intersect(explode(',', $catsIn), ['food', 'cloth', 'house', 'transport', 'hospital', 'school', 'fun', 'gas']);
 
 $hasKey = defined('GOOGLE_PLACES_API_KEY') && GOOGLE_PLACES_API_KEY !== '';
 $out = [
@@ -236,6 +236,7 @@ $spec = [
     'transport' => ['bus_station', 'subway_station', 'train_station', 'light_rail_station', 'tram_station'],
     'hospital' => ['hospital'],
     'school' => ['school', 'university'],
+    'gas' => ['gas_station'],
     'fun' => ['bar', 'night_club', 'movie_theater', 'karaoke'],
 ];
 
