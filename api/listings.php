@@ -14,14 +14,18 @@ if (empty($_SESSION['user_id'])) {
 $pdo = db();
 $userId = (int)$_SESSION['user_id'];
 
+$roleStmt = $pdo->prepare('SELECT registration_role FROM users WHERE id = ?');
+$roleStmt->execute([$userId]);
+$myRole = (string)($roleStmt->fetch()['registration_role'] ?? '');
+
 $memStmt = $pdo->prepare("SELECT om.role, o.id AS org_id FROM org_members om JOIN organizations o ON o.id = om.org_id
     WHERE om.user_id = ? AND om.status = 'active' AND om.role = 'landlord' LIMIT 1");
 $memStmt->execute([$userId]);
 $mem = $memStmt->fetch();
-if (!$mem) {
+$orgId = $mem ? (int)$mem['org_id'] : 0;
+if (!$mem && $myRole !== 'agent') {
     respond(false, '僅房東身份可管理房源刊登', ['authenticated' => true]);
 }
-$orgId = (int)$mem['org_id'];
 
 $delegatedExpr = '(p.delegated_user_id IS NOT NULL OR p.delegated_org_id IS NOT NULL)';
 
@@ -81,12 +85,24 @@ $action = clean($in['action'] ?? '');
 $ownStmt = $pdo->prepare("SELECT p.*, {$delegatedExpr} AS is_delegated FROM properties p WHERE p.id = ? AND p.org_id = ? LIMIT 1");
 $ownStmt->execute([$id, $orgId]);
 $prop = $ownStmt->fetch();
+$agentRel = null;
+if (!$prop && $myRole === 'agent') {
+    /* 業務:受託房源(共用屋主既有資料,免重建) */
+    $agStmt = $pdo->prepare("SELECT can_edit_price FROM property_agents WHERE property_id = ? AND agent_user_id = ? AND status = 'active' LIMIT 1");
+    $agStmt->execute([$id, $userId]);
+    $agentRel = $agStmt->fetch();
+    if ($agentRel) {
+        $pStmt = $pdo->prepare('SELECT p.*, 0 AS is_delegated FROM properties p WHERE p.id = ? LIMIT 1');
+        $pStmt->execute([$id]);
+        $prop = $pStmt->fetch();
+    }
+}
 if (!$prop) {
     respond(false, '找不到這筆房源');
 }
 $delegatedHouse = (bool)(int)$prop['is_delegated'];
 
-if ($delegatedHouse && in_array($action, ['toggle', 'delete_photo', 'set_cover', 'add_photo'], true)) {
+if (!$agentRel && $delegatedHouse && in_array($action, ['toggle', 'delete_photo', 'set_cover', 'add_photo'], true)) {
     respond(false, '代管中:上下架與照片由管理員維護;租金與屋況資料請用「編輯」由屋主修改');
 }
 
@@ -270,6 +286,14 @@ if ($available !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $available)) {
 }
 if (mb_strlen($facilities) > 255 || mb_strlen($note) > 255) {
     respond(false, '設備或備註過長');
+}
+
+/* 受託業務未獲授權改價:鎖定租金/售價/押金/管理費為屋主設定值 */
+if ($agentRel && !(int)$agentRel['can_edit_price']) {
+    $rent = (int)$prop['rent'];
+    $salePrice = (int)$prop['sale_price'];
+    $deposit = (int)$prop['deposit'];
+    $mgmtFee = (int)$prop['mgmt_fee'];
 }
 
 $pdo->prepare('UPDATE properties SET title = ?, city = ?, district = ?, address = ?, listing_type = ?, property_type = ?,

@@ -126,6 +126,7 @@
     const facilities = p.facilities ? '<div class="sect">生活機能/設備</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + esc(p.facilities) + '</p>' : '';
     const noteHtml = p.note ? '<div class="sect">備註</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + esc(p.note) + '</p>' : '';
     const avail = (p.available_date && p.listing_type === 'rental') ? '<div class="sect">可遷入日</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + dstr(p.available_date) + '</p>' : '';
+    const paSection = data.can_manage ? '<div class="sect">🤝 委託業務(一屋可委託多位業務)</div><div id="paBox" style="margin:4px 2px">載入中…</div>' : '';
 
     $('#detail').innerHTML =
       '<div class="cover" style="' + (cover ? 'background-image:url(\'uploads/' + esc(cover.file_path) + '\')' : '') + '">' + (cover ? '' : '🏠') + '</div>' +
@@ -137,7 +138,9 @@
       '<div style="margin:10px 2px"><a class="btn line" href="life.html?property_id=' + p.id + '" style="text-decoration:none;display:block;text-align:center">📍 生活圈(周邊 5 公里:食衣住行/醫院/學校/娛樂)</a></div>' +
       '<div class="kv">' + chips.join('') + '</div>' +
       (p.min_lease ? '<p style="font-size:13px;color:var(--brown2);margin:2px">最短租期:' + esc(p.min_lease) + '</p>' : '') +
-      avail + facilities + noteHtml + leaseHtml;
+      avail + facilities + noteHtml + leaseHtml + paSection;
+
+    if (data.can_manage) loadAgents(p);
 
     const coverEl = document.querySelector('#detail .cover');
     if (coverEl && cover) {
@@ -198,6 +201,59 @@
         }
       });
     });
+  }
+
+  async function loadAgents(p) {
+    const box = $('#paBox');
+    if (!box) return;
+    let d;
+    try {
+      const res = await fetch('api/property_agents.php?property_id=' + p.id, { cache: 'no-store' });
+      d = await res.json();
+    } catch (e) { box.innerHTML = '<p style="font-size:12px;color:var(--brown2)">載入失敗</p>'; return; }
+    if (!d.ok) { box.innerHTML = '<p style="font-size:12px;color:var(--brown2)">' + esc(d.message || '') + '</p>'; return; }
+    const items = d.items || [];
+    const dealTxt = { rent: '出租', sale: '出售', both: '出租/出售' };
+    const rows = items.length
+      ? items.map(a =>
+        '<div class="lrow"><div class="linfo"><b>' + esc(a.name) + '(' + esc(a.phone) + ')</b>' +
+        '<span>' + (dealTxt[a.deal_type] || '') + '|可改價:' + (Number(a.can_edit_price) ? '是' : '否') +
+        '|' + (a.status === 'active' ? '<b style="color:var(--green)">生效中</b>' : '<span style="color:var(--brown2)">邀請中</span>') + '</span></div>' +
+        '<button type="button" class="mini-btn line act-paend" data-id="' + a.id + '">解除</button></div>').join('')
+      : '<p style="font-size:12px;color:var(--brown2);margin:2px">尚未委託任何業務。</p>';
+    box.innerHTML = rows +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">' +
+      '<input id="paPhone" inputmode="numeric" placeholder="業務手機號碼" style="flex:1;min-width:130px;border:1.5px solid var(--beige2);border-radius:10px;padding:8px;font-family:inherit">' +
+      '<select id="paDeal" style="border:1.5px solid var(--beige2);border-radius:10px;padding:8px;font-family:inherit;color:var(--brown);background:var(--surface)"><option value="rent">協助出租</option><option value="sale">協助出售</option><option value="both">出租/出售</option></select>' +
+      '<select id="paPrice" style="border:1.5px solid var(--beige2);border-radius:10px;padding:8px;font-family:inherit;color:var(--brown);background:var(--surface)"><option value="0">不可改價</option><option value="1">可改價</option></select>' +
+      '<button type="button" class="mini-btn act-painvite">邀請</button></div>' +
+      '<p style="font-size:11px;color:var(--brown2);margin:6px 2px 0">業務直接使用您建好的房源資料(免重建);未選「可改價」時業務不能動租金/售價。</p>';
+
+    box.querySelector('.act-painvite').addEventListener('click', async () => {
+      const phone = box.querySelector('#paPhone').value.trim();
+      if (!phone) { showToast('請輸入業務手機號碼'); return; }
+      try {
+        const res = await fetch('api/property_agents.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'invite', property_id: p.id, phone, deal_type: box.querySelector('#paDeal').value, can_edit_price: Number(box.querySelector('#paPrice').value) })
+        });
+        const r = await res.json();
+        showToast(r.message);
+        if (r.ok) loadAgents(p);
+      } catch (e) { showToast('連線異常'); }
+    });
+    box.querySelectorAll('.act-paend').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('解除此業務的委託?')) return;
+      try {
+        const res = await fetch('api/property_agents.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'end', id: Number(b.dataset.id) })
+        });
+        const r = await res.json();
+        showToast(r.message);
+        if (r.ok) loadAgents(p);
+      } catch (e) { showToast('連線異常'); }
+    }));
   }
 
   load();

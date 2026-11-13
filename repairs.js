@@ -375,7 +375,9 @@
         (cache.vendors || []).map(v => '<option value="' + v.user_id + '">' + esc(v.company || v.name) + (v.specialty ? '(' + esc(v.specialty) + ')' : '') + '</option>').join('') +
         '</select>' +
         '<button type="button" class="mini-btn act-send" data-id="' + r.id + '">發送</button>' +
-        '<button type="button" class="mini-btn line act-broadcast" data-id="' + r.id + '">📡 廣播方圓5公里</button>' +
+        '<select id="bcastR-' + r.id + '" style="border:1.5px solid var(--beige2);border-radius:10px;padding:8px;font-family:inherit;color:var(--brown);background:var(--surface)">' +
+        '<option value="5">方圓 5 公里</option><option value="10">10 公里</option><option value="30">30 公里</option></select>' +
+        '<button type="button" class="mini-btn line act-broadcast" data-id="' + r.id + '">📡 廣播比價</button>' +
         '</div>' +
         (!vendorCount ? '<p style="font-size:11.5px;color:var(--brown2);margin:6px 2px 0">廠商名單載入中或尚無廠商:請稍後重開本頁,或到「🔧 廠商名單」新增</p>' : '');
     }
@@ -406,7 +408,9 @@
           return;
         }
         if (b.classList.contains('act-broadcast')) {
-          if (confirm('廣播給房屋方圓5公里內所有註冊廠商?')) act({ action: 'broadcast_radius', repair_id: Number(b.dataset.id) });
+          const rsel = panel.querySelector('select[id^="bcastR-"]');
+          const km = rsel ? Number(rsel.value) : 5;
+          if (confirm('廣播給房屋方圓 ' + km + ' 公里內所有註冊廠商比價?')) act({ action: 'broadcast_radius', repair_id: Number(b.dataset.id), radius_km: km });
           return;
         }
         handleStatus(b, e);

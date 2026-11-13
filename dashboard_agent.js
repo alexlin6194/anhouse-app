@@ -59,5 +59,58 @@
       : '<p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">尚無房源:點右上「+ 建立房源」開始建檔(591 規格欄位,支援出租/出售)。</p>';
   }
 
+  async function loadPA() {
+    let d;
+    try {
+      const res = await fetch('api/property_agents.php?mine=1', { cache: 'no-store' });
+      d = await res.json();
+    } catch (e) { return; }
+    if (!d.ok) return;
+    const items = d.items || [];
+    if (!items.length) return;
+    $('#paSect').style.display = '';
+    const card = $('#paCard');
+    card.style.display = '';
+    const dealTxt = { rent: '出租', sale: '出售', both: '出租/出售' };
+    card.innerHTML = items.map(a => {
+      const price = a.listing_type === 'sale' ? '開價 ' + money(a.sale_price) + '元' : '月租 ' + money(a.rent) + '元';
+      const st = a.status === 'invited'
+        ? '<span class="st warn">邀請中</span>'
+        : '<span class="st ' + (Number(a.is_listed) ? 'ok' : 'idle') + '">' + (Number(a.is_listed) ? '已上架' : '未上架') + '</span>';
+      const btns = a.status === 'invited'
+        ? '<div style="display:flex;gap:6px;margin-top:6px"><button type="button" class="mini-btn act-paok" data-id="' + a.id + '">✅ 接受委託</button><button type="button" class="mini-btn line act-pano" data-id="' + a.id + '">婉拒</button></div>'
+        : '<div style="display:flex;gap:6px;margin-top:6px"><button type="button" class="mini-btn act-patoggle" data-pid="' + a.property_id + '" data-on="' + Number(a.is_listed) + '">' + (Number(a.is_listed) ? '⬇️ 下架' : '⬆️ 上架') + '</button>' +
+          '<a class="mini-btn line" style="text-decoration:none" href="property.html?id=' + a.property_id + '">查看房屋</a></div>';
+      return '<div class="list-item" style="flex-wrap:wrap"><div style="flex:1;min-width:150px"><b>' + esc(a.title) + '</b>' +
+        '<span>' + dealTxt[a.deal_type] + '|' + price + '|可改價:' + (Number(a.can_edit_price) ? '是' : '否') + '</span></div>' + st + btns + '</div>';
+    }).join('');
+
+    card.querySelectorAll('.act-paok, .act-pano').forEach(b => b.addEventListener('click', async () => {
+      const accept = b.classList.contains('act-paok');
+      if (!accept && !confirm('婉拒此委託?')) return;
+      try {
+        const res = await fetch('api/property_agents.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'respond', id: Number(b.dataset.id), accept: accept ? 1 : 0 })
+        });
+        const r = await res.json();
+        toast(r.message);
+        if (r.ok) loadPA();
+      } catch (e) { toast('連線異常'); }
+    }));
+    card.querySelectorAll('.act-patoggle').forEach(b => b.addEventListener('click', async () => {
+      try {
+        const res = await fetch('api/listings.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'toggle', id: Number(b.dataset.pid) })
+        });
+        const r = await res.json();
+        toast(r.message);
+        if (r.ok) loadPA();
+      } catch (e) { toast('連線異常'); }
+    }));
+  }
+
   load();
+  loadPA();
 })();
