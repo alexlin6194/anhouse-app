@@ -237,6 +237,17 @@
         if (window.showLightbox) window.showLightbox(t.dataset.full, '報修照片');
       });
     });
+    /* 動態渲染的詳情面板(現場照/憑證照)用事件委託,確保點擊可放大 */
+    if (!window.__lbDelegated) {
+      window.__lbDelegated = true;
+      document.addEventListener('click', (e) => {
+        const t = e.target.closest ? e.target.closest('[data-full]') : null;
+        if (!t) return;
+        e.stopPropagation();
+        e.preventDefault();
+        if (window.showLightbox) window.showLightbox(t.dataset.full, '照片(點任意處關閉)');
+      }, true);
+    }
   }
 
   let vendorsFetchedOnce = false;

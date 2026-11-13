@@ -26,7 +26,7 @@ $prof = $prof->fetch();
 
 /* 工單統計 */
 $cnt = $pdo->prepare("SELECT
-    (SELECT COUNT(*) FROM repairs WHERE vendor_user_id=? AND status='assigned') AS working,
+    (SELECT COUNT(*) FROM repairs WHERE vendor_user_id=? AND status IN ('assigned','inspected','repairing')) AS working,
     (SELECT COUNT(*) FROM repairs WHERE vendor_user_id=? AND status IN ('done','billed') AND MONTH(updated_at)=MONTH(NOW()) AND YEAR(updated_at)=YEAR(NOW())) AS done_month,
     (SELECT COUNT(*) FROM repair_leads WHERE vendor_user_id=? AND status='sent') AS leads_new");
 $cnt->execute([$meId, $meId, $meId]);
