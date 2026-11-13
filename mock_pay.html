@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>模擬付款|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261113y">
+<style>
+  .nwrap{max-width:420px;margin:24px auto;padding:0 16px}
+  .ncard{background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+  .nhead{background:#0b62a4;color:#fff;margin:-20px -20px 16px;border-radius:14px 14px 0 0;padding:14px 20px;font-weight:700}
+  .nfield{margin-bottom:12px}
+  .nfield label{display:block;font-size:12px;color:#666;margin-bottom:4px}
+  .nfield input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;background:#f5f5f5}
+  .nbtn{width:100%;padding:12px;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+  .nbtn.pay{background:#e5b83c;color:#fff}
+  .nbtn.fail{background:#fff;color:#999;border:1px solid #ddd}
+</style>
+</head>
+<body>
+<div class="nwrap">
+  <div class="ncard" id="card">
+    <div class="nhead">藍新金流(模擬測試頁)</div>
+    <p style="font-size:13px;color:#8a6d1f;background:#fff8e1;border-radius:8px;padding:8px 10px">
+      ⚠️ 這是本機<b>模擬付款</b>,不會真的扣款。接上藍新測試憑證後,此頁會自動換成藍新官方刷卡頁。</p>
+    <div class="nfield"><label>訂單編號</label><input id="tno" readonly></div>
+    <div class="nfield"><label>金額</label><input id="amt" readonly></div>
+    <div class="nfield"><label>卡號(模擬,不可編輯)</label><input value="4102 2202 3456 7890" readonly></div>
+    <div class="nfield"><label>有效期限 / 安全碼</label><input value="12/29|***" readonly></div>
+    <button class="nbtn pay" id="ok">模擬付款成功</button>
+    <button class="nbtn fail" id="fail">模擬付款失敗</button>
+  </div>
+  <div id="done" style="display:none;text-align:center;padding:30px 0"></div>
+</div>
+<script>
+(async function(){
+  const t = new URLSearchParams(location.search).get('t') || '';
+  const res = await fetch('api/newebpay_mpg.php?status=1', {credentials:'same-origin'});
+  const d = await res.json();
+  const sub = (d.history || []).find(h => h.trade_no === t);
+  document.getElementById('tno').value = t;
+  document.getElementById('amt').value = sub ? 'NT$' + sub.amount.toLocaleString() + '元(基本/進階方案)' : '(查無金額)';
+
+  async function confirm(result){
+    const r = await fetch('api/newebpay_mock.php', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'action=confirm&t=' + encodeURIComponent(t) + '&result=' + result
+    });
+    const j = await r.json();
+    document.getElementById('card').style.display = 'none';
+    const done = document.getElementById('done');
+    done.style.display = 'block';
+    done.innerHTML = j.ok
+      ? '<div style="font-size:40px">✅</div><h3>付款成功</h3><p>訂閱已開通,畫面跳轉中…</p>'
+      : '<div style="font-size:40px">❌</div><h3>付款失敗</h3><p>' + (j.message || '請稍後再試') + '</p>';
+    setTimeout(() => location.href = 'subscription.html?result=' + (j.ok ? 'ok' : 'fail'), 1500);
+  }
+  document.getElementById('ok').addEventListener('click', () => confirm('success'));
+  document.getElementById('fail').addEventListener('click', () => confirm('fail'));
+})();
+</script>
+</body>
+</html>

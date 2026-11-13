@@ -30,6 +30,15 @@
 
     const backMap = { landlord: 'dashboard.html', manager: 'dashboard_manager.html', agent: 'dashboard_agent.html', tenant: 'dashboard_tenant.html', company_owner: 'dashboard_company.html', admin_staff: 'dashboard_company.html', accountant: 'dashboard_company.html' };
     $('#navBack').setAttribute('href', backMap[u.registration_role] || 'dashboard.html');
+    const subRoles = ['vendor', 'landlord', 'company_owner', 'manager'];
+    if (subRoles.includes(u.registration_role)) {
+      const subRow = $('#subRow');
+      if (subRow) {
+        subRow.querySelector('b').textContent = u.registration_role === 'vendor' ? '廠商訂閱(月費)' : '會員訂閱方案';
+        subRow.style.display = '';
+        subRow.addEventListener('click', () => { location.href = 'subscription.html'; });
+      }
+    }
   }
 
   const RE_PASS = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;

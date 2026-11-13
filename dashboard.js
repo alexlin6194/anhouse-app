@@ -25,7 +25,7 @@
       try {
         const me = await (await fetch('api/me.php', { cache: 'no-store' })).json();
         const role = me.ok && me.authenticated ? me.user.registration_role : null;
-        if (role === 'vendor') { location.replace('repairs.html'); return; }
+        if (role === 'vendor') { location.replace('dashboard_vendor.html'); return; }
         if (me.ok && me.authenticated) { location.replace('welcome.html'); return; }
       } catch (e) { /* fallthrough */ }
       location.href = 'login.html';

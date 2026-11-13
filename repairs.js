@@ -279,8 +279,10 @@
       if (p.sub_status === 'expired' || (p.sub_status === 'trial' && p.trial_ends && p.trial_ends < new Date().toISOString().slice(0, 10))) subTxt = '⚠ 已到期,請支付月費';
       const hasGps = p.lat != null && p.lng != null;
       $('#vBanner').innerHTML = '🧰 ' + esc(p.company || '') + '|' + subTxt +
+        ' <button type="button" class="mini-btn line" id="vSubBtn" style="margin:2px 0">訂閱管理</button>' +
         (hasGps ? '|服務位置已設定' : '|尚未設定服務位置') +
         ' <button type="button" class="mini-btn line" id="vGpsBtn" style="margin:2px 0">' + (hasGps ? '更新服務位置' : '📍 設定服務位置(GPS)') + '</button>';
+      $('#vSubBtn').addEventListener('click', () => { location.href = 'subscription.html'; });
       $('#vGpsBtn').addEventListener('click', () => {
         if (!navigator.geolocation) { showToast('此裝置不支援定位'); return; }
         showToast('定位中…');

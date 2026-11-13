@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   var path = location.pathname.split('/').pop() || 'dashboard.html';
-  var isHome = /^dashboard(_manager|_agent|_tenant|_company)?\.html$/.test(path);
+  var isHome = /^dashboard(_manager|_agent|_tenant|_company|_vendor)?\.html$/.test(path);
   var bar = document.createElement('nav');
   bar.className = 'btab';
   bar.setAttribute('aria-label', '主選單');
@@ -27,9 +27,9 @@
         company_owner: 'dashboard_company.html',
         admin_staff: 'dashboard_company.html',
         accountant: 'dashboard_company.html',
-        vendor: 'repairs.html'
+        vendor: 'dashboard_vendor.html'
       };
-      var home = homes[d.user.registration_role] || 'repairs.html';
+      var home = homes[d.user.registration_role] || 'dashboard_vendor.html';
       bar.querySelector('[data-bt="home"]').setAttribute('href', home);
     }
   }).catch(function () {});
