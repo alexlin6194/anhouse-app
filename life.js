@@ -35,6 +35,8 @@
     return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(item.name + ' ' + (item.vicinity || ''));
   }
 
+  let ubikeHtml = '';
+
   function render() {
     const catsEl = $('#cats');
     catsEl.innerHTML = CATS.map(c =>
@@ -67,7 +69,28 @@
         (s.note ? '<p style="font-size:12px;color:var(--brown2);margin:4px 2px">' + esc(s.note) + '</p>' : '') +
         (items || '<p style="font-size:12.5px;color:var(--brown2);margin:4px 2px">附近 5 公里內沒有資料</p>'));
     }
-    listEl.innerHTML = html.join('');
+    listEl.innerHTML = (current === null && ubikeHtml ? ubikeHtml : '') + html.join('');
+  }
+
+  async function fetchUbike() {
+    try {
+      const res = await fetch('api/life.php?property_id=' + propId + '&ubike=1', { cache: 'no-store' });
+      const d = await res.json();
+      if (!d.ok) return;
+      if (!d.city_ok) {
+        ubikeHtml = '';
+        if (current === null) render();
+        return;
+      }
+      ubikeHtml = '<div class="sect" style="margin-top:14px">🚴 UBike 站點即時</div>' +
+        ((d.ubike || []).length
+          ? d.ubike.map(s =>
+            '<div class="lrow"><div class="linfo"><b>' + esc(s.name) + '</b>' +
+            '<span>可借 ' + s.bikes + ' 台|空位 ' + s.slots + ' 格|' + fmtDist(s.dist) + '</span></div>' +
+            '<a class="st idle" target="_blank" rel="noopener" style="text-decoration:none" href="https://www.google.com/maps/search/?api=1&query=' + s.lat + ',' + s.lng + '">📍</a></div>').join('')
+          : '<p style="font-size:12.5px;color:var(--brown2);margin:4px 2px">附近沒有 UBike 站點資料</p>');
+      if (current === null) render();
+    } catch (e) { /* 靜默 */ }
   }
 
   async function fetchSections() {
@@ -108,6 +131,7 @@
       }
     } catch (e) { /* 忽略 */ }
     render();
+    fetchUbike();
   }
 
   load();

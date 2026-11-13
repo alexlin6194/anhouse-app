@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/tdx.php';
 
 require_methods('GET');
 
@@ -23,7 +24,7 @@ if ($propId <= 0) {
     respond(false, '缺少房屋參數');
 }
 
-$pStmt = $pdo->prepare('SELECT id, title, address, lat, lng, is_listed, delegated_user_id, org_id FROM properties WHERE id = ? LIMIT 1');
+$pStmt = $pdo->prepare('SELECT id, title, address, city, lat, lng, is_listed, delegated_user_id, org_id FROM properties WHERE id = ? LIMIT 1');
 $pStmt->execute([$propId]);
 $prop = $pStmt->fetch();
 if (!$prop) {
@@ -54,6 +55,15 @@ if (!$allowed && $myRole === 'agent' && $myOrg) {
 }
 if (!$allowed) {
     respond(false, '您沒有此房屋的檢視權限');
+}
+
+/* UBike 即時站點(TDX 政府資料,90 秒快取) */
+if (isset($_GET['ubike'])) {
+    if (empty($prop['lat']) || empty($prop['lng'])) {
+        respond(false, '此房屋尚未定位成功,暫無法查詢 UBike');
+    }
+    $stations = tdx_ubike((float)$prop['lat'], (float)$prop['lng'], (string)($prop['city'] ?? ''));
+    respond(true, 'ok', ['ubike' => $stations, 'city_ok' => tdx_city((string)($prop['city'] ?? '')) !== '']);
 }
 
 // 座標:缺漏時用 Google 補齊並回存(優先 Geocoding API,備援 Places Text Search)
