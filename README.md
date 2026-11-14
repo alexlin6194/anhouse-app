@@ -96,6 +96,6 @@ anjia-register/
 
 - 圖形驗證碼/Google reCAPTCHA 防灌註冊
 - 密碼找回流程的 SMTP 認證模式(若虛擬主機 mail() 不可用,改接 PHPMailer+SMTP)
-- 公司審核後台(平台方審核組織申請與資格文件:核准/補件/駁回)
-- 員工邀請與加入流程 API
+- 公司審核後台(平台方審核組織申請與資格文件:核准/補件/駁回)→ **v1.3 已實作**:`admin_orgs.html`+`api/org_admin.php`(users.platform_admin=1 可用;核准=組織啟用+證照核准;補件/駁回須填說明,自動進通知中心;公司端 `api/company_resubmit.php` 重新上傳證書再送審;審核中組織不可邀請員工)
+- 員工邀請與加入流程 API → **v1.3 已實作**:`api/create_employee_invite.php`(須組織已啟用)+`api/respond_invite.php`
 - iOS/Android APP 整合(API 已回傳 JSON,可直接串接)

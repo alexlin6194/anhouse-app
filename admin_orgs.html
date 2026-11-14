@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>組織審核後台|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261115h">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>組織審核後台</h2>
+    <p>平台方專用<br>公司組織申請審核</p>
+    <div class="feat">
+      <div>🛡 待審公司與證照文件</div>
+      <div>✅ 核准 / 補件 / 駁回</div>
+      <div>🔔 審核結果自動通知</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button class="btn small ghost" onclick="location.href='dashboard.html'">← 回首頁</button>
+        <button class="tab on" data-st="pending_review">待審核</button>
+        <button class="tab" data-st="active">已啟用</button>
+        <button class="tab" data-st="suspended">停權/駁回</button>
+        <button class="tab" data-st="all">全部</button>
+      </div>
+      <div id="list"><p class="hint" style="margin:8px 2px">載入中…</p></div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-mask" id="mask">
+  <div class="sheet" style="height:auto;max-height:80dvh;overflow:auto">
+    <h3 id="mTitle" style="margin:20px 20px 6px;color:var(--brown);font-size:17px">審核</h3>
+    <p id="mOrg" style="font-size:13px;color:var(--brown2);margin:2px 20px 10px"></p>
+    <textarea id="mNote" placeholder="說明(駁回/補件必填:例如證書照片模糊,請重傳)" style="width:calc(100% - 40px);margin:0 20px;min-height:80px;border:1.5px solid var(--beige2);border-radius:12px;padding:10px 12px;font-size:14px;box-sizing:border-box;font-family:inherit"></textarea>
+    <div style="display:flex;gap:10px;margin:14px 20px 24px">
+      <button class="btn ghost" style="flex:1" onclick="closeSheet()">取消</button>
+      <button class="btn primary" id="mGo" style="flex:1">確認</button>
+    </div>
+  </div>
+</div>
+
+<script src="admin_orgs.js?v=20261115h"></script>
+<script src="assets/js/tabbar.js?v=20261115h"></script>
+</body>
+</html>

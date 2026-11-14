@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/notify.php';
 
 require_methods('POST');
 
@@ -93,6 +94,11 @@ try {
 } catch (Throwable $e) {
     $pdo->rollBack();
     respond(false, '申請送出失敗,請稍後再試');
+}
+
+/* 通知平台管理員待審 */
+foreach ($pdo->query('SELECT id FROM users WHERE platform_admin = 1')->fetchAll() as $a) {
+    notify((int)$a['id'], 'org_review', '公司組織申請待審', '「' . $companyName . '」(統編 ' . $taxId . ')已送出申請,請至組織審核後台審核。', $orgId, true);
 }
 
 respond(true, '組織申請已送出!平台審核通過後將通知您,請先以母帳號登入', ['redirect' => 'login.html']);

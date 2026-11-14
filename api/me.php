@@ -9,7 +9,7 @@ if (empty($_SESSION['user_id'])) {
     respond(false, '尚未登入', ['authenticated' => false]);
 }
 
-$stmt = db()->prepare('SELECT id, name, phone, email, registration_role, status FROM users WHERE id = ? LIMIT 1');
+$stmt = db()->prepare('SELECT id, name, phone, email, registration_role, platform_admin, status FROM users WHERE id = ? LIMIT 1');
 $stmt->execute([$_SESSION['user_id']]);
 $user = $stmt->fetch();
 
@@ -29,6 +29,7 @@ respond(true, '已登入', [
         'phone' => $user['phone'],
         'email' => $user['email'],
         'registration_role' => $user['registration_role'],
+        'platform_admin' => (int)($user['platform_admin'] ?? 0) === 1,
     ],
     'memberships' => $memStmt->fetchAll(),
 ]);

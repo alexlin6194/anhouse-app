@@ -41,6 +41,13 @@ if (!$mem) {
 }
 $orgId = (int)$mem['org_id'];
 
+$orgStmt = $pdo->prepare('SELECT status, name FROM organizations WHERE id = ? LIMIT 1');
+$orgStmt->execute([$orgId]);
+$org = $orgStmt->fetch();
+if (!$org || $org['status'] !== 'active') {
+    respond(false, '組織尚未通過平台審核,審核通過後即可邀請員工');
+}
+
 $targetStmt = $pdo->prepare('SELECT id, name FROM users WHERE phone = ? LIMIT 1');
 $targetStmt->execute([$phone]);
 $target = $targetStmt->fetch();

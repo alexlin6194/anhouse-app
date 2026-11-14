@@ -48,9 +48,10 @@ $units = (int)$unitStmt->fetch()['c'];
 $tier = get_tier($units);
 $employeeCount = count(array_filter($members, function ($m) { return !in_array($m['role'], ['landlord', 'tenant'], true); }));
 
-$docStmt = $pdo->prepare("SELECT COUNT(*) AS c FROM verification_documents WHERE org_id = ? AND status = 'pending'");
+$docStmt = $pdo->prepare("SELECT id, doc_type, file_path, status, note, reviewed_at, created_at FROM verification_documents WHERE org_id = ? ORDER BY id DESC LIMIT 10");
 $docStmt->execute([$orgId]);
-$pendingDocs = (int)$docStmt->fetch()['c'];
+$docs = $docStmt->fetchAll();
+$pendingDocs = count(array_filter($docs, function ($d) { return $d['status'] === 'pending'; }));
 
 respond(true, 'ok', [
     'authenticated' => true,
@@ -61,4 +62,5 @@ respond(true, 'ok', [
     'stats' => ['units' => $units, 'members' => count($members), 'pending_docs' => $pendingDocs],
     'subscription' => ['tier_name' => $tier['name'], 'fee' => $tier['fee'], 'units' => $units, 'seats' => $tier['seats'], 'employees' => $employeeCount],
     'members' => $members,
+    'documents' => $docs,
 ]);
