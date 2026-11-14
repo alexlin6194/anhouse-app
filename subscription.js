@@ -125,12 +125,32 @@
 
     const h = data.history || [];
     document.getElementById('history').innerHTML = h.length
-      ? h.map(x => '<div class="list-item" style="padding:7px 2px"><div style="flex:1"><b>' +
+      ? h.map(x => '<div class="list-item" style="padding:7px 2px;flex-wrap:wrap"><div style="flex:1;min-width:150px"><b>' +
           planLabel(x.plan) + ' NT$' + Number(x.amount).toLocaleString() + '元</b>' +
           '<span>' + (x.trade_no || '') + (x.paid_at ? '|' + x.paid_at.slice(0, 10) : '') + '</span></div>' +
+          (x.status === 'pending' ? '<button type="button" class="mini-btn act-repay" data-t="' + x.trade_no + '">💳 續付</button>' : '') +
           '<span class="st ' + (x.status === 'paid' ? 'ok' : (x.status === 'pending' ? 'warn' : 'bad')) + '">' +
           ({paid: '已付款', pending: '未完成', failed: '失敗'}[x.status] || x.status) + '</span></div>').join('')
       : '<p style="color:#a09070;margin:0">尚無紀錄</p>';
+    document.querySelectorAll('.act-repay').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try {
+        const res = await fetch('api/newebpay_mpg.php', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'action=repay&trade_no=' + encodeURIComponent(b.dataset.t)
+        });
+        const j = await res.json();
+        if (!j.ok) { alert(j.message || '續付失敗'); b.disabled = false; return; }
+        if (j.mode === 'mock') { location.href = j.pay_url; return; }
+        const form = document.createElement('form');
+        form.method = 'POST'; form.action = j.gateway;
+        ['MerchantID', 'TradeInfo', 'TradeSha', 'Version'].forEach(k => {
+          const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = j[k]; form.appendChild(i);
+        });
+        document.body.appendChild(form); form.submit();
+      } catch (e) { alert('連線異常'); b.disabled = false; }
+    }));
 
     document.getElementById('note').textContent =
       data.pay_mode === 'mock'

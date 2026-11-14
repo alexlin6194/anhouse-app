@@ -133,6 +133,42 @@ if ($action === 'status') {
     ]);
 }
 
+if ($action === 'repay') {
+    /* 未完成交易的續付 */
+    $t = clean($_POST['trade_no'] ?? '');
+    $s = $pdo->prepare('SELECT * FROM subscriptions WHERE trade_no = ? AND vendor_user_id = ? AND status = "pending" LIMIT 1');
+    $s->execute([$t, $meId]);
+    $sub = $s->fetch();
+    if (!$sub) respond(false, '查無此筆待付訂閱');
+    if (NEWEBPAY_MODE === 'mock') {
+        respond(true, 'ok', ['mode' => 'mock', 'pay_url' => 'mock_pay.html?t=' . urlencode($t)]);
+    }
+    $data = [
+        'MerchantID'      => NEWEBPAY_MERCHANT_ID,
+        'RespondType'     => 'JSON',
+        'TimeStamp'       => (string)time(),
+        'Version'         => '2.0',
+        'MerchantOrderNo' => $t,
+        'Amt'             => (string)(int)$sub['amount'],
+        'ItemDesc'        => '安家生活GO 會員方案(月繳)',
+        'Email'           => (string)($me['email'] ?? ''),
+        'LoginType'       => 0,
+        'CREDIT'          => 1,
+        'NotifyURL'       => rtrim(APP_URL, '/') . '/api/newebpay_notify.php',
+        'ReturnURL'       => rtrim(APP_URL, '/') . '/api/newebpay_return.php',
+        'CancelURL'       => rtrim(APP_URL, '/') . '/subscription.html?result=cancel',
+    ];
+    $tradeInfo = newebpay_encrypt($data);
+    respond(true, 'ok', [
+        'mode'       => NEWEBPAY_MODE,
+        'gateway'    => (NEWEBPAY_MODE === 'prod' ? 'https://core.newebpay.com' : 'https://ccore.newebpay.com') . '/MPG/mpg_gateway',
+        'MerchantID' => NEWEBPAY_MERCHANT_ID,
+        'TradeInfo'  => $tradeInfo,
+        'TradeSha'   => newebpay_sha($tradeInfo),
+        'Version'    => '2.0',
+    ]);
+}
+
 if ($action === 'start') {
     $audience = $isVendor ? 'vendor' : 'member';
     $plan = clean($_POST['plan'] ?? '');
