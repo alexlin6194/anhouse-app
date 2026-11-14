@@ -36,7 +36,7 @@
   function chip(b) {
     const od = overdueDays(b);
     if (b.status === 'draft') return '<span class="st idle">草稿|待抄錄</span>';
-    if (b.status === 'paid' && b.lease_start && String(b.period) === String(b.start_date).slice(0, 7)) return '<span class="st ok">簽約已繳</span>';
+    if (b.status === 'paid' && b.lease_start && String(b.period) === String(b.lease_start).slice(0, 7)) return '<span class="st ok">簽約已繳</span>';
     if (b.status === 'paid') return '<span class="st ok">已繳</span>';
     if (od > 0) return '<span class="st overdue">逾期 ' + od + ' 天</span>';
     return '<span class="st warn">待繳</span>';
