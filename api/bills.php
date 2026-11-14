@@ -20,7 +20,7 @@ $userId = (int)$_SESSION['user_id'];
 ensure_active_lease_bills();
 
 $landlordStmt = $pdo->prepare("SELECT o.id AS org_id FROM org_members om JOIN organizations o ON o.id = om.org_id
-    WHERE om.user_id = ? AND om.status = 'active' AND om.role = 'landlord' LIMIT 1");
+    WHERE om.user_id = ? AND om.status = 'active' AND om.role IN ('landlord','company_owner','admin_staff','accountant') LIMIT 1");
 $landlordStmt->execute([$userId]);
 $landlord = $landlordStmt->fetch();
 $myOrgId = $landlord ? (int)$landlord['org_id'] : 0;

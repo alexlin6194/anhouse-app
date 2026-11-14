@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>公司後台|安家生活GO</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20261115n">
+<link rel="stylesheet" href="assets/css/style.css?v=20261115bb">
 </head>
 <body>
 <div class="shell">
@@ -42,18 +42,29 @@
       <div class="card" style="padding:6px 16px" id="memberList"></div>
 
       <div class="sect">常用功能</div>
-      <div class="grid-fn">
-        <div class="fn" onclick="location.href='qualification.html'"><i>🪪</i><span>資格審核</span></div>
-        <div class="fn" onclick="toast('分店管理規劃中:目前以全公司戶數合計計費,分店功能日後開放')"><i>🏬</i><span>分店管理</span></div>
-        <div class="fn" onclick="toast('房屋指派規劃中:請先用各房屋頁面的「🤝 委託業務」指派業務')"><i>🏠</i><span>房屋指派</span></div>
-        <div class="fn" onclick="location.href='messages.html'"><i>💬</i><span>訊息</span></div>
-        <div class="fn" onclick="location.href='notifications.html'"><i>🔔</i><span>通知</span></div>
-        <div class="fn" onclick="toast('稽核報表規劃中:目前可從「帳單財務」查看收付紀錄')"><i>📊</i><span>稽核報表</span></div>
-      </div>
+      <div class="grid-fn" id="fnGrid"></div>
+      <div id="invites"></div>
 
       <p class="foot">本 APP 由 安家生活GO・安家生活網・房產與生活服務平台・互動開發工作室 聯合開發<br>© Copyright 2026 All Rights Reserved</p>
     </div>
   </main>
+</div>
+<div class="modal-mask" id="mask">
+  <div class="sheet" style="height:auto;max-height:80dvh;overflow:auto">
+    <h3 style="margin:20px 20px 10px;color:var(--brown);font-size:17px">🏠 房屋指派</h3>
+    <div style="padding:0 20px 24px">
+      <label style="font-size:12.5px;color:var(--brown2);font-weight:700">房屋</label>
+      <select id="asProp" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;background:var(--surface);color:var(--brown)"></select>
+      <label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">員工</label>
+      <select id="asEmp" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;background:var(--surface);color:var(--brown)"></select>
+      <p style="font-size:11.5px;color:var(--brown2);margin:10px 2px 0">管理員=代管該屋(帳務/報修);業務=負責帶看銷售。已指派的房屋可再次操作取消。</p>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn ghost" style="flex:1" onclick="closeAssign()">取消</button>
+        <button class="btn primary" id="asGo" style="flex:1">確認指派(管理員)</button>
+        <button class="btn line" id="asGoAgent" style="flex:1">確認指派(業務)</button>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="toast" id="toast" role="status"></div>
 <script src="dashboard_company.js?v=20261115h"></script>
