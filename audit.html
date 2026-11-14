@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>稽核報表|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261115cc">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>稽核報表</h2>
+    <p>公司層級的財務與營運總覽<br>收款・報修・訂閱消費一目瞭然</p>
+    <div class="feat">
+      <div>🧾 帳單收款統計與明細</div>
+      <div>🛠 報修件數與金額</div>
+      <div>📄 平台訂閱消費</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="dash-head">
+        <div class="who"><b>📊 稽核報表</b><span style="font-size:12px;color:var(--brown2)">公司財務總覽</span></div>
+        <a class="bell" href="dashboard_company.html" aria-label="回首頁">🏠</a>
+      </div>
+
+      <div class="card" style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+        <button class="btn ghost" id="prevM" style="padding:6px 14px">‹</button>
+        <b id="monthLabel" style="font-size:15px;color:var(--brown)"></b>
+        <button class="btn ghost" id="nextM" style="padding:6px 14px">›</button>
+      </div>
+
+      <div class="stats" id="statCards" style="margin-top:12px"></div>
+
+      <div class="tabs" style="display:flex;gap:8px;margin-top:14px">
+        <button class="tab btn line" data-tab="bills" style="flex:1">🧾 帳單</button>
+        <button class="tab btn ghost" data-tab="repairs" style="flex:1">🛠 報修</button>
+        <button class="tab btn ghost" data-tab="subs" style="flex:1">📄 訂閱</button>
+      </div>
+
+      <div class="card" id="list" style="margin-top:10px;padding:6px 16px"><p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">載入中…</p></div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="audit.js?v=20261115cc"></script>
+<script src="assets/js/tabbar.js?v=20261115cc"></script>
+</body>
+</html>

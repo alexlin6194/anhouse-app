@@ -39,7 +39,7 @@
       if (isAcct || isBoss || isStaff) tiles.push(['🧾', '帳單管理', "location.href='bills.html'"]);
       if (isAcct || isBoss) tiles.push(['💳', '收款確認', "location.href='bills.html?tab=pending'"]);
       if (isBoss || isAcct) tiles.push(['📄', '訂閱付款', "location.href='subscription.html'"]);
-      if (isBoss) tiles.push(['📊', '稽核報表', "toast('稽核報表規劃中:目前可從「帳單財務」查看收付紀錄')"]);
+      if (isBoss) tiles.push(['📊', '稽核報表', "location.href='audit.html'"]);
       tiles.push(['💬', '訊息', "location.href='messages.html'"]);
       tiles.push(['🔔', '通知', "location.href='notifications.html'"]);
       tiles.push(['👤', '我的', "location.href='profile.html'"]);
