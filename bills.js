@@ -153,7 +153,7 @@
       ? '<button type="button" class="mini-btn line act-undo" data-id="' + b.id + '">↩ 未收到錢?退回為待繳</button>'
       : '';
     const payBtn2 = isTenantView && b.status === 'pending'
-      ? '<button type="button" class="mini-btn act-pay" data-id="' + b.id + '">💳 我要繳費(附轉帳證明)</button>'
+      ? '<button type="button" class="mini-btn act-payonline" data-id="' + b.id + '" style="background:var(--wood-d);color:#FFF9EC">💳 線上付款(藍新)</button><button type="button" class="mini-btn act-pay" data-id="' + b.id + '">轉帳證明回報</button>'
       : '';
     panel.innerHTML =
       '<div style="border-top:1.5px dashed var(--beige2);margin-top:10px;padding-top:10px">' +
@@ -214,6 +214,32 @@
       e.stopPropagation();
       payBillId = Number(e.currentTarget.dataset.id);
       payFile.click();
+    });
+
+    panel.querySelector('.act-payonline')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        const res = await fetch('api/bills.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bill_id: Number(btn.dataset.id), action: 'pay_link' })
+        });
+        const r = await res.json();
+        if (r.ok && r.pay_url) { location.href = r.pay_url; return; }
+        if (r.ok && r.gateway && r.trade_info) {
+          const f = document.createElement('form');
+          f.method = 'POST'; f.action = r.gateway;
+          for (const [k, v] of Object.entries(r.trade_info)) {
+            const hid = document.createElement('input');
+            hid.type = 'hidden'; hid.name = k; hid.value = v;
+            f.appendChild(hid);
+          }
+          document.body.appendChild(f); f.submit(); return;
+        }
+        showToast(r.message || '付款連結產生失敗');
+      } catch (err) { showToast('連線異常'); }
+      btn.disabled = false;
     });
 
     panel.querySelector('.act-meter')?.addEventListener('click', (e) => {

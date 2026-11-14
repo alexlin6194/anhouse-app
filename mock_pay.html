@@ -37,8 +37,13 @@
   const qs = new URLSearchParams(location.search);
   const t = qs.get('t') || '';
   const isPay = qs.get('type') === 'pay';
+  const isBill = qs.get('type') === 'bill';
   let amountTxt = '(查無金額)';
-  if (isPay) {
+  if (isBill) {
+    const r = await fetch('api/bills.php?info=' + encodeURIComponent(t), {credentials:'same-origin'});
+    const j = await r.json();
+    if (j.ok) amountTxt = 'NT$' + Number(j.amount).toLocaleString() + '元(房租帳單|' + j.period + '期|' + j.title + ')';
+  } else if (isPay) {
     const r = await fetch('api/vendor_payments.php?info=' + encodeURIComponent(t), {credentials:'same-origin'});
     const j = await r.json();
     if (j.ok) amountTxt = 'NT$' + Number(j.amount).toLocaleString() + '元(維修工款|工單#' + j.repair_id + ')';
@@ -52,10 +57,12 @@
   document.getElementById('amt').value = amountTxt;
 
   async function confirm(result){
-    const url = isPay ? 'api/vendor_payments.php' : 'api/newebpay_mock.php';
+    const url = isPay ? 'api/vendor_payments.php' : (isBill ? 'api/bills.php' : 'api/newebpay_mock.php');
     const body = isPay
       ? 'action=mock_confirm&t=' + encodeURIComponent(t) + '&result=' + result
-      : 'action=confirm&t=' + encodeURIComponent(t) + '&result=' + result;
+      : (isBill
+        ? 'action=mock_confirm&t=' + encodeURIComponent(t) + '&result=' + result
+        : 'action=confirm&t=' + encodeURIComponent(t) + '&result=' + result);
     const r = await fetch(url, {
       method:'POST', credentials:'same-origin',
       headers:{'Content-Type':'application/x-www-form-urlencoded'},

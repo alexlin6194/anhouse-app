@@ -18,6 +18,21 @@
   let props = [];
   let editId = null;
   let allViewings = [];
+  let fromLead = null;
+
+  async function applyFromLead() {
+    const leadId = new URLSearchParams(location.search).get('from_lead');
+    if (!leadId) return;
+    try {
+      const res = await fetch('api/leads_list.php?status=all', { cache: 'no-store' });
+      const d = await res.json();
+      const l = (d.leads || []).find((x) => Number(x.id) === Number(leadId));
+      if (!l) return;
+      fromLead = l;
+      if (props.length) openSheet(null, l);
+      else toast('請先於房源管理建立房屋,再替客戶排帶看');
+    } catch (e) { /* 忽略 */ }
+  }
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
   /* Google 行事曆連結(主要工具) */
@@ -83,18 +98,19 @@
     }
   }
 
-  function openSheet(v) {
+  function openSheet(v, lead) {
     editId = v ? Number(v.id) : null;
-    $('#fTitle').textContent = v ? '編輯帶看' : '新增帶看';
+    const L = lead || fromLead;
+    $('#fTitle').textContent = v ? '編輯帶看' : (L ? '新增帶看(線索:' + L.name + ')' : '新增帶看');
     $('#fGo').textContent = v ? '儲存變更' : '排定帶看';
     $('#fProp').innerHTML = props.length
       ? props.map((p) => '<option value="' + p.id + '"' + (v && Number(v.property_id) === Number(p.id) ? ' selected' : '') + '>' + esc(p.title) + (p.city || p.district ? '(' + esc([p.city, p.district].filter(Boolean).join('')) + ')' : '') + '</option>').join('')
       : '<option value="">(尚無可管理的房屋)</option>';
-    $('#fName').value = v ? v.client_name : '';
-    $('#fPhone').value = v ? (v.client_phone || '') : '';
+    $('#fName').value = v ? v.client_name : (L ? L.name : '');
+    $('#fPhone').value = v ? (v.client_phone || '') : (L ? (L.phone || '') : '');
     $('#fWhen').value = v ? v.scheduled_at.replace(' ', 'T').slice(0, 16) : '';
     $('#fDur').value = v ? String(v.duration_min || 60) : '60';
-    $('#fNote').value = v ? (v.note || '') : '';
+    $('#fNote').value = v ? (v.note || '') : (L ? '【線索跟進】' + ((L.requirement || '') + (L.note ? ';' + L.note : '')).slice(0, 180) : '');
     $('#mask').classList.add('show');
     $('.sheet').classList.add('show');
   }
@@ -125,7 +141,20 @@
       });
       const r = await res.json();
       toast(r.message);
-      if (r.ok) { closeSheet(); load(); }
+      if (r.ok) {
+        closeSheet();
+        /* 線索帶看:自動推進狀態 新線索→跟進中 */
+        if (!editId && fromLead && fromLead.status === 'new') {
+          try {
+            await fetch('api/leads.php', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'status', id: fromLead.id, status: 'following' })
+            });
+            toast('已排定帶看,線索「' + fromLead.name + '」自動轉為跟進中');
+          } catch (e2) { /* 忽略 */ }
+        }
+        load();
+      }
       else if (editId) { closeSheet(); load(); } /* 紀錄已被刪除等狀況:刷新清單清掉過期畫面 */
     } catch (e) { toast('連線異常'); }
   });
@@ -165,4 +194,5 @@
   });
 
   load();
+  applyFromLead();
 })();

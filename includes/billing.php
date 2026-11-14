@@ -169,6 +169,26 @@ function generate_lease_bills(array $lease): int
         $bill['status'] = 'pending';
     }
 
+    /* 押金帳單補開(冪等):生效租約有押金但尚無 deposit 帳單 → 開立待繳 */
+    $depStmt = $pdo->prepare('SELECT deposit_amount, start_date FROM leases WHERE id = ?');
+    $depStmt->execute([$leaseId]);
+    $dl = $depStmt->fetch();
+    $dep = (int)($dl['deposit_amount'] ?? 0);
+    if ($dep > 0) {
+        $dchk = $pdo->prepare("SELECT id FROM bills WHERE lease_id = ? AND period = 'deposit' LIMIT 1");
+        $dchk->execute([$leaseId]);
+        if (!$dchk->fetch()) {
+            $depTrade = 'BILL' . date('ymdHis') . 'L' . $leaseId . 'D1';
+            $pdo->prepare("INSERT INTO bills (property_id, lease_id, period, amount, rent_amount, electric_amount, mgmt_amount, misc_amount, misc_note, due_date, status, pay_trade_no, pay_mode)
+                VALUES (?, ?, 'deposit', ?, NULL, NULL, NULL, ?, '押金', ?, 'pending', ?, ?)")
+                ->execute([$propertyId, $leaseId, $dep, $dep, (string)$dl['start_date'], $depTrade, NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
+            if (!empty($lease['tenant_user_id'])) {
+                notify((int)$lease['tenant_user_id'], 'bill_due', '押金帳單|' . $prop['title'],
+                    '押金 NT$' . number_format($dep) . ' 已產生帳單,請於「帳單財務」線上繳納或回報轉帳證明。', (int)$pdo->lastInsertId(), true);
+            }
+        }
+    }
+
     $electricPending = ($bill['electric_amount'] === null || $bill['electric_amount'] === '');
     if ($electricPending && $today >= (clone $pay)->modify('-5 days') && $today < $pay) {
         $recipients = [];

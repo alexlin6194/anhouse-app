@@ -355,6 +355,36 @@ if ($action === 'sign') {
         if ($leaseRow && $leaseRow['status'] === 'pending') {
             $pdo->prepare("UPDATE leases SET status = 'active', responded_at = NOW() WHERE id = ?")->execute([(int)$d['ref_id']]);
             $pdo->prepare("UPDATE properties SET status = 'rented' WHERE id = ? AND status <> 'rented'")->execute([(int)$d['property_id']]);
+            /* 當場成交收款:第一期租金帳單立即生效 + 押金帳單產生(附線上付款連結) */
+            $leaseFull = $pdo->prepare('SELECT rent_amount, deposit_amount, start_date, payment_day FROM leases WHERE id = ?');
+            $leaseFull->execute([(int)$d['ref_id']]);
+            $lf = $leaseFull->fetch();
+            $firstDue = (string)$lf['start_date'];
+            $tradeBase = 'BILL' . date('ymdHis') . 'L' . (int)$d['ref_id'];
+            $fb = $pdo->prepare("SELECT id, status FROM bills WHERE lease_id = ? AND period = ? LIMIT 1");
+            $fb->execute([(int)$d['ref_id'], substr($firstDue, 0, 7)]);
+            $firstBill = $fb->fetch();
+            if ($firstBill && $firstBill['status'] === 'draft') {
+                $pdo->prepare("UPDATE bills SET status = 'pending', due_date = ?, pay_trade_no = ?, pay_mode = ? WHERE id = ?")
+                    ->execute([$firstDue, $tradeBase . 'R1', NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay', (int)$firstBill['id']]);
+            }
+            $dep = (int)($lf['deposit_amount'] ?? 0);
+            if ($dep > 0) {
+                $db = $pdo->prepare("SELECT id FROM bills WHERE lease_id = ? AND period = 'deposit' LIMIT 1");
+                $db->execute([(int)$d['ref_id']]);
+                if (!$db->fetch()) {
+                    $pdo->prepare("INSERT INTO bills (property_id, lease_id, period, amount, rent_amount, electric_amount, mgmt_amount, misc_amount, misc_note, due_date, status, pay_trade_no, pay_mode)
+                        VALUES (?, ?, 'deposit', ?, NULL, NULL, NULL, ?, ?, ?, 'pending', ?, ?)")
+                        ->execute([(int)$d['property_id'], (int)$d['ref_id'], $dep, $dep, '押金', $firstDue, $tradeBase . 'D1', NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
+                }
+            }
+            $firstBillId = $firstBill ? (int)$firstBill['id'] : 0;
+            $depTxt = ($firstBill ? '第一期租金 NT$' . number_format((int)$lf['rent_amount']) : '') . ($dep > 0 ? ($firstBill ? '+' : '') . '押金 NT$' . number_format($dep) : '');
+            $payUrl = NEWEBPAY_MODE === 'mock' ? '(房客可於帳單頁線上付款)' : '';
+            notify((int)$d['signer_user_id'], 'bill_due', '首期應收|' . $d['title'],
+                '租約生效!' . $depTxt . ' 已產生帳單' . $payUrl . ',請房客至「帳單財務」繳納。', $firstBillId, true);
+            notify((int)$d['signer2_user_id'], 'bill_due', '首期應收|' . $d['title'],
+                '租約生效!' . $depTxt . ' 已產生帳單,請至「帳單財務」線上繳納。', $firstBillId, true);
             notify((int)$d['signer_user_id'], 'lease_accepted', '租約已生效|' . $d['title'],
                 '雙方已完成租賃契約電子簽署,租約正式生效!每月帳單將自動產生。', (int)$d['ref_id']);
         }

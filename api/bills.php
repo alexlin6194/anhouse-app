@@ -37,12 +37,25 @@ function bill_scope(PDO $pdo, int $userId, int $myOrgId, int $billId): ?array
     $s->execute([$billId, $userId]);
     $b = $s->fetch();
     if ($b) return $b;
+    $s = $pdo->prepare('SELECT b.*, p.title AS property_title FROM bills b JOIN properties p ON p.id = b.property_id WHERE b.id = ? AND p.id IN (SELECT property_id FROM property_agents WHERE agent_user_id = ? AND status = \'active\') LIMIT 1');
+    $s->execute([$billId, $userId]);
+    $b = $s->fetch();
+    if ($b) return $b;
     $s = $pdo->prepare('SELECT b.*, p.title AS property_title FROM bills b JOIN properties p ON p.id = b.property_id JOIN leases l ON l.id = b.lease_id WHERE b.id = ? AND l.tenant_user_id = ? LIMIT 1');
     $s->execute([$billId, $userId]);
     return $s->fetch() ?: null;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    if (isset($_GET['info'])) {
+        /* mock 付款頁查詢交易(mock 模式) */
+        $t = clean($_GET['info']);
+        $b = $pdo->prepare('SELECT b.id, b.period, b.amount, b.status, b.pay_trade_no, p.title FROM bills b JOIN properties p ON p.id = b.property_id WHERE b.pay_trade_no = ? LIMIT 1');
+        $b->execute([$t]);
+        $r = $b->fetch();
+        if (!$r) respond(false, '查無此交易');
+        respond(true, 'ok', ['amount' => (int)$r['amount'], 'period' => $r['period'], 'title' => $r['title'], 'bill_id' => (int)$r['id'], 'status' => $r['status']]);
+    }
     if (isset($_GET['id'])) {
         $billId = (int)$_GET['id'];
         $bill = bill_scope($pdo, $userId, $myOrgId, $billId);
@@ -61,9 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $d->execute([$billId]);
         respond(true, 'ok', ['authenticated' => true, 'bill' => $d->fetch(), 'today' => date('Y-m-d')]);
     }
+    $agentScope = "p.id IN (SELECT property_id FROM property_agents WHERE agent_user_id = {$userId} AND status = 'active')";
     $scopeSql = $myOrgId > 0
-        ? "(p.org_id = {$myOrgId} OR p.delegated_user_id = {$userId})"
-        : "p.delegated_user_id = {$userId}";
+        ? "(p.org_id = {$myOrgId} OR p.delegated_user_id = {$userId} OR {$agentScope})"
+        : "(p.delegated_user_id = {$userId} OR {$agentScope})";
     $rows = $pdo->query("SELECT b.*, p.title AS property_title, p.elec_rate, p.elec_mode,
         l.start_date AS lease_start, l.meter_start AS lease_meter_start,
         (SELECT MAX(b2.meter_reading) FROM bills b2 WHERE b2.lease_id = b.lease_id AND b2.meter_reading IS NOT NULL AND b2.id < b.id) AS prev_reading
@@ -86,9 +100,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 $in = json_input();
 $billId = (int)($in['bill_id'] ?? 0);
 $action = clean($in['action'] ?? '');
+
+/* mock 付款確認:以交易號為憑,不走帳單權限閘(付款頁開啟時僅帶交易號) */
+if ($action === 'mock_confirm') {
+    if (NEWEBPAY_MODE !== 'mock') respond(false, '非模擬模式不可用');
+    $t = clean($in['t'] ?? '');
+    $result = clean($in['result'] ?? '');
+    $b = $pdo->prepare('SELECT * FROM bills WHERE pay_trade_no = ? LIMIT 1');
+    $b->execute([$t]);
+    $payBill = $b->fetch();
+    if (!$payBill) respond(false, '查無此交易');
+    if ($payBill['status'] === 'paid') respond(true, '此帳單已完成付款');
+    if ($result !== 'T') {
+        respond(false, '模擬付款失敗(未扣款)');
+    }
+    $pdo->prepare("UPDATE bills SET status = 'paid', paid_at = NOW(), paid_by = 'online' WHERE id = ?")
+        ->execute([(int)$payBill['id']]);
+    $tChk = $pdo->prepare('SELECT tenant_user_id FROM leases WHERE id = ? LIMIT 1');
+    $tChk->execute([(int)$payBill['lease_id']]);
+    $tenantUid = (int)$tChk->fetch()['tenant_user_id'];
+    $pTitle = $pdo->prepare('SELECT title, org_id, delegated_user_id FROM properties WHERE id = ?');
+    $pTitle->execute([(int)$payBill['property_id']]);
+    $pp = $pTitle->fetch();
+    $oUid = $pdo->prepare('SELECT owner_user_id FROM organizations WHERE id = ?');
+    $oUid->execute([(int)$pp['org_id']]);
+    $ownerUid = (int)$oUid->fetch()['owner_user_id'];
+    $msg = ($_SESSION['name'] ?? '房客') . ' 已完成線上付款:帳單 ' . $payBill['period'] . ' NT$' . number_format((int)$payBill['amount']) . ' 元(交易號 ' . $t . ')。';
+    notify($tenantUid, 'bill_paid', '付款成功|' . $pp['title'], $msg, (int)$payBill['id'], true);
+    foreach (array_unique(array_filter([$ownerUid, (int)($pp['delegated_user_id'] ?? 0)])) as $uid) {
+        notify($uid, 'bill_paid', '已收款|' . $pp['title'], $msg, (int)$payBill['id'], true);
+    }
+    respond(true, '付款成功!帳單已結清');
+}
+
 $bill = bill_scope($pdo, $userId, $myOrgId, $billId);
 if (!$bill) {
     respond(false, '找不到這筆帳單或無權限');
+}
+
+if ($action === 'pay_link') {
+    /* 產生線上收款連結:房東/管理員/受託業務皆可發起;房客本人也可直接取自己的 */
+    $tenantChk = $pdo->prepare('SELECT tenant_user_id FROM leases WHERE id = ? LIMIT 1');
+    $tenantChk->execute([(int)$bill['lease_id']]);
+    $isTenantSelf = (int)($tenantChk->fetch()['tenant_user_id'] ?? 0) === $userId;
+    if (!$isTenantSelf) {
+        /* bill_scope 已限定屋主org/代管/業務 */
+    }
+    if ($bill['status'] !== 'pending') {
+        respond(false, '此帳單不是待繳狀態');
+    }
+    $trade = (string)($bill['pay_trade_no'] ?? '');
+    if ($trade === '') {
+        $trade = 'BILL' . date('ymdHis') . 'B' . (int)$bill['id'] . substr(bin2hex(random_bytes(2)), 0, 4);
+        $pdo->prepare('UPDATE bills SET pay_trade_no = ?, pay_mode = ? WHERE id = ?')
+            ->execute([$trade, NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay', (int)$bill['id']]);
+    }
+    if (NEWEBPAY_MODE === 'mock') {
+        respond(true, '收款連結已產生(模擬模式)', ['pay_url' => 'mock_pay.html?type=bill&t=' . urlencode($trade)]);
+    }
+    /* 藍新正式模式:產生 MPG 表單參數 */
+    $amt = (int)$bill['amount'];
+    $tradeNo = substr($trade . date('His'), 0, 20);
+    $data = [
+        'MerchantID'      => MERCHANT_ID,
+        'RespondType'     => 'JSON',
+        'TimeStamp'       => (string)time(),
+        'Version'         => '2.0',
+        'MerchantOrderNo' => $tradeNo,
+        'Amt'             => (string)$amt,
+        'ItemDesc'        => '房租帳單 ' . $bill['period'] . '|' . $bill['property_title'],
+        'Email'           => '',
+        'LoginType'       => '0',
+    ];
+    $aes = openssl_encrypt(http_build_query($data), 'aes-128-cbc', HASH_KEY, OPENSSL_RAW_DATA, HASH_IV);
+    $sha = 'HashKey=' . HASH_KEY . '&' . $aes . '&HashIV=' . HASH_IV;
+    $sha = strtoupper(hash('sha256', $sha));
+    $gateway = (NEWEBPAY_MODE === 'prod' ? 'https://core.newebpay.com' : 'https://ccore.newebpay.com') . '/MPG/mpg_gateway';
+    respond(true, '請依付款資訊前往藍新金流', [
+        'mode' => NEWEBPAY_MODE,
+        'gateway' => $gateway,
+        'trade_info' => ['MerchantID' => MERCHANT_ID, 'TradeInfo' => $aes, 'TradeSha' => $sha, 'Version' => '2.0'],
+    ]);
 }
 
 if ($action === 'pay_proof') {

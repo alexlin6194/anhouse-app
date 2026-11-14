@@ -60,6 +60,7 @@
           '</div><span class="st ' + st[1] + '">' + st[0] + '</span></div>' +
           '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 2px 4px 26px">' +
           '<button type="button" class="mini-btn line act-edit" data-id="' + l.id + '">✏️ 編輯</button>' +
+          (l.status !== 'dealt' && l.status !== 'lost' ? '<button type="button" class="mini-btn act-visit" data-id="' + l.id + '">📅 排帶看</button>' : '') +
           (l.status === 'new' ? '<button type="button" class="mini-btn act-st" data-id="' + l.id + '" data-st="following">開始跟進</button>' : '') +
           (l.status === 'following' ? '<button type="button" class="mini-btn act-st" data-id="' + l.id + '" data-st="viewed">已帶看</button>' : '') +
           (l.status === 'viewed' ? '<button type="button" class="mini-btn act-st" data-id="' + l.id + '" data-st="dealt">🎉 成交</button>' : '') +
@@ -138,6 +139,11 @@
     if (editBtn) {
       const l = leads.find((x) => Number(x.id) === Number(editBtn.dataset.id));
       if (l) openSheet(l);
+      return;
+    }
+    const visitBtn = ev.target.closest('.act-visit');
+    if (visitBtn) {
+      location.href = 'calendar.html?from_lead=' + visitBtn.dataset.id;
       return;
     }
     const stBtn = ev.target.closest('.act-st');
