@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/notify.php';
 
-require_methods(['GET', 'POST']);
+require_methods('GET', 'POST');
 
 session_start();
 
