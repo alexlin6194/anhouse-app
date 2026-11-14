@@ -134,9 +134,9 @@ if ($action === 'status') {
 }
 
 if ($action === 'repay') {
-    /* 未完成交易的續付 */
+    /* 未完成/失敗交易的續付或重試 */
     $t = clean($_POST['trade_no'] ?? '');
-    $s = $pdo->prepare('SELECT * FROM subscriptions WHERE trade_no = ? AND vendor_user_id = ? AND status = "pending" LIMIT 1');
+    $s = $pdo->prepare('SELECT * FROM subscriptions WHERE trade_no = ? AND vendor_user_id = ? AND status IN ("pending","failed") LIMIT 1');
     $s->execute([$t, $meId]);
     $sub = $s->fetch();
     if (!$sub) respond(false, '查無此筆待付訂閱');

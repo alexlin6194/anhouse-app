@@ -39,9 +39,19 @@
       : '組織已啟用;可邀請員工(職務權限可複選)並分派房屋。';
 
     const sub = data.subscription;
-    $('#subTier').textContent = sub.tier_name + '|房屋 ' + sub.units + ' 戶';
-    $('#subDesc').textContent = '目前 ' + (sub.employees ?? sub.seats ?? 0) + ' 名員工|' + (sub.fee > 0 ? '月費 NT$' + sub.fee : '免費級距') + '|級距以全公司員工名額計算(管理+會計+業務全部計入)';
-    $('#subFee').innerHTML = sub.fee === 0 ? '<b>免費</b><span>入門級</span>' : '<b>' + money(sub.fee) + '元</b><span>月費</span>';
+    const paid = sub.paid || {};
+    const paidOn = paid.active === true;
+    const planName = { s150p: '151 名以上(加購制)', s150: '公司級(121–150 名)', s120: '公司級(101–120 名)', s100: '公司級(81–100 名)', s80: '公司級(51–80 名)', s50: '公司級(31–50 名)', s30: '公司級(11–30 名)', s10: '公司級(4–10 名)', s3: '公司級(1–3 名)' }[paid.plan] || paid.plan;
+    if (paidOn) {
+      $('#subTier').textContent = '已購方案:' + planName + '|有效期至 ' + paid.ends;
+      const nextTxt = sub.fee > 0 ? paid.ends + ' 次日起 NT$' + money(sub.fee) + '/月(依 ' + sub.employees + ' 名員工)' : paid.ends + ' 次日起為免費級距(依 ' + sub.employees + ' 名員工)';
+      $('#subDesc').textContent = '現周期 NT$' + money(paid.fee) + '/月;' + nextTxt;
+      $('#subFee').innerHTML = '<b>' + money(paid.fee) + '元</b><span>本期月費</span>';
+    } else {
+      $('#subTier').textContent = sub.tier_name + '|房屋 ' + sub.units + ' 戶';
+      $('#subDesc').textContent = '目前 ' + (sub.employees ?? sub.seats ?? 0) + ' 名員工|' + (sub.fee > 0 ? '月費 NT$' + sub.fee : '免費級距') + '|級距以全公司員工名額計算(管理+會計+業務全部計入)';
+      $('#subFee').innerHTML = sub.fee === 0 ? '<b>免費</b><span>入門級</span>' : '<b>' + money(sub.fee) + '元</b><span>月費</span>';
+    }
 
     $('#memberList').innerHTML = data.members.map(m =>
       '<div class="list-item"><span class="dot" style="background:' + (m.status === 'active' ? 'var(--green)' : 'var(--beige2)') + '"></span>' +

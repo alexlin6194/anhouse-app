@@ -139,7 +139,7 @@
       ? h.map(x => '<div class="list-item" style="padding:7px 2px;flex-wrap:wrap"><div style="flex:1;min-width:150px"><b>' +
           planLabel(x.plan) + ' NT$' + Number(x.amount).toLocaleString() + '元</b>' +
           '<span>' + (x.trade_no || '') + (x.paid_at ? '|' + x.paid_at.slice(0, 10) : '') + '</span></div>' +
-          (x.status === 'pending' ? '<button type="button" class="mini-btn act-repay" data-t="' + x.trade_no + '">💳 續付</button>' : '') +
+          (x.status !== 'paid' ? '<button type="button" class="mini-btn act-repay" data-t="' + x.trade_no + '">💳 ' + (x.status === 'failed' ? '重試付款' : '續付') + '</button>' : '') +
           '<span class="st ' + (x.status === 'paid' ? 'ok' : (x.status === 'pending' ? 'warn' : 'bad')) + '">' +
           ({paid: '已付款', pending: '未完成', failed: '失敗'}[x.status] || x.status) + '</span></div>').join('') + ladderHtml()
       : '<p style="color:#a09070;margin:0">尚無紀錄</p>';
