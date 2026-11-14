@@ -67,9 +67,17 @@ if ($dupStmt->fetch()) {
 $code = 'AJ-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
 $invStmt = $pdo->prepare('INSERT INTO invitations (org_id, inviter_user_id, phone, roles, code, status, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
 $invStmt->execute([$orgId, $userId, $phone, implode(',', $roles), $code, 'pending', date('Y-m-d H:i:s', time() + 7 * 86400)]);
+$invitationId = (int)$pdo->lastInsertId();
 
 $roleNames = ['manager' => '管理員', 'agent' => '業務', 'accountant' => '會計人員', 'admin_staff' => '行政人員'];
 $roleText = implode(' + ', array_map(function ($r) use ($roleNames) { return $roleNames[$r]; }, $roles));
+
+/* 通知受邀者(通知中心) */
+require_once __DIR__ . '/../includes/notify.php';
+$orgNameStmt = $pdo->prepare('SELECT name FROM organizations WHERE id = ? LIMIT 1');
+$orgNameStmt->execute([$orgId]);
+$orgName = (string)$orgNameStmt->fetch()['name'];
+notify((int)$target['id'], 'invite', '組織邀請', '「' . $orgName . '」邀請您以「' . $roleText . '」加入,請到首頁接受邀請。', $invitationId, true);
 
 respond(true, '員工邀請已送出(' . $roleText . '),待對方於其帳號同意後加入組織', [
     'code' => $code,

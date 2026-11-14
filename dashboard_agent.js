@@ -40,6 +40,20 @@
       '<div class="stat"><b>' + data.stats.rented + '</b><span>出租中</span></div>' +
       '<div class="stat"><b>' + data.stats.for_sale + '</b><span>出售中</span></div>';
 
+    const invEl = $('#invites');
+    const invites = data.invites || [];
+    if (!invites.length) {
+      invEl.innerHTML = '';
+    } else {
+      invEl.innerHTML = '<div class="card" style="border:2px solid var(--wood)"><div class="row"><div class="ico">💼</div>' +
+        '<div><span class="tagline">組織邀請 ' + invites.length + ' 筆待回覆</span>' +
+        invites.map((iv) => '<div style="margin:6px 0"><b>' + esc(iv.org_name) + '</b><span>職務:' + esc(iv.roles_text) + '|邀請人:' + esc(iv.inviter_name) + '|效期 ' + esc((iv.expires_at || '').slice(0, 10)) + '</span></div>').join('') +
+        '</div><span class="st warn">待回覆</span></div>' +
+        '<div style="display:flex;gap:10px;margin-top:10px">' +
+        invites.map((iv) => '<button type="button" class="mini-btn act-inv" data-id="' + iv.id + '" data-act="accept" style="flex:1">✅ 接受 ' + esc(iv.org_name) + '</button><button type="button" class="mini-btn line act-inv" data-id="' + iv.id + '" data-act="decline" style="flex:1">婉拒</button>').join('') +
+        '</div></div>';
+    }
+
     if (data.org) {
       $('#orgName').textContent = data.org.name;
       const pending = data.org.status === 'pending_review';
@@ -129,6 +143,22 @@
     if (__pa) { __pa.style.display = ''; __pa.innerHTML = '<p style="font-size:12px;color:var(--brown2)">載入中…(vC)</p>'; }
     else { const s = $('#paSect'); if (s) { s.style.display = ''; s.insertAdjacentHTML('afterend', '<div class="card" style="padding:6px 16px"><p style="font-size:12px;color:#B00020">找不到 paCard 元素(HTML 與 JS 版本不符)</p></div>'); } }
   })();
+
+  document.addEventListener('click', async (ev) => {
+    const b = ev.target.closest('.act-inv');
+    if (!b) return;
+    b.disabled = true;
+    try {
+      const res = await fetch('api/respond_invite.php', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invitation_id: Number(b.dataset.id), action: b.dataset.act })
+      });
+      const r = await res.json();
+      toast(r.message);
+      if (r.ok) setTimeout(load, 1000);
+      else b.disabled = false;
+    } catch (e) { toast('連線異常'); b.disabled = false; }
+  });
 
   load();
   loadPA();
