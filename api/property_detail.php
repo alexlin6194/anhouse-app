@@ -65,7 +65,7 @@ $photos = $photoStmt->fetchAll();
 
 foreach ($leases as &$l) {
     if ($l['status'] === 'active' && ($isLandlordOwner || $isManager)) {
-        $bStmt = $pdo->prepare("SELECT id, period, amount, rent_amount, electric_amount, meter_reading, mgmt_amount, parking_amount, misc_amount, misc_note, due_date, status
+        $bStmt = $pdo->prepare("SELECT id, period, amount, rent_amount, electric_amount, meter_reading, mgmt_amount, parking_amount, deposit_amount, misc_amount, misc_note, due_date, status
             FROM bills WHERE lease_id = ? ORDER BY period ASC LIMIT 12");
         $bStmt->execute([(int)$l['id']]);
         $l['bills'] = $bStmt->fetchAll();
