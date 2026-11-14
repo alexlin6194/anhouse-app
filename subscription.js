@@ -10,7 +10,11 @@
   }
   function planLabel(plan) {
     const hit = (data.plans || []).find(x => x.plan === plan);
-    return hit ? hit.label : (data.audience === 'vendor' ? plan : plan + '會員');
+    if (hit) return hit.label;
+    if (data.audience === 'vendor') return plan === 'basic' ? '廠商方案' : '廠商方案';
+    if (String(plan).charAt(0) === 'u') return '房源戶數級距方案';
+    if (String(plan).charAt(0) === 's') return '員工名額級距方案';
+    return '會員方案';
   }
 
   const PLAN_FEATURES = {

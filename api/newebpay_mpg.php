@@ -97,7 +97,7 @@ if ($isVendor) {
     $prof->execute([$meId]);
     $prof = $prof->fetch();
 } else {
-    $prof = $pdo->prepare("SELECT member_plan AS plan, member_sub_ends AS sub_ends FROM users WHERE id=?");
+    $prof = $pdo->prepare("SELECT member_plan AS plan, member_sub_ends AS sub_ends, member_plan_fee FROM users WHERE id=?");
     $prof->execute([$meId]);
     $row = $prof->fetch();
     $prof = $row ? array_merge($row, ['audience' => 'member']) : null;
