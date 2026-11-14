@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>資格審核|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261115bb">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>資格審核</h2>
+    <p>公司資格文件<br>上傳與審核狀態</p>
+    <div class="feat">
+      <div>📄 經紀人證書審核狀態</div>
+      <div>💬 平台審核備註</div>
+      <div>📤 被要求補件時重新上傳</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="dash-head">
+        <div class="who"><b>🪪 資格審核</b><span id="orgLine" style="font-size:12px;color:var(--brown2)"></span></div>
+        <a class="bell" href="dashboard_company.html" aria-label="回公司首頁">🏢</a>
+      </div>
+      <div class="card" id="statusCard"><p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">載入中…</p></div>
+      <div class="card" id="docList"><p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">載入中…</p></div>
+      <div class="card" id="uploadCard" style="display:none"></div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="qualification.js?v=20261115bb"></script>
+<script src="assets/js/tabbar.js?v=20261115bb"></script>
+</body>
+</html>
