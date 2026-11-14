@@ -32,14 +32,14 @@ $ownerId = (int)($ownerStmt->fetch()['owner_user_id'] ?? 0);
 
 /* ── 統計(公司名下房屋帳單) ── */
 $st = $pdo->prepare("SELECT
-    COALESCE(SUM(CASE WHEN b.status = 'paid' AND DATE_FORMAT(b.paid_at, '%Y-%m') = :m THEN b.amount END), 0) AS paid_sum,
-    COUNT(CASE WHEN b.status = 'paid' AND DATE_FORMAT(b.paid_at, '%Y-%m') = :m THEN 1 END) AS paid_count,
+    COALESCE(SUM(CASE WHEN b.status = 'paid' AND DATE_FORMAT(b.paid_at, '%Y-%m') = ? THEN b.amount END), 0) AS paid_sum,
+    COUNT(CASE WHEN b.status = 'paid' AND DATE_FORMAT(b.paid_at, '%Y-%m') = ? THEN 1 END) AS paid_count,
     COALESCE(SUM(CASE WHEN b.status = 'pending' THEN b.amount END), 0) AS pending_sum,
     COUNT(CASE WHEN b.status = 'pending' THEN 1 END) AS pending_count,
     COALESCE(SUM(CASE WHEN b.status = 'pending' AND b.due_date < NOW() THEN b.amount END), 0) AS overdue_sum,
     COUNT(CASE WHEN b.status = 'pending' AND b.due_date < NOW() THEN 1 END) AS overdue_count
     FROM bills b JOIN properties p ON p.id = b.property_id WHERE p.org_id = ?");
-$st->execute([$orgId]);
+$st->execute([$month, $month, $orgId]);
 $billStats = $st->fetch() ?: [];
 
 /* 報修統計(本月新增) */

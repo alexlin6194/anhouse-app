@@ -66,6 +66,7 @@
       const d = await res.json();
       if (!d.ok) {
         toast(d.message || '載入失敗');
+        $('#list').innerHTML = '<p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">' + esc(d.message || '載入失敗') + ' — 請重新整理或重新登入</p>';
         if (String(d.message || '').includes('登入')) location.href = 'login.html';
         return;
       }
