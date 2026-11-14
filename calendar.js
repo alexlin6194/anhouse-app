@@ -125,6 +125,7 @@
       const r = await res.json();
       toast(r.message);
       if (r.ok) { closeSheet(); load(); }
+      else if (editId) { closeSheet(); load(); } /* 紀錄已被刪除等狀況:刷新清單清掉過期畫面 */
     } catch (e) { toast('連線異常'); }
   });
 
