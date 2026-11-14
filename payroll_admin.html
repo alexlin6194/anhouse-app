@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>薪資作業|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261115dd">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>薪資作業</h2>
+    <p>會計每月出薪的平台<br>業務業績自動計算</p>
+    <div class="feat">
+      <div>💼 底薪與成交獎金設定</div>
+      <div>📈 業務業績自動帶入</div>
+      <div>✅ 出表後員工 APP 可查看</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="dash-head">
+        <div class="who"><b>💰 薪資作業</b><span id="orgLine" style="font-size:12px;color:var(--brown2)"></span></div>
+        <a class="bell" href="dashboard_company.html" aria-label="回首頁">🏠</a>
+      </div>
+
+      <div class="card" style="padding:10px 16px;display:flex;align-items:center;justify-content:space-between">
+        <button class="btn ghost" id="prevM" style="padding:6px 14px">‹</button>
+        <b id="monthLabel" style="font-size:15px;color:var(--brown)"></b>
+        <button class="btn ghost" id="nextM" style="padding:6px 14px">›</button>
+      </div>
+
+      <div id="roster" style="margin-top:12px"></div>
+    </div>
+  </main>
+</div>
+<div class="modal-mask" id="editMask">
+  <div class="sheet" style="height:auto;max-height:85dvh;overflow:auto">
+    <h3 style="margin:20px 20px 10px;color:var(--brown);font-size:17px" id="edTitle"></h3>
+    <div style="padding:0 20px 24px" id="edBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="payroll_admin.js?v=20261115ddd"></script>
+<script src="assets/js/tabbar.js?v=20261115dd"></script>
+</body>
+</html>
