@@ -51,12 +51,10 @@ if (!$org || $org['status'] !== 'active') {
 $targetStmt = $pdo->prepare('SELECT id, name FROM users WHERE phone = ? LIMIT 1');
 $targetStmt->execute([$phone]);
 $target = $targetStmt->fetch();
-if (!$target) {
-    respond(false, '此手機尚未註冊,無法發送邀請;請先請對方下載「安家房屋管理 APP」註冊');
-}
-if ((int)$target['id'] === $userId) {
+if ($target && (int)$target['id'] === $userId) {
     respond(false, '不能邀請自己');
 }
+/* 未註冊也可邀請:對方註冊後,首頁即出現邀請卡(7 天內有效) */
 
 $dupStmt = $pdo->prepare("SELECT id FROM invitations WHERE org_id = ? AND phone = ? AND status = 'pending' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1");
 $dupStmt->execute([$orgId, $phone]);
@@ -72,15 +70,17 @@ $invitationId = (int)$pdo->lastInsertId();
 $roleNames = ['manager' => '管理員', 'agent' => '業務', 'accountant' => '會計人員', 'admin_staff' => '行政人員'];
 $roleText = implode(' + ', array_map(function ($r) use ($roleNames) { return $roleNames[$r]; }, $roles));
 
-/* 通知受邀者(通知中心) */
+/* 通知受邀者(通知中心;未註冊者等註冊後首頁可見邀請卡) */
 require_once __DIR__ . '/../includes/notify.php';
 $orgNameStmt = $pdo->prepare('SELECT name FROM organizations WHERE id = ? LIMIT 1');
 $orgNameStmt->execute([$orgId]);
 $orgName = (string)$orgNameStmt->fetch()['name'];
-notify((int)$target['id'], 'invite', '組織邀請', '「' . $orgName . '」邀請您以「' . $roleText . '」加入,請到首頁接受邀請。', $invitationId, true);
+if ($target) {
+    notify((int)$target['id'], 'invite', '組織邀請', '「' . $orgName . '」邀請您以「' . $roleText . '」加入,請到首頁接受邀請。', $invitationId, true);
+}
 
-respond(true, '員工邀請已送出(' . $roleText . '),待對方於其帳號同意後加入組織', [
+respond(true, '員工邀請已送出(' . $roleText . ')' . ($target ? ',待對方於其帳號同意後加入' : ';對方尚未註冊,註冊後首頁會出現邀請卡'), [
     'code' => $code,
-    'target_name' => $target['name'],
+    'target_name' => $target ? $target['name'] : '(尚未註冊)',
     'roles' => $roleText,
 ]);

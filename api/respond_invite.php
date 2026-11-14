@@ -66,6 +66,17 @@ if ($action === 'accept') {
             }
         }
         $pdo->prepare("UPDATE invitations SET status = 'accepted' WHERE id = ?")->execute([$inv['id']]);
+        /* 員工邀請:接受後自動將帳號身份轉為受邀職務(登入即進對應後台) */
+        $roleRole = ['manager' => 'manager', 'agent' => 'agent', 'accountant' => 'accountant', 'admin_staff' => 'admin_staff'];
+        if (empty($propIds) && count($joined) > 0) {
+            $primary = null;
+            foreach (['manager', 'agent', 'accountant', 'admin_staff'] as $pr) {
+                if (in_array($pr, $invitedRoles, true)) { $primary = $roleRole[$pr]; break; }
+            }
+            if ($primary !== null && !in_array($me['registration_role'], ['landlord', 'company_owner'], true)) {
+                $pdo->prepare('UPDATE users SET registration_role = ? WHERE id = ?')->execute([$primary, $userId]);
+            }
+        }
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();
