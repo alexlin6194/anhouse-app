@@ -135,6 +135,7 @@
     }
     items.push(['管理費', b.mgmt_amount]);
     items.push(['車位費', b.parking_amount]);
+    if (b.deposit_amount > 0) items.push(['押金(退租可抵扣)', b.deposit_amount, '']);
     items.push(['雜費', b.misc_amount]);
     const rows = items.filter(i => (i[1] !== null && i[1] !== '' && Number(i[1]) !== 0) || i[2])
       .map(i => '<div style="display:flex;justify-content:space-between"><span>' + i[0] + (i[2] || '') + '</span><b>' + (i[1] === null || i[1] === '' ? '—' : 'NT$' + money(i[1]) + '元') + '</b></div>').join('');

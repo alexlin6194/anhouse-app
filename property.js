@@ -112,6 +112,7 @@
         }
         if (b.mgmt_amount != null) items.push('管理費 ' + money(b.mgmt_amount) + '元');
         if (b.parking_amount) items.push('車位費 ' + money(b.parking_amount) + '元');
+        if (b.deposit_amount) items.push('押金 ' + money(b.deposit_amount) + '元');
         if (b.misc_amount) items.push('雜費 ' + money(b.misc_amount) + '元' + (b.misc_note ? '(' + esc(b.misc_note) + ')' : ''));
         const meterBtn = data.can_manage && b.status !== 'paid' && !isSignBill
           ? '<div style="margin-top:6px"><button type="button" class="mini-btn act-meter" data-id="' + b.id + '">⚡ 抄錄電費(拍照辨識度數)</button></div>'

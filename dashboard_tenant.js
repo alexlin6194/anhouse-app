@@ -76,6 +76,7 @@
         }
         if (b.mgmt_amount) parts.push('管理費 NT$' + money(b.mgmt_amount) + '元');
         if (b.parking_amount) parts.push('車位費 NT$' + money(b.parking_amount) + '元');
+        if (b.deposit_amount) parts.push('押金 NT$' + money(b.deposit_amount) + '元');
         if (b.misc_amount) parts.push('雜費 NT$' + money(b.misc_amount) + '元' + (b.misc_note ? '(' + b.misc_note + ')' : ''));
         const totalTxt = b.electric_amount == null || isSign
           ? '應繳 NT$' + money(b.amount) + '元'
