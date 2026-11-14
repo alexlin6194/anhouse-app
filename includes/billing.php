@@ -137,65 +137,38 @@ function generate_lease_bills(array $lease): int
     $mgmtFee = ($prop['mgmt_fee'] !== null) ? (int)$prop['mgmt_fee'] : 0;
     $total = $rent + $mgmtFee;
 
-    /* 首期(簽約月)帳單:起租當月立即開立並轉待繳(當場收款) — 冪等 */
-    $firstPeriod = $start->format('Y-m');
-    $firstChk = $pdo->prepare('SELECT id, status FROM bills WHERE lease_id = ? AND period = ? LIMIT 1');
-    $firstChk->execute([$leaseId, $firstPeriod]);
-    $firstBillRow = $firstChk->fetch();
-    if (!$firstBillRow) {
-        $pdo->prepare("INSERT INTO bills (property_id, lease_id, period, amount, rent_amount, electric_amount, mgmt_amount, parking_amount, misc_amount, due_date, status, pay_trade_no, pay_mode)
-            VALUES (?, ?, ?, ?, ?, NULL, ?, 0, 0, ?, 'pending', ?, ?)")
-            ->execute([$propertyId, $leaseId, $firstPeriod, $total, $rent, $mgmtFee ?: null, $start->format('Y-m-d'), 'BILL' . date('ymdHis') . 'L' . $leaseId . 'F1', NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
-        $firstChk->execute([$leaseId, $firstPeriod]);
-        $firstBillRow = $firstChk->fetch();
-        if (!empty($lease['tenant_user_id'])) {
-            notify((int)$lease['tenant_user_id'], 'bill_due', '首期應收|' . $prop['title'],
-                $firstPeriod . ' 期(首期)帳單 NT$' . number_format($total) . ' 已產生,請於「帳單財務」線上付款或回報轉帳證明。', (int)$firstBillRow['id'], true);
-        }
-    }
-
-    /* 押金帳單補開(冪等):生效租約有押金但尚無 deposit 帳單 → 開立待繳 */
+    /* 首期(簽約月)帳單:起租當月立即開立並轉待繳(當場收款,含押金) — 冪等 */
     $depStmt = $pdo->prepare('SELECT deposit_amount, start_date FROM leases WHERE id = ?');
     $depStmt->execute([$leaseId]);
     $dl = $depStmt->fetch();
     $dep = (int)($dl['deposit_amount'] ?? 0);
-    if ($dep > 0) {
-        $dchk = $pdo->prepare("SELECT id FROM bills WHERE lease_id = ? AND period = 'deposit' LIMIT 1");
-        $dchk->execute([$leaseId]);
-        if (!$dchk->fetch()) {
-            $depTrade = 'BILL' . date('ymdHis') . 'L' . $leaseId . 'D1';
-            $pdo->prepare("INSERT INTO bills (property_id, lease_id, period, amount, rent_amount, electric_amount, mgmt_amount, misc_amount, misc_note, due_date, status, pay_trade_no, pay_mode)
-                VALUES (?, ?, 'deposit', ?, NULL, NULL, NULL, ?, '押金', ?, 'pending', ?, ?)")
-                ->execute([$propertyId, $leaseId, $dep, $dep, (string)$dl['start_date'], $depTrade, NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
-            if (!empty($lease['tenant_user_id'])) {
-                notify((int)$lease['tenant_user_id'], 'bill_due', '押金帳單|' . $prop['title'],
-                    '押金 NT$' . number_format($dep) . ' 已產生帳單,請於「帳單財務」線上繳納或回報轉帳證明。', (int)$pdo->lastInsertId(), true);
-            }
+    $firstPeriod = $start->format('Y-m');
+    $firstChk = $pdo->prepare('SELECT id, status, misc_note FROM bills WHERE lease_id = ? AND period = ? LIMIT 1');
+    $firstChk->execute([$leaseId, $firstPeriod]);
+    $firstBillRow = $firstChk->fetch();
+    if (!$firstBillRow) {
+        $pdo->prepare("INSERT INTO bills (property_id, lease_id, period, amount, rent_amount, electric_amount, mgmt_amount, parking_amount, misc_amount, misc_note, due_date, status, pay_trade_no, pay_mode)
+            VALUES (?, ?, ?, ?, ?, NULL, ?, 0, ?, ?, ?, 'pending', ?, ?)")
+            ->execute([$propertyId, $leaseId, $firstPeriod, $total + $dep, $rent, $mgmtFee ?: null, $dep > 0 ? $dep : null, $dep > 0 ? '押金' : null, $start->format('Y-m-d'), 'BILL' . date('ymdHis') . 'L' . $leaseId . 'F1', NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
+        $firstChk->execute([$leaseId, $firstPeriod]);
+        $firstBillRow = $firstChk->fetch();
+        if (!empty($lease['tenant_user_id'])) {
+            notify((int)$lease['tenant_user_id'], 'bill_due', '首期應收|' . $prop['title'],
+                $firstPeriod . ' 期(首期)帳單 NT$' . number_format($total + $dep) . ($dep > 0 ? '(含押金 NT$' . number_format($dep) . ')' : '') . ' 已產生,請於「帳單財務」線上付款或回報轉帳證明。', (int)$firstBillRow['id'], true);
+        }
+    } elseif ($dep > 0 && $firstBillRow['status'] !== 'paid' && stripos((string)($firstBillRow['misc_note'] ?? ''), '押金') === false) {
+        /* 舊制首期未含押金且尚未繳 → 併入並刪除獨立押金單 */
+        $depBillChk = $pdo->prepare("SELECT id, amount FROM bills WHERE lease_id = ? AND period = 'deposit' AND status = 'pending' LIMIT 1");
+        $depBillChk->execute([$leaseId]);
+        $depBill = $depBillChk->fetch();
+        if ($depBill) {
+            $pdo->prepare("UPDATE bills SET amount = amount + ?, misc_amount = ?, misc_note = '押金' WHERE id = ?")
+                ->execute([$dep, $dep, (int)$firstBillRow['id']]);
+            $pdo->prepare('DELETE FROM bills WHERE id = ?')->execute([(int)$depBill['id']]);
         }
     }
 
-    $chk = $pdo->prepare('SELECT id, status, electric_amount FROM bills WHERE lease_id = ? AND period = ? LIMIT 1');
-    $chk->execute([$leaseId, $period]);
-    $bill = $chk->fetch();
-
-    if (!$bill) {
-        if ($today < (clone $pay)->modify('-5 days')) {
-            return 0;
-        }
-        $pdo->prepare("INSERT INTO bills (property_id, lease_id, period, amount, rent_amount, electric_amount, mgmt_amount, parking_amount, misc_amount, due_date, status)
-            VALUES (?, ?, ?, ?, ?, NULL, ?, 0, 0, ?, 'draft')")
-            ->execute([$propertyId, $leaseId, $period, $total, $rent, $mgmtFee ?: null, $due]);
-        $chk->execute([$leaseId, $period]);
-        $bill = $chk->fetch();
-    }
-
-    if (!$bill) {
-        return 0;
-    }
-    $billId = (int)$bill['id'];
-
-    /* 簽約期首期帳單:立即待繳(當場收款),到期日=起租日 */
-    if ($bill['status'] === 'draft' && $period === $start->format('Y-m')) {
+if ($bill['status'] === 'draft' && $period === $start->format('Y-m')) {
         $pdo->prepare("UPDATE bills SET status = 'pending', due_date = ? WHERE id = ?")
             ->execute([$start->format('Y-m-d'), $billId]);
         $bill['status'] = 'pending';

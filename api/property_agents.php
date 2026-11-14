@@ -144,7 +144,7 @@ if ($action === 'handover') {
     $s = $pdo->prepare("SELECT pa.id, p.title, p.org_id, o.owner_user_id, p.delegated_user_id FROM property_agents pa
         JOIN properties p ON p.id = pa.property_id LEFT JOIN organizations o ON o.id = p.org_id
         WHERE pa.property_id = ? AND pa.agent_user_id = ? AND pa.status = 'active' LIMIT 1");
-    $s->execute([$pid, $userId]);
+    $s->execute([$pid, $meId]);
     $pa = $s->fetch();
     if (!$pa) respond(false, '找不到您對此房屋的生效委託');
     $lStmt = $pdo->prepare("SELECT id FROM leases WHERE property_id = ? AND status = 'active' LIMIT 1");
@@ -152,14 +152,14 @@ if ($action === 'handover') {
     $lease = $lStmt->fetch();
     if (!$lease) respond(false, '此房屋尚無生效租約,無法移交;請先完成簽約');
     $dupe = $pdo->prepare('SELECT id FROM handovers WHERE property_id = ? AND agent_user_id = ? LIMIT 1');
-    $dupe->execute([$pid, $userId]);
+    $dupe->execute([$pid, $meId]);
     if ($dupe->fetch()) respond(false, '此房屋您已完成移交,無須重複操作');
 
     $pdo->beginTransaction();
     try {
         $pdo->prepare("UPDATE property_agents SET status = 'ended', ended_at = NOW() WHERE id = ?")->execute([(int)$pa['id']]);
         $pdo->prepare('INSERT INTO handovers (property_id, agent_user_id, to_user_id, lease_id, note) VALUES (?, ?, ?, ?, ?)')
-            ->execute([$pid, $userId, (int)$pa['owner_user_id'], (int)$lease['id'], $note !== '' ? $note : null]);
+            ->execute([$pid, $meId, (int)$pa['owner_user_id'], (int)$lease['id'], $note !== '' ? $note : null]);
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();
@@ -171,7 +171,7 @@ if ($action === 'handover') {
         notify($uid, 'handover', '成交移交|' . $pa['title'],
             '業務 ' . ($_SESSION['name'] ?? '') . ' 已完成成交並移交此房屋' . ($note !== '' ? ';交接說明:' . $note : '') . ';後續租約帳務與報修由您接手。', $pid, true);
     }
-    notify($userId, 'handover', '移交完成|' . $pa['title'], '您已將此房屋移交給屋主/管理員,委託已結案;感謝您的促成!', $pid, true);
+    notify($meId, 'handover', '移交完成|' . $pa['title'], '您已將此房屋移交給屋主/管理員,委託已結案;感謝您的促成!', $pid, true);
     respond(true, '🎉 成交移交完成!已通知屋主與管理員接手後續');
 }
 
