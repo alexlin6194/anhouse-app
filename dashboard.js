@@ -37,6 +37,18 @@
     $('#greet').textContent = '您好,' + name;
     $('#orgName').textContent = data.org.name;
 
+    try {
+      const me = await (await fetch('api/me.php', { cache: 'no-store' })).json();
+      if (me.ok && me.user && me.user.platform_admin) {
+        const b = document.createElement('button');
+        b.className = 'btn small ghost';
+        b.textContent = '🛡 組織審核';
+        b.style.cssText = 'position:fixed;right:14px;bottom:84px;z-index:55';
+        b.addEventListener('click', () => { location.href = 'admin_orgs.html'; });
+        document.body.appendChild(b);
+      }
+    } catch (e) { /* ignore */ }
+
     const badge = $('#bellBadge');
     if (data.unread > 0) {
       badge.textContent = data.unread > 99 ? '99+' : data.unread;

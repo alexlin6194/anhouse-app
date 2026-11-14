@@ -143,8 +143,11 @@
     if (!isSale && num($('#rent').value) === '') { showToast('請輸入月租金'); return; }
     if (isSale && num($('#sale').value) === '') { showToast('請輸入售價'); return; }
     if (!$('#confirmOk').checked) { showToast('請先勾選確認事項'); return; }
+    const ownFile = ($('#ownership_doc').files || [])[0];
+    if (!ownFile) { showToast('請上傳房屋所有權狀(照片或 PDF)'); return; }
 
     const fd = new FormData();
+    fd.append('ownership_doc', ownFile, ownFile.name);
     fd.append('title', title);
     fd.append('city', $('#city').value.trim());
     fd.append('district', $('#district').value.trim());
@@ -174,6 +177,10 @@
     fd.append('parking', $('#parking').checked ? '1' : '0');
     fd.append('pet_friendly', $('#pet').checked ? '1' : '0');
     fd.append('cooking_allowed', $('#cook').checked ? '1' : '0');
+    fd.append('no_smoking', $('#no_smoking').checked ? '1' : '0');
+    fd.append('tax_ok', $('#tax_ok').checked ? '1' : '0');
+    fd.append('household_ok', $('#household_ok').checked ? '1' : '0');
+    fd.append('special_terms', $('#special_terms').value.trim());
     fd.append('gender_limit', $('#gender').value);
     fd.append('available_date', isSale ? '' : $('#available').value);
     fd.append('facilities', $('#facilities').value.trim());

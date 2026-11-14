@@ -51,6 +51,9 @@
     if (Number(p.parking)) chips.push('<span class="chip">車位</span>');
     if (Number(p.pet_friendly)) chips.push('<span class="chip">寵物</span>');
     if (Number(p.cooking_allowed)) chips.push('<span class="chip">開伙</span>');
+    if (Number(p.no_smoking)) chips.push('<span class="chip">禁菸</span>');
+    if (Number(p.tax_ok)) chips.push('<span class="chip">可報稅</span>');
+    if (Number(p.household_ok)) chips.push('<span class="chip">可入籍</span>');
     if (p.gender_limit && p.gender_limit !== 'any') chips.push('<span class="chip">' + (p.gender_limit === 'female' ? '限女性' : '限男性') + '</span>');
     if (p.legal_use) chips.push('<span class="chip">' + esc(p.legal_use) + '</span>');
 
@@ -135,6 +138,25 @@
     const noteHtml = p.note ? '<div class="sect">備註</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + esc(p.note) + '</p>' : '';
     const avail = (p.available_date && p.listing_type === 'rental') ? '<div class="sect">可遷入日</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + dstr(p.available_date) + '</p>' : '';
     const paSection = data.can_manage ? '<div class="sect">🤝 委託業務(一屋可委託多位業務)</div><div id="paBox" style="margin:4px 2px">載入中…</div>' : '';
+    /* 📎 所有權狀 */
+    const ownDocs = data.ownership_docs || [];
+    const isDelegatedMgr = data.view === 'manager';
+    let ownHtml;
+    if (ownDocs.length) {
+      ownHtml = '<div class="sect">📎 所有權狀</div><p style="font-size:13px;color:var(--green);margin:2px;font-weight:700">✅ 已上傳 ' + ownDocs.length + ' 份</p>' +
+        ownDocs.map((od, i) => '<a href="' + esc(od.file_path) + '" target="_blank" style="font-size:12.5px;color:#8A6D3B;font-weight:700;margin:2px 6px 2px 2px;display:inline-block">[權狀 ' + (i + 1) + (od.note ? '|' + esc(od.note) : '') + ']</a>').join('');
+    } else if (data.can_manage && !isDelegatedMgr) {
+      ownHtml = '<div class="sect">📎 所有權狀</div><p style="font-size:12.5px;color:#B7791F;margin:2px">⚠️ 尚未上傳。依平台規範應提供房屋所有權狀。</p>' +
+        '<input type="file" id="ownFile" accept="image/*,.pdf" style="display:none"><button type="button" class="mini-btn" id="ownUpload">📤 上傳所有權狀</button>';
+    } else if (data.can_manage && isDelegatedMgr) {
+      ownHtml = '<div class="sect">📎 所有權狀</div><p style="font-size:12.5px;color:#B7791F;margin:2px">⚠️ 屋主尚未提供所有權狀。代管代租依規範應向屋主索取。</p>' +
+        '<button type="button" class="mini-btn" id="ownRequest">📨 向屋主索取(開啟訊息)</button>';
+    } else {
+      ownHtml = ownDocs.length ? '' : '';
+    }
+    const leaseAgentSection = data.view === 'agent'
+      ? '<div style="margin:10px 2px"><a class="btn line" href="leases.html?property_id=' + p.id + '" style="text-decoration:none;display:block;text-align:center">📜 租約與電子簽約(代客發起:邀房客簽→屋主副署)</a></div>'
+      : '';
     const shareSection = (data.can_manage || data.view === 'agent')
       ? '<div class="sect">🔗 推廣連結(免註冊即可查看)</div><div style="margin:4px 2px"><button type="button" class="btn line" id="shareBtn" style="width:100%;text-align:center">🔗 複製房源推廣連結</button><p style="font-size:11px;color:var(--brown2);margin:6px 2px 0">連結給準房客/買家開啟,毋需帳號即可看房(顯示城市/區域,完整地址不公開)。</p></div>'
       : '';
@@ -150,9 +172,41 @@
       '<div style="margin:10px 2px"><a class="btn line" href="life.html?property_id=' + p.id + '" style="text-decoration:none;display:block;text-align:center">📍 生活圈(周邊 5 公里:食衣住行/醫院/學校/娛樂)</a></div>' +
       '<div class="kv">' + chips.join('') + '</div>' +
       (p.min_lease ? '<p style="font-size:13px;color:var(--brown2);margin:2px">最短租期:' + esc(p.min_lease) + '</p>' : '') +
-      avail + facilities + noteHtml + leaseHtml + paSection + shareSection;
+      (p.special_terms ? '<div class="sect">📌 特約條款</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + esc(p.special_terms) + '</p>' : '') +
+      avail + facilities + noteHtml + ownHtml + leaseHtml + leaseAgentSection + paSection + shareSection;
 
     if (data.can_manage) loadAgents(p);
+    const ownUpload = $('#ownUpload');
+    if (ownUpload) ownUpload.addEventListener('click', () => $('#ownFile').click());
+    const ownFile = $('#ownFile');
+    if (ownFile) ownFile.addEventListener('change', async () => {
+      const f = ownFile.files[0];
+      ownFile.value = '';
+      if (!f || !p.id) return;
+      const fd = new FormData();
+      fd.append('id', String(p.id));
+      fd.append('action', 'add_ownership');
+      fd.append('doc', f);
+      try {
+        const res = await fetch('api/listings.php', { method: 'POST', body: fd });
+        const r = await res.json();
+        showToast(r.message);
+        if (r.ok) location.reload();
+      } catch (e) { showToast('連線異常'); }
+    });
+    const ownRequest = $('#ownRequest');
+    if (ownRequest) ownRequest.addEventListener('click', async () => {
+      const ownerUid = Number(p.owner_user_id || 0);
+      try {
+        const res = await fetch('api/messages.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: ownerUid, first_message: '您好,依平台規範代管代租需留存「房屋所有權狀」影像,麻煩您用訊息右下角 📎 拍照傳給我,謝謝!' })
+        });
+        const r = await res.json();
+        if (r.ok && r.redirect) location.href = r.redirect;
+        else showToast(r.message);
+      } catch (e) { showToast('連線異常'); }
+    });
     const shareBtn = $('#shareBtn');
     if (shareBtn) shareBtn.addEventListener('click', async () => {
       shareBtn.disabled = true;

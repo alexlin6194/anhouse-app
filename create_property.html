@@ -153,13 +153,29 @@
           <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="parking" style="width:17px;height:17px;accent-color:var(--wood-d)">車位</label>
           <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="pet" style="width:17px;height:17px;accent-color:var(--wood-d)">寵物</label>
           <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="cook" style="width:17px;height:17px;accent-color:var(--wood-d)">開伙</label>
+          <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="no_smoking" style="width:17px;height:17px;accent-color:var(--wood-d)">禁菸</label>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="tax_ok" style="width:17px;height:17px;accent-color:var(--wood-d)">可報稅(租金扣除/補助)</label>
+          <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="household_ok" style="width:17px;height:17px;accent-color:var(--wood-d)">可入籍(設戶籍)</label>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label for="special_terms">特約條款(禁菸/漏水告知/其他約定)</label>
+          <input id="special_terms" type="text" placeholder="例:全宅禁菸;頂樓加蓋非出租範圍" maxlength="255">
         </div>
         <div class="field">
           <label for="facilities">生活機能/設備(逗號分隔)</label>
           <input id="facilities" type="text" placeholder="例:近捷運,冷氣,洗衣機,冰箱,網路" maxlength="255">
         </div>
 
-        <div class="sect">⑤ 房屋照片</div>
+        <div class="sect">⑤ 房屋所有權狀(必填)</div>
+        <div class="field">
+          <label for="ownership_doc">所有權狀照片或 PDF(依平台規範,建立房源需提供)</label>
+          <input id="ownership_doc" type="file" accept="image/*,.pdf" style="padding:10px">
+          <p class="hint" id="hint-ownership" aria-live="polite"></p>
+        </div>
+
+        <div class="sect">⑥ 房屋照片</div>
         <div class="field">
           <label for="photos">照片(最多 12 張,首張自動設為封面)</label>
           <input id="photos" type="file" accept="image/*" multiple style="padding:10px">
@@ -179,7 +195,7 @@
   </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
-<script src="create_property.js?v=20261115g"></script>
+<script src="create_property.js?v=20261115m"></script>
 <script src="assets/js/notify.js?v=20261114e"></script>
 <script src="assets/js/tabbar.js?v=20261114e"></script>
 </body>

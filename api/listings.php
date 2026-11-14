@@ -154,6 +154,22 @@ if ($action === 'set_cover') {
     respond(true, '已設為封面');
 }
 
+if ($action === 'add_ownership') {
+    /* 補上傳房屋所有權狀(屋主/管理員;Form-Data: id, doc) */
+    $cnt = $pdo->prepare('SELECT COUNT(*) AS c FROM property_ownership_docs WHERE property_id = ?');
+    $cnt->execute([$id]);
+    if ((int)$cnt->fetch()['c'] > 0) {
+        respond(false, '此房屋已有所有權狀紀錄');
+    }
+    $ownPath = save_upload('doc', 'ownership');
+    if (!$ownPath) {
+        respond(false, '請選擇權狀照片或 PDF(5MB 內)');
+    }
+    $pdo->prepare('INSERT INTO property_ownership_docs (property_id, uploaded_by, file_path, note) VALUES (?, ?, ?, ?)')
+        ->execute([$id, $userId, $ownPath, '事後補上傳']);
+    respond(true, '所有權狀已上傳');
+}
+
 if ($action === 'add_photo') {
     if (empty($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
         respond(false, '請選擇照片檔案');
@@ -211,6 +227,10 @@ $status = clean($in['status'] ?? '');
 $parking = !empty($in['parking']) ? 1 : 0;
 $pet = !empty($in['pet_friendly']) ? 1 : 0;
 $cook = !empty($in['cooking_allowed']) ? 1 : 0;
+$noSmoking = !empty($in['no_smoking']) ? 1 : 0;
+$taxOk = !empty($in['tax_ok']) ? 1 : 0;
+$householdOk = !empty($in['household_ok']) ? 1 : 0;
+$specialTerms = mb_substr(clean($in['special_terms'] ?? ''), 0, 255);
 $gender = clean($in['gender_limit'] ?? 'any');
 $available = clean($in['available_date'] ?? '');
 $facilities = clean($in['facilities'] ?? '');
@@ -304,11 +324,17 @@ if ($agentRel && !(int)$agentRel['can_edit_price']) {
     $cleaningFee = $prop['cleaning_fee'] == null ? null : (int)$prop['cleaning_fee'];
     $internetFee = $prop['internet_fee'] == null ? null : (int)$prop['internet_fee'];
     $cableFee = $prop['cable_fee'] == null ? null : (int)$prop['cable_fee'];
+    /* 條款類欄位同屬屋主權限 */
+    $noSmoking = (int)$prop['no_smoking'];
+    $taxOk = (int)$prop['tax_ok'];
+    $householdOk = (int)$prop['household_ok'];
+    $specialTerms = (string)($prop['special_terms'] ?? '');
 }
 
 $pdo->prepare('UPDATE properties SET title = ?, city = ?, district = ?, address = ?, listing_type = ?, property_type = ?,
     layout_rooms = ?, layout_living = ?, layout_bath = ?, area_ping = ?, floor_current = ?, floor_total = ?,
     rent = ?, mgmt_fee = ?, elec_rate = ?, min_lease = ?, legal_use = ?, deposit = ?, sale_price = ?, parking = ?, pet_friendly = ?, cooking_allowed = ?, gender_limit = ?,
+    no_smoking = ?, tax_ok = ?, household_ok = ?, special_terms = ?,
     water_fee = ?, parking_fee = ?, cleaning_fee = ?, internet_fee = ?, cable_fee = ?,
     available_date = ?, facilities = ?, status = ?, note = ?
     WHERE id = ?')->execute([
@@ -319,6 +345,7 @@ $pdo->prepare('UPDATE properties SET title = ?, city = ?, district = ?, address 
     $roomsN, $livingN, $bathN, $areaF, $fCur, $fTotal,
     $listingType === 'rental' ? $rent : 0, $mgmtFee, $elecRate, $minLease !== '' ? $minLease : null, $legalUse !== '' ? $legalUse : null, $deposit, $salePrice,
     $parking, $pet, $cook, $gender,
+    $noSmoking, $taxOk, $householdOk, $specialTerms !== '' ? $specialTerms : null,
     $listingType === 'rental' ? $waterFee : null, $listingType === 'rental' ? $parkingFee : null, $listingType === 'rental' ? $cleaningFee : null, $listingType === 'rental' ? $internetFee : null, $listingType === 'rental' ? $cableFee : null,
     $available !== '' ? $available : null,
     $facilities !== '' ? $facilities : null,

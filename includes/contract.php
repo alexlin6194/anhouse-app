@@ -69,10 +69,18 @@ function contract_build_content(array $lease, array $prop, array $tenant, array 
     $L[] = '第十二條(通知與送達):雙方同意以本系統訊息、簡訊、電話或書面互相通知,以系統訊息發送或書面送達房屋/留存地址時,即視為已合法送達。';
     $L[] = '第十三條(爭議處理):本契約如有爭議,雙本於誠信原則協議之;協議不成,乙方得依消費者保護法規定提出申訴、調解,雙方同意以房屋所在地之地方法院為第一審管轄法院。';
     $L[] = '第十四條(電子簽署效力):雙方同意以電子文件及電子簽名方式簽署本契約,依電子簽章法之規定,其效力與書面契約及親自簽名相同。系統留存之簽名影像、簽署時間與簽署者 IP 位址紀錄,雙方同意作為簽署事實之證明。';
-    if ($extraTerms !== '') {
+    $autoTerms = [];
+    if (!empty($prop['no_smoking'])) $autoTerms[] = '本房屋全面禁菸,乙方及其同住人不得於室內及陽台吸菸。';
+    if (!empty($prop['tax_ok'])) $autoTerms[] = '甲方同意乙方申報租金扣除額/申請租屋補助,必要時甲方應提供所需資料。';
+    if (!empty($prop['household_ok'])) $autoTerms[] = '甲方同意乙方辦理戶籍遷入(設籍)本址。';
+    if (!empty($prop['special_terms'])) $autoTerms[] = $prop['special_terms'];
+    if ($extraTerms !== '') $autoTerms[] = $extraTerms;
+    if (count($autoTerms) > 0) {
         $L[] = '';
         $L[] = '【特別約定事項】';
-        $L[] = $extraTerms;
+        foreach ($autoTerms as $i => $t) {
+            $L[] = ($i + 1) . '. ' . $t;
+        }
     }
     $L[] = '';
     $L[] = '本契約一式二份(電子存檔),甲乙雙方各執一份為憑。';

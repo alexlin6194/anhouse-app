@@ -38,6 +38,9 @@ function lease_scope(PDO $pdo, int $userId, int $myOrgId, int $propertyId): ?str
     $c = $pdo->prepare('SELECT COUNT(*) AS c FROM properties WHERE id = ? AND delegated_user_id = ?');
     $c->execute([$propertyId, $userId]);
     if ((int)$c->fetch()['c'] > 0) return 'manager';
+    $c = $pdo->prepare("SELECT COUNT(*) AS c FROM property_agents WHERE property_id = ? AND agent_user_id = ? AND status = 'active'");
+    $c->execute([$propertyId, $userId]);
+    if ((int)$c->fetch()['c'] > 0) return 'agent';
     return null;
 }
 
@@ -45,9 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $roleStmt = $pdo->prepare('SELECT registration_role FROM users WHERE id = ? LIMIT 1');
     $roleStmt->execute([$userId]);
     $myRole = (string)$roleStmt->fetch()['registration_role'];
+    $agentScopeSql = "p.id IN (SELECT property_id FROM property_agents WHERE agent_user_id = {$userId} AND status = 'active')";
     $scopeSql = $myOrgId > 0
-        ? "p.org_id = {$myOrgId} OR p.delegated_user_id = {$userId}"
-        : "p.delegated_user_id = {$userId}";
+        ? "(p.org_id = {$myOrgId} OR p.delegated_user_id = {$userId} OR {$agentScopeSql})"
+        : "(p.delegated_user_id = {$userId} OR {$agentScopeSql})";
     $props = $pdo->query("SELECT p.id, p.title, p.status, p.rent, o.name AS owner_org
         FROM properties p JOIN organizations o ON o.id = p.org_id
         WHERE {$scopeSql} ORDER BY p.id")->fetchAll();
@@ -193,7 +197,7 @@ if ($payDay !== null && ($payDay < 1 || $payDay > 28)) {
 
 $scope = lease_scope($pdo, $userId, $myOrgId, $propertyId);
 if ($scope === null) {
-    respond(false, '此房屋不在您可管理的範圍(需為屋主或受託代管的管理員)');
+    respond(false, '此房屋不在您可管理的範圍(需為屋主、受託代管的管理員或受託業務)');
 }
 $propStmt = $pdo->prepare('SELECT id, title, status, rent, listing_type FROM properties WHERE id = ? LIMIT 1');
 $propStmt->execute([$propertyId]);

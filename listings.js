@@ -167,6 +167,10 @@
     $('#f_parking').checked = Number(p.parking) === 1;
     $('#f_pet').checked = Number(p.pet_friendly) === 1;
     $('#f_cook').checked = Number(p.cooking_allowed) === 1;
+    $('#f_nosmoke').checked = Number(p.no_smoking) === 1;
+    $('#f_taxok').checked = Number(p.tax_ok) === 1;
+    $('#f_hhold').checked = Number(p.household_ok) === 1;
+    $('#f_spterms').value = p.special_terms || '';
     renderPhotoManager(p.photos || []);
     syncTypeUI();
     $('#f_status').value = p.status;
@@ -356,6 +360,10 @@
       parking: $('#f_parking').checked ? 1 : 0,
       pet_friendly: $('#f_pet').checked ? 1 : 0,
       cooking_allowed: $('#f_cook').checked ? 1 : 0,
+      no_smoking: $('#f_nosmoke').checked ? 1 : 0,
+      tax_ok: $('#f_taxok').checked ? 1 : 0,
+      household_ok: $('#f_hhold').checked ? 1 : 0,
+      special_terms: $('#f_spterms').value.trim(),
       gender_limit: 'any',
       available_date: isSale ? '' : $('#f_available').value,
       facilities: $('#f_facilities').value.trim(),

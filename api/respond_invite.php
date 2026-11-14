@@ -75,6 +75,20 @@ if ($action === 'accept') {
         ? '委託的 ' . count($propIds) . ' 間房屋已加入您的代管清單'
         : ($joined ? '您已以「' . implode('+', $joined) . '」身份加入組織' : '已加入組織');
     notify((int)$inv['inviter_user_id'], 'invite_accepted', '邀請已被接受', $me['name'] . ' 已接受您的邀請;' . $detail . '。', $inv['id']);
+
+    /* 代管成立:提醒屋主提供所有權狀(依平台規範) */
+    if (in_array('manager', $invitedRoles, true) && count($propIds) > 0) {
+        $oStmt = $pdo->prepare('SELECT owner_user_id FROM organizations WHERE id = ? LIMIT 1');
+        $oStmt->execute([(int)$inv['org_id']]);
+        $ownerUid = (int)($oStmt->fetch()['owner_user_id'] ?? 0);
+        foreach ($propIds as $pid) {
+            $oc = $pdo->prepare('SELECT COUNT(*) AS c FROM property_ownership_docs WHERE property_id = ?');
+            $oc->execute([$pid]);
+            if ((int)$oc->fetch()['c'] === 0 && $ownerUid > 0) {
+                notify($ownerUid, 'ownership_doc', '請提供房屋所有權狀', '您委託代管的房屋已由管理員接手;依平台規範請於房源頁上傳「所有權狀」照片,或透過訊息傳送給管理員。', $pid, true);
+            }
+        }
+    }
     respond(true, '已接受邀請!' . $detail);
 }
 

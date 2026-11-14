@@ -88,11 +88,16 @@ if ($paActive) {
     $leases = [];
 }
 
+$ownStmt = $pdo->prepare('SELECT id, file_path, note, created_at FROM property_ownership_docs WHERE property_id = ? ORDER BY id DESC');
+$ownStmt->execute([(int)$p['id']]);
+$ownershipDocs = $ownStmt->fetchAll();
+
 respond(true, 'ok', [
     'authenticated' => true,
     'property' => $p,
     'photos' => $photos,
     'leases' => $leases,
+    'ownership_docs' => $ownershipDocs,
     'can_manage' => (($isLandlordOwner && $p['delegated_user_id'] === null && $p['pending_manager_id'] === null) || $isManager) && !$paActive,
     'view' => $paActive ? 'agent' : ($isLandlordOwner ? 'landlord' : ($isManager ? 'manager' : 'tenant')),
 ]);

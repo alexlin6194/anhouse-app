@@ -131,7 +131,7 @@
     const foot = $('#docFoot');
     const side = mySide(d);
     const isLease = d.type === 'lease_contract';
-    const isManager = ['landlord', 'manager', 'company_owner', 'admin_staff', 'accountant'].includes(cache.my_role);
+    const isManager = ['landlord', 'manager', 'company_owner', 'admin_staff', 'accountant', 'agent'].includes(cache.my_role);
     const isCreator = Number(d.created_by) === Number(cache.my_id);
 
     if (d.status === 'pending' && side === 1) {
@@ -357,7 +357,7 @@
     cache = data;
     const backMap = { landlord: 'dashboard.html', manager: 'dashboard_manager.html', tenant: 'dashboard_tenant.html', company_owner: 'dashboard_company.html', admin_staff: 'dashboard_company.html', accountant: 'dashboard_company.html', vendor: 'repairs.html', agent: 'dashboard_agent.html' };
     if (backMap[data.my_role]) $('#navBack').setAttribute('href', backMap[data.my_role]);
-    const isManager = ['landlord', 'manager', 'company_owner', 'admin_staff'].includes(data.my_role);
+    const isManager = ['landlord', 'manager', 'company_owner', 'admin_staff', 'agent'].includes(data.my_role);
     $('#newContractBtn').style.display = isManager ? '' : 'none';
     render();
     const params = new URLSearchParams(location.search);

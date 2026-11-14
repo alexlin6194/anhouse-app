@@ -35,6 +35,7 @@
     if (data.my_role === 'manager') $('#navBack').setAttribute('href', 'dashboard_manager.html');
     else if (data.my_role === 'tenant') $('#navBack').setAttribute('href', 'dashboard_tenant.html');
     else if (data.my_role === 'company_owner' || data.my_role === 'admin_staff' || data.my_role === 'accountant') $('#navBack').setAttribute('href', 'dashboard_company.html');
+    else if (data.my_role === 'agent') $('#navBack').setAttribute('href', 'dashboard_agent.html');
 
     const params = new URLSearchParams(location.search);
     const preset = params.get('property_id');

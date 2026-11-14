@@ -45,6 +45,10 @@ $status = clean($in['status'] ?? '');
 $parking = !empty($in['parking']) ? 1 : 0;
 $pet = !empty($in['pet_friendly']) ? 1 : 0;
 $cook = !empty($in['cooking_allowed']) ? 1 : 0;
+$noSmoking = !empty($in['no_smoking']) ? 1 : 0;
+$taxOk = !empty($in['tax_ok']) ? 1 : 0;
+$householdOk = !empty($in['household_ok']) ? 1 : 0;
+$specialTerms = mb_substr(clean($in['special_terms'] ?? ''), 0, 255);
 $gender = clean($in['gender_limit'] ?? 'any');
 $available = clean($in['available_date'] ?? '');
 $facilities = clean($in['facilities'] ?? '');
@@ -140,6 +144,12 @@ if (mb_strlen($facilities) > 255 || mb_strlen($note) > 255) {
     respond(false, '設備或備註過長');
 }
 
+/* 房屋所有權狀:建立房源必須上傳(PDF/JPG/PNG) */
+$ownershipPath = save_upload('ownership_doc', 'ownership');
+if (!$ownershipPath) {
+    respond(false, '請上傳房屋所有權狀(權狀照片或 PDF,5MB 內)——依平台規範建立房源需提供');
+}
+
 $pdo = db();
 $userId = (int)$_SESSION['user_id'];
 $memStmt = $pdo->prepare("SELECT om.role, o.id AS org_id FROM org_members om JOIN organizations o ON o.id = om.org_id
@@ -163,8 +173,8 @@ if (!$mem && $forOrg > 0) {
     $orgId = (int)$mem['org_id'];
 }
 
-$stmt = $pdo->prepare('INSERT INTO properties (org_id, listing_type, created_by, title, city, district, address, property_type, layout_rooms, layout_living, layout_bath, area_ping, floor_current, floor_total, rent, mgmt_fee, elec_rate, elec_mode, min_lease, legal_use, deposit, sale_price, parking, pet_friendly, cooking_allowed, gender_limit, water_fee, parking_fee, cleaning_fee, internet_fee, cable_fee, available_date, facilities, status, note, pending_manager_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+$stmt = $pdo->prepare('INSERT INTO properties (org_id, listing_type, created_by, title, city, district, address, property_type, layout_rooms, layout_living, layout_bath, area_ping, floor_current, floor_total, rent, mgmt_fee, elec_rate, elec_mode, min_lease, legal_use, deposit, sale_price, parking, pet_friendly, cooking_allowed, gender_limit, no_smoking, tax_ok, household_ok, special_terms, water_fee, parking_fee, cleaning_fee, internet_fee, cable_fee, available_date, facilities, status, note, pending_manager_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 $stmt->execute([
     $orgId, $listingType, $userId, $title,
     $city !== '' ? $city : null, $district !== '' ? $district : null,
@@ -173,6 +183,7 @@ $stmt->execute([
     $roomsN, $livingN, $bathN, $areaF, $fCur, $fTotal,
     $listingType === 'rental' ? $rent : 0, $mgmtFee, $elecRate, $elecMode, $minLease !== '' ? $minLease : null, $legalUse !== '' ? $legalUse : null, $deposit, $salePrice,
     $parking, $pet, $cook, $gender,
+    $noSmoking, $taxOk, $householdOk, $specialTerms !== '' ? $specialTerms : null,
     $listingType === 'rental' ? $waterFee : null, $listingType === 'rental' ? $parkingFee : null, $listingType === 'rental' ? $cleaningFee : null, $listingType === 'rental' ? $internetFee : null, $listingType === 'rental' ? $cableFee : null,
     $available !== '' ? $available : null,
     $facilities !== '' ? $facilities : null,
@@ -180,6 +191,9 @@ $stmt->execute([
     $actingAsManager ? $userId : null,
 ]);
 $propertyId = (int)$pdo->lastInsertId();
+
+$pdo->prepare('INSERT INTO property_ownership_docs (property_id, uploaded_by, file_path, note) VALUES (?, ?, ?, ?)')
+    ->execute([$propertyId, $userId, $ownershipPath, '建立房源時上傳']);
 
 $saved = 0;
 if (!empty($_FILES['photos']) && is_array($_FILES['photos']['name'] ?? null)) {

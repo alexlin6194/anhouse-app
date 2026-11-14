@@ -31,6 +31,9 @@
     if (Number(p.parking)) chips.push('<span class="chip">車位</span>');
     if (Number(p.pet_friendly)) chips.push('<span class="chip">寵物</span>');
     if (Number(p.cooking_allowed)) chips.push('<span class="chip">開伙</span>');
+    if (Number(p.no_smoking)) chips.push('<span class="chip">禁菸</span>');
+    if (Number(p.tax_ok)) chips.push('<span class="chip">可報稅</span>');
+    if (Number(p.household_ok)) chips.push('<span class="chip">可入籍</span>');
 
     const statusTxt = p.listing_type === 'sale'
       ? (p.status === 'sold' ? '<span class="st ok">已售出</span>' : '<span class="st warn">銷售中</span>')
@@ -61,6 +64,7 @@
       (p.available_date && p.listing_type === 'rental' ? '<div class="sect">可遷入日</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + dstr(p.available_date) + '</p>' : '') +
       (p.facilities ? '<div class="sect">生活機能/設備</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + esc(p.facilities) + '</p>' : '') +
       (p.note ? '<div class="sect">備註</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + esc(p.note) + '</p>' : '') +
+      (p.special_terms ? '<div class="sect">📌 特約條款</div><p style="font-size:13.5px;color:var(--brown);margin:2px">' + esc(p.special_terms) + '</p>' : '') +
       photoGallery;
 
     const coverEl = document.querySelector('#pv .cover');

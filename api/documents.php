@@ -36,6 +36,9 @@ function doc_scope(PDO $pdo, int $userId, int $myOrgId, int $did): ?array
     $s = $pdo->prepare('SELECT d.* FROM documents d WHERE d.id = ? AND d.property_id IN (SELECT id FROM properties WHERE delegated_user_id = ?) LIMIT 1');
     $s->execute([$did, $userId]);
     if ($r = $s->fetch()) return $r;
+    $s = $pdo->prepare('SELECT d.* FROM documents d WHERE d.id = ? AND d.property_id IN (SELECT property_id FROM property_agents WHERE agent_user_id = ? AND status = \'active\') LIMIT 1');
+    $s->execute([$did, $userId]);
+    if ($r = $s->fetch()) return $r;
     $s = $pdo->prepare('SELECT d.* FROM documents d WHERE d.id = ? AND d.signer_user_id = ? LIMIT 1');
     $s->execute([$did, $userId]);
     return $s->fetch() ?: null;
@@ -106,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $parts = [];
     if ($myOrgId > 0) $parts[] = "d.property_id IN (SELECT id FROM properties WHERE org_id = {$myOrgId})";
     $parts[] = "d.property_id IN (SELECT id FROM properties WHERE delegated_user_id = {$userId})";
+    $parts[] = "d.property_id IN (SELECT property_id FROM property_agents WHERE agent_user_id = {$userId} AND status = 'active')";
     $parts[] = "d.signer_user_id = {$userId}";
     $scopeSql = '(' . implode(' OR ', $parts) . ')';
 
@@ -173,7 +177,14 @@ if ($action === 'create_lease_contract') {
     }
     $isManagerHere = ($myOrgId > 0 && (int)$lease['org_id'] === $myOrgId) || ($lease['delegated_user_id'] && (int)$lease['delegated_user_id'] === $userId);
     if (!$isManagerHere) {
-        respond(false, '僅屋主或管理員可發起租約電子簽約');
+        $paC = $pdo->prepare("SELECT COUNT(*) AS c FROM property_agents WHERE property_id = ? AND agent_user_id = ? AND status = 'active'");
+        $paC->execute([(int)$lease['property_id'], $userId]);
+        if ((int)$paC->fetch()['c'] > 0) {
+            $isManagerHere = true; /* 受託業務可代客發起簽約(簽署仍限屋主與房客) */
+        }
+    }
+    if (!$isManagerHere) {
+        respond(false, '僅屋主、管理員或受託業務可發起租約電子簽約');
     }
     $feesIn = (array)($in['fees'] ?? []);
     $fees = [];
