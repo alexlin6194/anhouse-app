@@ -119,6 +119,8 @@ let checkTimer = null;
       state.role = 'invite';
       const roles = document.getElementById('roles');
       if (roles) roles.style.display = 'none';
+      const roleSect = document.getElementById('roleSect');
+      if (roleSect) roleSect.style.display = 'none';
       const hintEl = document.getElementById('roleHint');
       if (hintEl) hintEl.innerHTML = '💼 <b>' + esc(d.org_name) + '</b> 邀請您以「<b>' + esc(d.roles_text) + '</b>」職務加入 — 註冊後將自動加入公司';
     } catch (e) { /* 忽略,走一般註冊 */ }
