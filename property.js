@@ -161,7 +161,7 @@
     const leaseAgentSection = data.view === 'agent'
       ? '<div style="margin:10px 2px"><a class="btn line" href="leases.html?property_id=' + p.id + '" style="text-decoration:none;display:block;text-align:center">📜 租約與電子簽約(代客發起:邀房客簽→屋主副署)</a></div>'
       : '';
-    const shareSection = (data.can_manage || data.view === 'agent')
+    const shareSection = (p.status !== 'rented' && (data.can_manage || data.view === 'agent'))
       ? '<div class="sect">🔗 推廣連結(免註冊即可查看)</div><div style="margin:4px 2px"><button type="button" class="btn line" id="shareBtn" style="width:100%;text-align:center">🔗 複製房源推廣連結</button><p style="font-size:11px;color:var(--brown2);margin:6px 2px 0">連結給準房客/買家開啟,毋需帳號即可看房(顯示城市/區域,完整地址不公開)。</p></div>'
       : '';
 
@@ -301,11 +301,16 @@
     const items = d.items || [];
     const dealTxt = { rent: '出租', sale: '出售', both: '出租/出售' };
     const rows = items.length
-      ? items.map(a =>
-        '<div class="lrow"><div class="linfo"><b>' + esc(a.name) + '(' + esc(a.phone) + ')</b>' +
-        '<span>' + (dealTxt[a.deal_type] || '') + '|可改價:' + (Number(a.can_edit_price) ? '是' : '否') +
-        '|' + (a.status === 'active' ? '<b style="color:var(--green)">生效中</b>' : '<span style="color:var(--brown2)">邀請中</span>') + '</span></div>' +
-        '<button type="button" class="mini-btn line act-paend" data-id="' + a.id + '">解除</button></div>').join('')
+      ? items.map(a => {
+        if (a.status === 'ended') {
+          return '<div class="lrow" style="opacity:.85"><div class="linfo"><b>' + esc(a.name) + '(' + esc(a.phone) + ')</b>' +
+            '<span>' + (dealTxt[a.deal_type] || '') + '|<b style="color:var(--green)">✅ 已成交移交</b>' + (a.ended_at ? '|結案 ' + esc(String(a.ended_at).slice(0, 10)) : '') + '</span></div></div>';
+        }
+        return '<div class="lrow"><div class="linfo"><b>' + esc(a.name) + '(' + esc(a.phone) + ')</b>' +
+          '<span>' + (dealTxt[a.deal_type] || '') + '|可改價:' + (Number(a.can_edit_price) ? '是' : '否') +
+          '|' + (a.status === 'active' ? '<b style="color:var(--green)">生效中</b>' : '<span style="color:var(--brown2)">邀請中</span>') + '</span></div>' +
+          '<button type="button" class="mini-btn line act-paend" data-id="' + a.id + '">解除</button></div>';
+      }).join('')
       : '<p style="font-size:12px;color:var(--brown2);margin:2px">尚未委託任何業務。</p>';
     box.innerHTML = rows +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">' +

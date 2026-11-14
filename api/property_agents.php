@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $s = $pdo->prepare("SELECT pa.id, pa.agent_user_id, pa.deal_type, pa.can_edit_price, pa.status, pa.created_at, pa.ended_at,
         u.name, u.phone
         FROM property_agents pa JOIN users u ON u.id = pa.agent_user_id
-        WHERE pa.property_id = ? AND pa.status IN ('invited','active') ORDER BY pa.id DESC LIMIT 30");
+        WHERE pa.property_id = ? AND pa.status IN ('invited','active','ended') ORDER BY pa.id DESC LIMIT 30");
     $s->execute([$pid]);
     respond(true, 'ok', ['items' => $s->fetchAll()]);
 }
