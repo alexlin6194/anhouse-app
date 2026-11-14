@@ -69,7 +69,7 @@ if ($exists->fetch()) {
 
 $pdo->beginTransaction();
 try {
-    $userStmt = $pdo->prepare('INSERT INTO users (name, phone, email, password_hash) VALUES (?, ?, ?, ?)');
+    $userStmt = $pdo->prepare('INSERT INTO users (name, phone, email, password_hash, registration_role) VALUES (?, ?, ?, ?, "company_owner")');
     $userStmt->execute([$name, $phone, $email, password_hash($password, PASSWORD_DEFAULT)]);
     $userId = (int)$pdo->lastInsertId();
 
