@@ -44,7 +44,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (isset($_GET['mine'])) {
         if ($myRole !== 'agent') respond(false, '僅業務帳號可查看');
         $s = $pdo->prepare("SELECT pa.id, pa.property_id, pa.deal_type, pa.can_edit_price, pa.status, pa.created_at,
-            p.title, p.city, p.district, p.address, p.rent, p.sale_price, p.listing_type, p.is_listed, p.status AS prop_status
+            p.title, p.city, p.district, p.address, p.rent, p.sale_price, p.listing_type, p.is_listed, p.status AS prop_status,
+            (SELECT COUNT(*) FROM leases l WHERE l.property_id = pa.property_id AND l.status = 'active') AS lease_active
             FROM property_agents pa JOIN properties p ON p.id = pa.property_id
             WHERE pa.agent_user_id = ? AND pa.status IN ('invited','active')
             ORDER BY FIELD(pa.status,'invited','active'), pa.id DESC LIMIT 50");
@@ -134,6 +135,44 @@ if ($action === 'end') {
     notify((int)$pa['agent_user_id'], 'pa_invite', '委託已解除|' . $pa['title'],
         '「' . $pa['title'] . '」的委託已由屋主解除,您不再協助此房源。', (int)$pa['pid']);
     respond(true, '已解除委託');
+}
+
+if ($action === 'handover') {
+    /* 成交移交:業務於簽約生效後,將房屋後續(帳務/報修/關係)移交給屋主或代管管理員 */
+    $pid = (int)($in['property_id'] ?? 0);
+    $note = mb_substr(clean($in['note'] ?? ''), 0, 255);
+    $s = $pdo->prepare("SELECT pa.id, p.title, p.org_id, o.owner_user_id, p.delegated_user_id FROM property_agents pa
+        JOIN properties p ON p.id = pa.property_id LEFT JOIN organizations o ON o.id = p.org_id
+        WHERE pa.property_id = ? AND pa.agent_user_id = ? AND pa.status = 'active' LIMIT 1");
+    $s->execute([$pid, $userId]);
+    $pa = $s->fetch();
+    if (!$pa) respond(false, '找不到您對此房屋的生效委託');
+    $lStmt = $pdo->prepare("SELECT id FROM leases WHERE property_id = ? AND status = 'active' LIMIT 1");
+    $lStmt->execute([$pid]);
+    $lease = $lStmt->fetch();
+    if (!$lease) respond(false, '此房屋尚無生效租約,無法移交;請先完成簽約');
+    $dupe = $pdo->prepare('SELECT id FROM handovers WHERE property_id = ? AND agent_user_id = ? LIMIT 1');
+    $dupe->execute([$pid, $userId]);
+    if ($dupe->fetch()) respond(false, '此房屋您已完成移交,無須重複操作');
+
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare("UPDATE property_agents SET status = 'ended', ended_at = NOW() WHERE id = ?")->execute([(int)$pa['id']]);
+        $pdo->prepare('INSERT INTO handovers (property_id, agent_user_id, to_user_id, lease_id, note) VALUES (?, ?, ?, ?, ?)')
+            ->execute([$pid, $userId, (int)$pa['owner_user_id'], (int)$lease['id'], $note !== '' ? $note : null]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        respond(false, '移交失敗,請稍後再試');
+    }
+
+    $targets = array_values(array_unique(array_filter([(int)$pa['owner_user_id'], (int)($pa['delegated_user_id'] ?? 0)])));
+    foreach ($targets as $uid) {
+        notify($uid, 'handover', '成交移交|' . $pa['title'],
+            '業務 ' . ($_SESSION['name'] ?? '') . ' 已完成成交並移交此房屋' . ($note !== '' ? ';交接說明:' . $note : '') . ';後續租約帳務與報修由您接手。', $pid, true);
+    }
+    notify($userId, 'handover', '移交完成|' . $pa['title'], '您已將此房屋移交給屋主/管理員,委託已結案;感謝您的促成!', $pid, true);
+    respond(true, '🎉 成交移交完成!已通知屋主與管理員接手後續');
 }
 
 respond(false, '未知操作');

@@ -70,6 +70,10 @@
     const loc = [p.city, p.district, p.address].filter(Boolean).join('');
 
     let stateHtml = '';
+    const hv = data.handover;
+    if (hv) {
+      stateHtml += '<p style="color:var(--green);font-size:13px;font-weight:700;margin:2px">📦 已成交移交:' + esc(hv.agent_name) + ' 於 ' + String(hv.created_at).slice(0, 10) + ' 移交' + (hv.note ? '(說明:' + esc(hv.note) + ')' : '') + '</p>';
+    }
     if (p.pending_manager_id != null && p.pending_manager_name) {
       stateHtml = '<p style="color:var(--brown2);font-size:13px">⏳ 管理員 ' + esc(p.pending_manager_name) + ' 申請代管中,待屋主授權</p>';
     } else if (p.delegated_user_id != null && p.manager_name) {

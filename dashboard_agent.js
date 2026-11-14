@@ -102,7 +102,8 @@
         const btns = a.status === 'invited'
           ? '<div style="display:flex;gap:6px;margin-top:6px"><button type="button" class="mini-btn act-paok" data-id="' + a.id + '">✅ 接受委託</button><button type="button" class="mini-btn line act-pano" data-id="' + a.id + '">婉拒</button></div>'
           : '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><button type="button" class="mini-btn act-patoggle" data-pid="' + a.property_id + '" data-on="' + Number(a.is_listed) + '">' + (Number(a.is_listed) ? '⬇️ 下架' : '⬆️ 上架') + '</button>' +
-            '<a class="mini-btn line" style="text-decoration:none" href="property.html?id=' + a.property_id + '">查看房屋</a></div>';
+            '<a class="mini-btn line" style="text-decoration:none" href="property.html?id=' + a.property_id + '">查看房屋</a>' +
+            (Number(a.lease_active) ? '<button type="button" class="mini-btn act-handover" data-pid="' + a.property_id + '" data-title="' + esc(a.title) + '">🎉 成交移交</button>' : '') + '</div>';
         return '<div class="list-item" style="flex-wrap:wrap"><div style="flex:1;min-width:150px"><b>' + esc(a.title) + '</b>' +
           '<span>' + (dealTxt[a.deal_type] || a.deal_type) + '|' + price + '|可改價:' + (Number(a.can_edit_price) ? '是' : '否') + '</span></div>' + st + btns + '</div>';
       }).join('');
@@ -134,6 +135,19 @@
         const r = await res.json();
         toast(r.message);
         if (r.ok) loadPA();
+      } catch (e) { toast('連線異常'); }
+    }));
+    card.querySelectorAll('.act-handover').forEach(b => b.addEventListener('click', async () => {
+      const note = prompt('成交移交給屋主/管理員(可填交接說明,例:鑰匙 3 支已點交;房客約定 12/1 交屋):');
+      if (note === null) return;
+      try {
+        const res = await fetch('api/property_agents.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'handover', property_id: Number(b.dataset.pid), note })
+        });
+        const r = await res.json();
+        toast(r.message);
+        if (r.ok) { loadPA(); load(); }
       } catch (e) { toast('連線異常'); }
     }));
   }

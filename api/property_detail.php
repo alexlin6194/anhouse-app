@@ -92,12 +92,17 @@ $ownStmt = $pdo->prepare('SELECT id, file_path, note, created_at FROM property_o
 $ownStmt->execute([(int)$p['id']]);
 $ownershipDocs = $ownStmt->fetchAll();
 
+$hvStmt = $pdo->prepare("SELECT h.note, h.created_at, u.name AS agent_name FROM handovers h JOIN users u ON u.id = h.agent_user_id WHERE h.property_id = ? ORDER BY h.id DESC LIMIT 1");
+$hvStmt->execute([(int)$p['id']]);
+$handover = $hvStmt->fetch() ?: null;
+
 respond(true, 'ok', [
     'authenticated' => true,
     'property' => $p,
     'photos' => $photos,
     'leases' => $leases,
     'ownership_docs' => $ownershipDocs,
+    'handover' => $handover,
     'can_manage' => (($isLandlordOwner && $p['delegated_user_id'] === null && $p['pending_manager_id'] === null) || $isManager) && !$paActive,
     'view' => $paActive ? 'agent' : ($isLandlordOwner ? 'landlord' : ($isManager ? 'manager' : 'tenant')),
 ]);
