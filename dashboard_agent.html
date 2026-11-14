@@ -51,7 +51,7 @@
         <div class="fn" onclick="location.href='leases.html'"><i>✍️</i><span>租約/電子簽約</span></div>
         <div class="fn" onclick="location.href='messages.html'"><i>💬</i><span>訊息</span></div>
         <div class="fn" onclick="location.href='notifications.html'"><i>🔔</i><span>通知</span></div>
-        <div class="fn" onclick="document.querySelector('#paSect').scrollIntoView({behavior:'smooth'});toast('在「🤝 我的委託房源」卡片操作:簽約生效後出現 🎉 成交移交')"><i>🔄</i><span>成交移交</span></div>
+        <div class="fn" onclick="var ps=document.querySelector('#paSect');if(ps&&ps.style.display!=='none'){ps.scrollIntoView({behavior:'smooth'});}toast('成交移交在「🤝 我的委託房源」:屋主委託且簽約生效後,該卡片會出現 🎉 成交移交按鈕')"><i>🔄</i><span>成交移交</span></div>
       </div>
 
       <p class="foot">本 APP 由 安家生活GO・安家生活網・房產與生活服務平台・互動開發工作室 聯合開發<br>© Copyright 2026 All Rights Reserved</p>
@@ -59,7 +59,7 @@
   </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
-<script src="dashboard_agent.js?v=20261115n"></script>
+<script src="dashboard_agent.js?v=20261115o"></script>
 <script src="assets/js/notify.js?v=20261114e"></script>
 <script src="assets/js/tabbar.js?v=20261114e"></script>
 </body>

@@ -5,7 +5,7 @@
   const roleNames = { company_owner: '公司負責人', landlord: '房東(只讀)', manager: '管理員', agent: '業務', tenant: '房客(只讀)', accountant: '會計人員', admin_staff: '行政人員' };
   const toastEl = $('#toast');
   let timer;
-  function toast(msg) {
+  window.toast = function (msg) {
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(timer);

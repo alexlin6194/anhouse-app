@@ -4,7 +4,7 @@
   const money = (n) => 'NT$' + Number(n).toLocaleString('zh-TW');
   const toastEl = $('#toast');
   let timer;
-  function toast(msg) {
+  window.toast = function (msg) {
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(timer);
