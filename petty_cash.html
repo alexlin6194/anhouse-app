@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>零用金/出納|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261115ee">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>零用金/出納</h2>
+    <p>公司零用金支出與撥補<br>每筆有據、餘額清楚</p>
+    <div class="feat">
+      <div>🪙 餘額即時計算</div>
+      <div>🧾 類別/單據/經手人</div>
+      <div>➖ 餘額不足自動擋</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="dash-head">
+        <div class="who"><b>🪙 零用金/出納</b><span id="orgLine" style="font-size:12px;color:var(--brown2)"></span></div>
+        <a class="bell" href="dashboard_company.html" aria-label="回首頁">🏠</a>
+      </div>
+
+      <div class="stats" id="balCards"></div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn primary" id="addIn" style="flex:1">➕ 登錄撥補</button>
+        <button class="btn line" id="addOut" style="flex:1">➖ 登錄支出</button>
+      </div>
+
+      <div class="card" id="list" style="margin-top:12px;padding:6px 16px"><p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">載入中…</p></div>
+    </div>
+  </main>
+</div>
+<div class="modal-mask" id="mask">
+  <div class="sheet" style="height:auto;max-height:85dvh;overflow:auto">
+    <h3 style="margin:20px 20px 10px;color:var(--brown);font-size:17px" id="ttl"></h3>
+    <div style="padding:0 20px 24px">
+      <label style="font-size:12.5px;color:var(--brown2);font-weight:700">金額</label>
+      <input id="fAmt" type="number" min="1" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px">
+      <label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">類別</label>
+      <select id="fCat" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px">
+        <option value="office">辦公用品</option>
+        <option value="transport">交通費</option>
+        <option value="repair_mat">修繕材料</option>
+        <option value="tax_fee">稅金/規費</option>
+        <option value="event">活動/公關</option>
+        <option value="replenish">公司撥補</option>
+        <option value="other">其他</option>
+      </select>
+      <label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">說明</label>
+      <input id="fNote" placeholder="例:印表機碳粉夾 2 盒" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:13px">
+      <label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">單據編號(選填)</label>
+      <input id="fDoc" placeholder="例:統一發票 AB-12345" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:13px">
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn ghost" style="flex:1" onclick="closeSheet()">取消</button>
+        <button class="btn primary" id="fGo" style="flex:1">確認登錄</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="petty_cash.js?v=20261115ee"></script>
+<script src="assets/js/tabbar.js?v=20261115ee"></script>
+</body>
+</html>

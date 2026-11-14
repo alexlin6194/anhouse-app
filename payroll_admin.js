@@ -36,7 +36,9 @@
         '<span style="font-size:11.5px;color:var(--brown2)">' + (roleTxt[r.role] || esc(r.role)) + '</span>' + st + '</div>' +
         '<div style="font-size:12.5px;color:var(--brown2);margin-top:4px">底薪 ' + fmt(r.base_salary_pay) +
         (r.role === 'agent' ? '・本月成交 ' + r.deals + ' 件・獎金 ' + fmt(r.bonus_amount) : '') +
-        (r.extra_amount ? '・其他加減 ' + (r.extra_amount > 0 ? '+' : '') + fmt(r.extra_amount).replace('NT$', '$') : '') + '</div>' +
+        (r.extra_amount ? '・其他加減 ' + (r.extra_amount > 0 ? '+' : '') + fmt(r.extra_amount).replace('NT$', '$') : '') +
+        (r.ins_deduct ? '・勞健保自付 -' + fmt(r.ins_deduct).replace('NT$', '$') : '') +
+        (r.pension_employer ? '・勞退提撥 ' + fmt(r.pension_employer) : '') + '</div>' +
         '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">' +
         '<b style="font-size:16px;color:var(--brown)">應發 ' + fmt(r.gross) + '</b>' +
         '<button class="btn ghost" style="padding:6px 12px;margin-left:auto" onclick="openEdit(' + i + ')">✏️ 編輯</button>' +
@@ -58,17 +60,21 @@
         '<input id="edDetail" placeholder="獎金說明(選填)" value="' + esc(r.bonus_detail) + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:13px;margin-top:8px">'
         : '<input id="edBonus" type="hidden" value="' + r.bonus_amount + '"><input id="edDetail" type="hidden" value="' + esc(r.bonus_detail) + '">') +
       '<label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">其他加減項(獎金/扣款,負號=扣)</label>' +
-      '<input id="edExtraL" placeholder="項目說明,例:全勤獎金/勞健保自付" value="' + esc(r.extra_label) + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:13px">' +
+      '<input id="edExtraL" placeholder="項目說明,例:全勤獎金/交通費" value="' + esc(r.extra_label) + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:13px">' +
       '<input id="edExtraA" type="number" value="' + r.extra_amount + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;margin-top:8px">' +
+      '<label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">勞健保自付(從薪資扣)</label>' +
+      '<input id="edIns" type="number" min="0" value="' + (r.ins_deduct || 0) + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px">' +
+      '<label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">勞退 6% 公司提撥(進員工退休金帳戶,不影響應發)</label>' +
+      '<input id="edPension" type="number" min="0" value="' + (r.pension_employer || 0) + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px">' +
       '<p id="edGross" style="font-size:14px;color:var(--brown);font-weight:700;margin:10px 2px 0"></p>' +
       '<div style="display:flex;gap:10px;margin-top:14px">' +
       '<button class="btn ghost" style="flex:1" onclick="closeEdit()">取消</button>' +
       '<button class="btn primary" style="flex:1" onclick="savePay(\'' + r.user_id + '\')">儲存</button></div>';
     const upd = () => {
-      const g = Math.max(0, Number($('#edBase').value || 0) + Number($('#edBonus').value || 0) + Number($('#edExtraA').value || 0));
-      $('#edGross').textContent = '應發合計:' + fmt(g);
+      const g = Math.max(0, Number($('#edBase').value || 0) + Number($('#edBonus').value || 0) + Number($('#edExtraA').value || 0) - Number($('#edIns').value || 0));
+      $('#edGross').textContent = '應發合計:' + fmt(g) + '(勞退提撥另計 ' + fmt(Number($('#edPension').value || 0)) + ')';
     };
-    ['edBase', 'edBonus', 'edExtraA'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', upd); });
+    ['edBase', 'edBonus', 'edExtraA', 'edIns'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', upd); });
     upd();
     document.getElementById('editMask').classList.add('show');
     document.querySelector('.sheet').classList.add('show');
@@ -87,7 +93,9 @@
           bonus_amount: Number($('#edBonus').value || 0),
           bonus_detail: $('#edDetail') ? $('#edDetail').value : '',
           extra_label: $('#edExtraL') ? $('#edExtraL').value : '',
-          extra_amount: Number($('#edExtraA').value || 0)
+          extra_amount: Number($('#edExtraA').value || 0),
+          ins_deduct: Number($('#edIns').value || 0),
+          pension_employer: Number($('#edPension').value || 0)
         })
       });
       const r = await res.json();

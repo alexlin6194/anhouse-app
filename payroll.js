@@ -22,6 +22,8 @@
       '<span>底薪 ' + fmt(p.base_salary) +
       (Number(p.bonus_amount) ? '・獎金 ' + fmt(p.bonus_amount) + (p.bonus_detail ? '(' + esc(p.bonus_detail) + ')' : '') : '') +
       (Number(p.extra_amount) ? '・' + esc(p.extra_label || '其他') + ' ' + (p.extra_amount > 0 ? '+' : '') + fmt(p.extra_amount).replace('NT$', '$') : '') +
+      (Number(p.ins_deduct) ? '・勞健保自付 -' + fmt(p.ins_deduct).replace('NT$', '$') : '') +
+      (Number(p.pension_employer) ? '・🏛 勞退 6% 提撥 ' + fmt(p.pension_employer) + '(公司提繳至您的退休金帳戶)' : '') +
       (p.paid_at ? '・發放於 ' + esc(String(p.paid_at).slice(0, 10)) : '') + '</span></div>' +
       '<span class="st ' + (p.status === 'paid' ? 'ok' : 'idle') + '">' + (stTxt[p.status] || esc(p.status)) + '</span></div>'
     ).join('');

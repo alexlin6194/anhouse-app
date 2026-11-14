@@ -65,6 +65,8 @@ function loadRoster(PDO $pdo, int $orgId, string $month, array $payRows): array 
         $r['bonus_detail'] = $row ? ($row['bonus_detail'] ?? '') : ($deals ? '本月成交 ' . $deals . ' 件 × $' . number_format((int)$r['bonus_per_deal']) : '');
         $r['extra_label'] = $row ? ($row['extra_label'] ?? '') : '';
         $r['extra_amount'] = $row ? (int)$row['extra_amount'] : 0;
+        $r['ins_deduct'] = $row ? (int)$row['ins_deduct'] : 0;
+        $r['pension_employer'] = $row ? (int)$row['pension_employer'] : round(((int)$r['base_salary'] + $deals * (int)$r['bonus_per_deal']) * 0.06);
         $r['base_salary_pay'] = $row ? (int)$row['base_salary'] : (int)$r['base_salary'];
         $r['gross'] = $row ? (int)$row['gross'] : max(0, (int)$r['base_salary'] + $deals * (int)$r['bonus_per_deal']);
         $r['pay_status'] = $row ? $row['status'] : '';
@@ -109,13 +111,16 @@ if ($action === 'save') {
     $extraLabel = clean($in['extra_label'] ?? '');
     $note = clean($in['note'] ?? '');
     $detail = clean($in['bonus_detail'] ?? '');
-    $gross = max(0, $base + $bonus + $extraAmt);
-    $pdo->prepare("INSERT INTO payroll (org_id, user_id, period, base_salary, bonus_amount, bonus_detail, extra_label, extra_amount, gross, note, status, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)
+    $insDeduct = max(0, (int)($in['ins_deduct'] ?? 0));
+    $pension = max(0, (int)($in['pension_employer'] ?? round(($base + max(0, $bonus)) * 0.06)));
+    $gross = max(0, $base + $bonus + $extraAmt - $insDeduct);
+    $pdo->prepare("INSERT INTO payroll (org_id, user_id, period, base_salary, bonus_amount, bonus_detail, extra_label, extra_amount, ins_deduct, pension_employer, gross, note, status, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)
         ON DUPLICATE KEY UPDATE base_salary = VALUES(base_salary), bonus_amount = VALUES(bonus_amount), bonus_detail = VALUES(bonus_detail),
-        extra_label = VALUES(extra_label), extra_amount = VALUES(extra_amount), gross = VALUES(gross), note = VALUES(note), status = 'draft', created_by = VALUES(created_by)")
-        ->execute([$orgId, $targetId, $month, $base, $bonus, $detail, $extraLabel, $extraAmt, $gross, $note, $userId]);
-    respond(true, '已儲存 ' . $emp['name'] . ' ' . $month . ' 薪資(應發 $' . number_format($gross) . ')');
+        extra_label = VALUES(extra_label), extra_amount = VALUES(extra_amount), ins_deduct = VALUES(ins_deduct), pension_employer = VALUES(pension_employer),
+        gross = VALUES(gross), note = VALUES(note), status = 'draft', created_by = VALUES(created_by)")
+        ->execute([$orgId, $targetId, $month, $base, $bonus, $detail, $extraLabel, $extraAmt, $insDeduct, $pension, $gross, $note, $userId]);
+    respond(true, '已儲存 ' . $emp['name'] . ' ' . $month . ' 薪資(應發 $' . number_format($gross) . '、勞退提撥 $' . number_format($pension) . ')');
 }
 
 if ($action === 'confirm') {
