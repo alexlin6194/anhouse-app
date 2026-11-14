@@ -156,6 +156,12 @@ if ($action === 'start') {
         if (!$hit) respond(false, '目前級距免費,無需訂閱');
         $plan = $hit['plan'];
         $amount = (int)$hit['amount'];
+        /* 151+ 加購:每人 +$50/月(輸入人數,伺服器計價) */
+        if ($plan === 's150p') {
+            $extra = max(1, min(500, (int)($_POST['extra'] ?? 1)));
+            $amount = 1499 + $extra * 50;
+            $hit['label'] = '151 名以上(加購 ' . $extra . ' 人)';
+        }
         if ($amount <= 0) respond(false, '此級距為免費級距,無需訂閱');
     }
 

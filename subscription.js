@@ -63,6 +63,16 @@
   function planCard(p) {
     const free = p.amount === 0;
     const curBadge = p.current ? ' <span class="st ok">目前級距</span>' : '';
+    if (p.plan === 's150p') {
+      const def = (data.usage && data.usage.count > 150) ? data.usage.count - 150 : 1;
+      return '<div class="list-item" style="align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:0">' +
+        '<b>' + p.label + '</b><span>NT$<b id="s150amt">' + (1499 + def * 50).toLocaleString() + '</b>元 / 月</span>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin:4px 0"><span style="font-size:12.5px;color:var(--brown2)">加購人數</span>' +
+        '<input id="s150n" type="number" min="1" max="500" value="' + def + '" inputmode="numeric" style="width:80px;padding:6px 10px;border:1.5px solid var(--beige2);border-radius:10px;font-size:15px;color:var(--brown)">' +
+        '<span style="font-size:12px;color:var(--brown2)">人 × $50 + $1,499</span></div>' +
+        '<span style="color:#8a7a5c">下期生效(月繳);級距異動於本期到期日次日連動</span></div>' +
+        '<button type="button" class="mini-btn act-pay" data-plan="s150p" data-months="1">訂閱此級距</button></div>';
+    }
     return '<div class="list-item" style="align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:0">' +
       '<b>' + p.label + '</b>' + curBadge + '<span>' + (free ? '免費(無需付款)' : 'NT$' + p.amount.toLocaleString() + '元 / 月') + '</span>' +
       (free ? '' : '<span style="color:#8a7a5c">下期生效(月繳);若級距異動,於本期到期日次日連動</span>') + '</div>' +
@@ -106,6 +116,11 @@
       (qs.get('result') === 'fail' ? '<p style="color:#c0392b;font-size:13.5px">❌ 付款未完成,可再試一次。</p>' : '');
 
     document.getElementById('plans').innerHTML = data.plans.map(planCard).join('')
+    const sIn = document.getElementById('s150n');
+    if (sIn) sIn.addEventListener('input', () => {
+      const n = Math.max(1, Math.min(500, Number(sIn.value) || 1));
+      document.getElementById('s150amt').textContent = (1499 + n * 50).toLocaleString();
+    });
     document.querySelectorAll('.act-pay').forEach(b => b.addEventListener('click', () => pay(b)));
 
     const h = data.history || [];
@@ -126,10 +141,15 @@
   async function pay(btn) {
     btn.disabled = true;
     try {
+      let body = 'action=start&plan=' + btn.dataset.plan + '&months=' + btn.dataset.months;
+      if (btn.dataset.plan === 's150p') {
+        const sN = document.getElementById('s150n');
+        body += '&extra=' + Math.max(1, Math.min(500, Number(sN ? sN.value : 1) || 1));
+      }
       const res = await fetch('api/newebpay_mpg.php', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'action=start&plan=' + btn.dataset.plan + '&months=' + btn.dataset.months
+        body: body
       });
       const j = await res.json();
       if (!j.ok) { alert(j.message || '付款啟動失敗'); btn.disabled = false; return; }
