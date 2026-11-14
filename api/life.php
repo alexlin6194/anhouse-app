@@ -50,8 +50,13 @@ if (!$allowed) {
         $allowed = true;
     }
 }
-if (!$allowed && $myRole === 'agent' && $myOrg) {
-    $allowed = true;
+if (!$allowed && $myRole === 'agent') {
+    /* 業務:限該房屋的生效委託(property_agents),不是同組織就全放行 */
+    $paStmt = $pdo->prepare("SELECT id FROM property_agents WHERE property_id = ? AND agent_user_id = ? AND status = 'active' LIMIT 1");
+    $paStmt->execute([$propId, $userId]);
+    if ($paStmt->fetch()) {
+        $allowed = true;
+    }
 }
 if (!$allowed) {
     respond(false, '您沒有此房屋的檢視權限');
