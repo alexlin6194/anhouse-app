@@ -17,7 +17,7 @@
   let month = new Date().toISOString().slice(0, 7);
   let props = [];
   let editId = null;
-
+  let allViewings = [];
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
   /* Google 行事曆連結(主要工具) */
@@ -47,6 +47,7 @@
       const d = await res.json();
       if (!d.ok || !d.authenticated) { location.href = 'login.html'; return; }
       props = d.properties || [];
+      allViewings = d.viewings || [];
       $('#mLabel').textContent = month.replace('-', ' 年 ') + ' 月';
       const vs = d.viewings || [];
       $('#sumLine').textContent = '本月 ' + vs.length + ' 筆' + (d.next ? '|下一筆:' + (d.next.client_name) + ' ' + (d.next.scheduled_at || '').slice(5, 16) : '');
@@ -63,6 +64,7 @@
         const timeStr = pad(dt.getHours()) + ':' + pad(dt.getMinutes()) + ' ~ ' + pad(new Date(dt.getTime() + v.duration_min * 60000).getHours()) + ':' + pad(new Date(dt.getTime() + v.duration_min * 60000).getMinutes());
         const addr = [v.city, v.district].filter(Boolean).join('');
         const ops = [];
+        ops.push('<button type="button" class="mini-btn line act-edit" data-id="' + v.id + '">✏️ 編輯</button>');
         if (v.status === 'scheduled') {
           ops.push('<a class="mini-btn" style="text-decoration:none" target="_blank" rel="noopener" href="' + esc(gcalUrl(v)) + '">📅 加入Google行事曆</a>');
           ops.push('<button type="button" class="mini-btn line act-st" data-id="' + v.id + '" data-st="done">✅ 已完成</button>');
@@ -81,15 +83,18 @@
     }
   }
 
-  function openSheet() {
+  function openSheet(v) {
+    editId = v ? Number(v.id) : null;
+    $('#fTitle').textContent = v ? '編輯帶看' : '新增帶看';
+    $('#fGo').textContent = v ? '儲存變更' : '排定帶看';
     $('#fProp').innerHTML = props.length
-      ? props.map((p) => '<option value="' + p.id + '">' + esc(p.title) + (p.city || p.district ? '(' + esc([p.city, p.district].filter(Boolean).join('')) + ')' : '') + '</option>').join('')
+      ? props.map((p) => '<option value="' + p.id + '"' + (v && Number(v.property_id) === Number(p.id) ? ' selected' : '') + '>' + esc(p.title) + (p.city || p.district ? '(' + esc([p.city, p.district].filter(Boolean).join('')) + ')' : '') + '</option>').join('')
       : '<option value="">(尚無可管理的房屋)</option>';
-    $('#fName').value = '';
-    $('#fPhone').value = '';
-    $('#fWhen').value = '';
-    $('#fDur').value = '60';
-    $('#fNote').value = '';
+    $('#fName').value = v ? v.client_name : '';
+    $('#fPhone').value = v ? (v.client_phone || '') : '';
+    $('#fWhen').value = v ? v.scheduled_at.replace(' ', 'T').slice(0, 16) : '';
+    $('#fDur').value = v ? String(v.duration_min || 60) : '60';
+    $('#fNote').value = v ? (v.note || '') : '';
     $('#mask').classList.add('show');
     $('.sheet').classList.add('show');
   }
@@ -98,7 +103,7 @@
     $('.sheet').classList.remove('show');
   }
 
-  $('#addBtn').addEventListener('click', openSheet);
+  $('#addBtn').addEventListener('click', () => openSheet(null));
   $('#mask').addEventListener('click', (ev) => { if (ev.target === $('#mask')) closeSheet(); });
   $('#prevM').addEventListener('click', () => { const d = new Date(month + '-01'); d.setMonth(d.getMonth() - 1); month = d.getFullYear() + '-' + pad(d.getMonth() + 1); load(); });
   $('#nextM').addEventListener('click', () => { const d = new Date(month + '-01'); d.setMonth(d.getMonth() + 1); month = d.getFullYear() + '-' + pad(d.getMonth() + 1); load(); });
@@ -110,10 +115,12 @@
     if (!propertyId) { toast('請先選擇房屋'); return; }
     if (!name) { toast('請輸入客戶姓名'); return; }
     if (!when) { toast('請選擇日期時間'); return; }
+    const payload = { action: editId ? 'update' : 'add', property_id: Number(propertyId), client_name: name, client_phone: $('#fPhone').value.trim(), scheduled_at: when.replace('T', ' ') + ':00', duration_min: Number($('#fDur').value), note: $('#fNote').value.trim() };
+    if (editId) payload.id = editId;
     try {
       const res = await fetch('api/viewings.php', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'add', property_id: Number(propertyId), client_name: name, client_phone: $('#fPhone').value.trim(), scheduled_at: when.replace('T', ' ') + ':00', duration_min: Number($('#fDur').value), note: $('#fNote').value.trim() })
+        body: JSON.stringify(payload)
       });
       const r = await res.json();
       toast(r.message);
@@ -122,6 +129,12 @@
   });
 
   document.addEventListener('click', async (ev) => {
+    const editBtn = ev.target.closest('.act-edit');
+    if (editBtn) {
+      const v = allViewings.find((x) => Number(x.id) === Number(editBtn.dataset.id));
+      if (v) openSheet(v);
+      return;
+    }
     const stBtn = ev.target.closest('.act-st');
     if (stBtn) {
       try {

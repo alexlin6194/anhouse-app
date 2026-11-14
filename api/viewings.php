@@ -74,13 +74,34 @@ switch ($action) {
         $pdo->prepare('UPDATE viewings SET status = ? WHERE id = ?')->execute([$st, $id]);
         respond(true, '已更新帶看狀態');
     case 'update':
-        $scheduledAt = clean($in['scheduled_at'] ?? '');
-        $ts = strtotime($scheduledAt);
-        if ($ts === false) {
-            respond(false, '請選擇新的帶看時間');
+        $id = (int)($in['id'] ?? 0);
+        $v = $pdo->prepare('SELECT id, property_id, agent_user_id FROM viewings WHERE id = ? LIMIT 1');
+        $v->execute([$id]);
+        $row = $v->fetch();
+        if (!$row || (int)$row['agent_user_id'] !== $userId) {
+            respond(false, '找不到這筆帶看紀錄');
         }
-        $pdo->prepare('UPDATE viewings SET scheduled_at = ? WHERE id = ?')->execute([date('Y-m-d H:i:s', $ts), $id]);
-        respond(true, '已改期至 ' . date('m/d H:i', $ts));
+        $propertyId = (int)($in['property_id'] ?? $row['property_id']);
+        if ($propertyId <= 0 || !viewing_prop_access($pdo, $propertyId, $userId)) {
+            respond(false, '請選擇您可管理的房屋(委託或自建)');
+        }
+        $clientName = clean($in['client_name'] ?? '');
+        if ($clientName === '') {
+            respond(false, '請輸入客戶姓名');
+        }
+        $clientPhone = preg_replace('/\D/', '', clean($in['client_phone'] ?? ''));
+        if ($clientPhone !== '' && !valid_phone($clientPhone)) {
+            respond(false, '客戶手機格式不正確(可留空)');
+        }
+        $ts = strtotime(clean($in['scheduled_at'] ?? ''));
+        if ($ts === false) {
+            respond(false, '請選擇帶看日期與時間');
+        }
+        $durationMin = max(15, (int)($in['duration_min'] ?? 60));
+        $note = mb_substr(clean($in['note'] ?? ''), 0, 200);
+        $pdo->prepare('UPDATE viewings SET property_id = ?, client_name = ?, client_phone = ?, scheduled_at = ?, duration_min = ?, note = ? WHERE id = ?')
+            ->execute([$propertyId, $clientName, $clientPhone !== '' ? $clientPhone : null, date('Y-m-d H:i:s', $ts), $durationMin, $note !== '' ? $note : null, $id]);
+        respond(true, '已更新帶看:' . $clientName . ' ' . date('m/d H:i', $ts));
     case 'delete':
         $pdo->prepare('DELETE FROM viewings WHERE id = ?')->execute([$id]);
         respond(true, '已刪除帶看紀錄');
