@@ -111,7 +111,7 @@ if ($action === 'mock_confirm') {
     $payBill = $b->fetch();
     if (!$payBill) respond(false, '查無此交易');
     if ($payBill['status'] === 'paid') respond(true, '此帳單已完成付款');
-    if ($result !== 'T') {
+    if ($result !== 'success' && $result !== 'T') {
         respond(false, '模擬付款失敗(未扣款)');
     }
     $pdo->prepare("UPDATE bills SET status = 'paid', paid_at = NOW(), paid_by = 'online' WHERE id = ?")

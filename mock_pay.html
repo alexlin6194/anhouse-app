@@ -73,9 +73,9 @@
     const done = document.getElementById('done');
     done.style.display = 'block';
     done.innerHTML = j.ok
-      ? '<div style="font-size:40px">✅</div><h3>付款成功</h3><p>' + (isPay ? '工款已付清,畫面跳轉中…' : '訂閱已開通,畫面跳轉中…') + '</p>'
+      ? '<div style="font-size:40px">✅</div><h3>付款成功</h3><p>' + (isBill ? '帳單已結清' : isPay ? '工款已付清,畫面跳轉中…' : '訂閱已開通,畫面跳轉中…') + '</p>'
       : '<div style="font-size:40px">❌</div><h3>付款失敗</h3><p>' + (j.message || '請稍後再試') + '</p>';
-    setTimeout(() => location.href = isPay ? 'repairs.html?result=' + (j.ok ? 'paid' : 'fail') : 'subscription.html?result=' + (j.ok ? 'ok' : 'fail'), 1500);
+    setTimeout(() => location.href = isBill ? 'bills.html' : (isPay ? 'repairs.html?result=' + (j.ok ? 'paid' : 'fail') : 'subscription.html?result=' + (j.ok ? 'ok' : 'fail')), 1500);
   }
   document.getElementById('ok').addEventListener('click', () => confirm('success'));
   document.getElementById('fail').addEventListener('click', () => confirm('fail'));
