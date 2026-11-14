@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>客戶線索|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261115m">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>客戶線索</h2>
+    <p>潛在買/租客名單<br>跟進不漏接</p>
+    <div class="feat">
+      <div>📞 點電話直接撥打</div>
+      <div>🗓 下次跟進時間排序</div>
+      <div>📈 新→跟進→帶看→成交</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="dash-head">
+        <div class="who"><b>🤝 客戶線索</b><span id="sumLine" style="font-size:12px;color:var(--brown2)"></span></div>
+        <a class="bell" href="dashboard_agent.html" aria-label="回業務首頁">🏠</a>
+      </div>
+
+      <div class="card" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+        <button class="tab on" data-st="all">全部</button>
+        <button class="tab" data-st="new">新線索</button>
+        <button class="tab" data-st="following">跟進中</button>
+        <button class="tab" data-st="viewed">已帶看</button>
+        <button class="tab" data-st="dealt">成交</button>
+        <button class="tab" data-st="lost">已流失</button>
+        <button class="mini-btn" id="addBtn" style="margin-left:auto">+ 新增線索</button>
+      </div>
+
+      <div class="card" id="list" style="padding:6px 16px"><p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">載入中…</p></div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-mask" id="mask">
+  <div class="sheet" style="height:auto;max-height:85dvh;overflow:auto">
+    <h3 style="margin:20px 20px 10px;color:var(--brown);font-size:17px" id="fTitle">新增線索</h3>
+    <div style="padding:0 20px 24px">
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">客戶姓名 *</label>
+          <input id="fName" placeholder="例:王小姐" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;box-sizing:border-box"></div>
+        <div style="flex:1"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">手機</label>
+          <input id="fPhone" placeholder="09..(可留空)" inputmode="numeric" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;box-sizing:border-box"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <div style="flex:1"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">需求</label>
+          <select id="fIntent" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;background:var(--surface);color:var(--brown)">
+            <option value="rent">租屋</option><option value="buy">購買</option>
+          </select></div>
+        <div style="flex:1"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">來源</label>
+          <select id="fSource" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;background:var(--surface);color:var(--brown)">
+            <option value="walk_in">走入店面</option><option value="phone">來電</option><option value="referral">親友介紹</option>
+            <option value="web_591">591/網路</option><option value="facebook">FB/社群</option><option value="other">其他</option>
+          </select></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <div style="flex:1"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">預算下限</label>
+          <input id="fBmin" inputmode="numeric" placeholder="例:10000" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;box-sizing:border-box"></div>
+        <div style="flex:1"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">預算上限</label>
+          <input id="fBmax" inputmode="numeric" placeholder="例:20000" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;box-sizing:border-box"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <div style="flex:1"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">希望區域</label>
+          <input id="fCity" placeholder="例:台中市 大雅區" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;box-sizing:border-box"></div>
+        <div style="flex:1"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">狀態</label>
+          <select id="fStatus" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;background:var(--surface);color:var(--brown)">
+            <option value="new">新線索</option><option value="following">跟進中</option><option value="viewed">已帶看</option>
+            <option value="dealt">成交</option><option value="lost">已流失</option>
+          </select></div>
+      </div>
+      <label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">需求說明</label>
+      <textarea id="fReq" placeholder="例:3房2廳、近學校、可養寵物" style="width:100%;min-height:56px;border:1.5px solid var(--beige2);border-radius:12px;padding:10px 12px;font-size:14px;box-sizing:border-box;font-family:inherit"></textarea>
+      <label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">備註</label>
+      <textarea id="fNote" placeholder="例:先生做業務、晚聯繫" style="width:100%;min-height:56px;border:1.5px solid var(--beige2);border-radius:12px;padding:10px 12px;font-size:14px;box-sizing:border-box;font-family:inherit"></textarea>
+      <label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">下次跟進</label>
+      <input id="fFollow" type="datetime-local" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;box-sizing:border-box">
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn ghost" style="flex:1" onclick="closeSheet()">取消</button>
+        <button class="btn primary" id="fGo" style="flex:1">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+<script src="leads.js?v=20261115m"></script>
+<script src="assets/js/tabbar.js?v=20261115m"></script>
+</body>
+</html>
