@@ -308,6 +308,11 @@ if ($action === 'sign') {
     if ($side === 2 && $d['status'] !== 'partially_signed') {
         respond(false, $d['status'] === 'pending' ? '請先等待房客完成電子簽名' : '此契約已完成或已結案');
     }
+    /* 已審閱勾選:強制留存(保護雙方) */
+    if (empty($in['reviewed'])) {
+        respond(false, '請先勾選「我已詳閱契約全文並同意全部條款」');
+    }
+    $reviewedAt = date('Y-m-d H:i:s');
     $signName = clean($in['sign_name'] ?? '');
     if (mb_strlen($signName) < 2) {
         respond(false, '請輸入完整姓名作為電子簽名');
@@ -324,6 +329,7 @@ if ($action === 'sign') {
         $newStatus = ($isLease && (int)($d['signer2_user_id'] ?? 0) > 0) ? 'partially_signed' : 'signed';
         $pdo->prepare("UPDATE documents SET status = ?, signed_at = NOW(), sign_name = ?, signature_img = ?, sign_ip = ?, sign_ua = ? WHERE id = ?")
             ->execute([$newStatus, $signName, $sigPath, $_SERVER['REMOTE_ADDR'] ?? '', substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 250), $did]);
+        doc_trail_append($pdo, $did, $side === 1 ? 'reviewed_by_tenant' : 'reviewed_by_landlord');
         doc_trail_append($pdo, $did, $newStatus === 'signed' ? 'signed' : 'tenant_signed');
         if ($newStatus === 'partially_signed') {
             notify((int)$d['signer2_user_id'], 'system', '房客已簽名,待您副署|' . $d['title'],
@@ -340,6 +346,7 @@ if ($action === 'sign') {
 
     $pdo->prepare("UPDATE documents SET status = 'signed', sign2_name = ?, sign2_at = NOW(), signature2_img = ?, sign2_ip = ?, sign2_ua = ? WHERE id = ?")
         ->execute([$signName, $sigPath, $_SERVER['REMOTE_ADDR'] ?? '', substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 250), $did]);
+    doc_trail_append($pdo, $did, 'reviewed_by_landlord');
     doc_trail_append($pdo, $did, 'countersigned');
     if ((int)$d['ref_id'] > 0 && $d['ref_id']) {
         $lStmt = $pdo->prepare('SELECT status FROM leases WHERE id = ?');

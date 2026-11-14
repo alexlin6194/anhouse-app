@@ -44,7 +44,8 @@
 
   document.querySelectorAll('#typeSeg .role').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('#typeSeg .role').forEach(b => b.classList.remove('on'));      btn.classList.add('on');
+      document.querySelectorAll('#typeSeg .role').forEach(b => { b.classList.remove('on'); b.classList.remove('sel'); });
+      btn.classList.add('on'); btn.classList.add('sel');
       listingType = btn.dataset.t;
       const isSale = listingType === 'sale';
       $('#rentWrap').style.display = isSale ? 'none' : '';

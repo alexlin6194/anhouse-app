@@ -87,7 +87,7 @@
       '<div style="font-size:12px;color:var(--brown2);text-align:center;margin-bottom:10px">' + esc(n) + '(' + roleLabel + ')|請往上滑詳閱契約全文,確認無誤再送出</div>' +
       '<div style="display:flex;gap:10px"><button class="btn primary" id="confirmSignBtn" style="flex:1.4">✅ 檢查無誤,送出簽署</button><button class="btn ghost" id="resignBtn" style="flex:1">重新簽名</button></div>';
     foot.querySelector('#confirmSignBtn').addEventListener('click', () => {
-      postAction({ doc_id: id, action: 'sign', sign_name: n, signature: sig });
+      postAction({ doc_id: id, action: 'sign', sign_name: n, signature: sig, reviewed: true });
     });
     foot.querySelector('#resignBtn').addEventListener('click', async () => {
       const s2 = await openPad(roleLabel + '重新簽名');
@@ -138,11 +138,15 @@
       const myName = esc(cache.my_name || '');
       foot.innerHTML = (isLease
         ? '<input id="signName" value="' + myName + '" placeholder="請輸入您的全名" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;margin-bottom:8px">' +
+          '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--brown);margin:2px 2px 10px;font-weight:700"><input type="checkbox" id="signReviewed" style="width:19px;height:19px;accent-color:var(--wood-d);margin-top:1px;flex:none">我已詳閱契約全文並同意全部條款(勾選時間將留存紀錄)</label>' +
           '<button class="btn primary" id="signBtn" style="width:100%">🖊 手寫電子簽名</button>' +
           '<p style="font-size:11.5px;color:var(--brown2);text-align:center;margin:8px 0 0">簽名前請詳閱契約全文;簽名後由屋主副署生效</p>'
-        : '<input id="signName" value="' + myName + '" placeholder="請輸入您的全名作為電子簽名" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;margin-bottom:10px">' +
+        : '<input id="signName" value="' + myName + '" placeholder="請輸入您的全名作為電子簽名" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;margin-bottom:8px">' +
+          '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--brown);margin:2px 2px 10px;font-weight:700"><input type="checkbox" id="signReviewed" style="width:19px;height:19px;accent-color:var(--wood-d);margin-top:1px;flex:none">我已詳閱文件內容並同意(勾選時間將留存紀錄)</label>' +
           '<div style="display:flex;gap:10px"><button class="btn primary" id="signBtn" style="flex:1">🖊 同意並簽署</button><button class="btn ghost" id="declineBtn" style="flex:1">拒絕簽署</button></div>');
       foot.querySelector('#signBtn').addEventListener('click', async () => {
+        const rev = foot.querySelector('#signReviewed');
+        if (rev && !rev.checked) { showToast('請先勾選「我已詳閱契約全文並同意全部條款」'); return; }
         if (isLease) {
           const inp = foot.querySelector('#signName');
           const n = (inp.value.trim() || cache.my_name || '').trim();
@@ -153,7 +157,7 @@
           renderSignConfirm(foot, id, n, sig, '承租人');
         } else {
           const n = foot.querySelector('#signName').value.trim();
-          await postAction({ doc_id: id, action: 'sign', sign_name: n });
+          await postAction({ doc_id: id, action: 'sign', sign_name: n, reviewed: true });
         }
       });
       const db = foot.querySelector('#declineBtn');
@@ -163,8 +167,11 @@
       });
     } else if (d.status === 'partially_signed' && side === 2) {
       foot.innerHTML = '<input id="signName" value="' + esc(cache.my_name || '') + '" placeholder="請輸入您的全名" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;margin-bottom:8px">' +
+        '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--brown);margin:2px 2px 10px;font-weight:700"><input type="checkbox" id="signReviewed" style="width:19px;height:19px;accent-color:var(--wood-d);margin-top:1px;flex:none">我已詳閱契約全文並同意全部條款(勾選時間將留存紀錄)</label>' +
         '<div style="display:flex;gap:10px"><button class="btn primary" id="signBtn" style="flex:1">🖊 屋主副署(契約生效)</button><button class="btn ghost" id="declineBtn" style="flex:1">拒簽</button></div>';
       foot.querySelector('#signBtn').addEventListener('click', async () => {
+        const rev = foot.querySelector('#signReviewed');
+        if (rev && !rev.checked) { showToast('請先勾選「我已詳閱契約全文並同意全部條款」'); return; }
         const inp = foot.querySelector('#signName');
         const n = (inp.value.trim() || cache.my_name || '').trim();
         if (n.length < 2) { showToast('請先輸入您的全名'); return; }
