@@ -57,9 +57,12 @@
     if (p.gender_limit && p.gender_limit !== 'any') chips.push('<span class="chip">' + (p.gender_limit === 'female' ? '限女性' : '限男性') + '</span>');
     if (p.legal_use) chips.push('<span class="chip">' + esc(p.legal_use) + '</span>');
 
+    /* 押金顯示:已出租以租約實際押金為準(房源欄位僅為建議值) */
+    const actLease = (data.leases || []).find(l => l.status === 'active');
+    const dispDeposit = (actLease && actLease.deposit_amount) ? actLease.deposit_amount : p.deposit;
     const priceLine = p.listing_type === 'sale'
       ? '售價 NT$' + money(p.sale_price) + '元'
-      : '月租 NT$' + money(p.rent) + '元' + (p.mgmt_fee ? '|管理費 NT$' + money(p.mgmt_fee) + '元' : '') + (p.deposit ? '|押金 NT$' + money(p.deposit) + '元' : '');
+      : '月租 NT$' + money(p.rent) + '元' + (p.mgmt_fee ? '|管理費 NT$' + money(p.mgmt_fee) + '元' : '') + (dispDeposit ? '|押金 NT$' + money(dispDeposit) + '元' : '');
     const feeParts = [];
     if (Number(p.water_fee) > 0) feeParts.push('水費 ' + money(p.water_fee) + '元/月');
     if (Number(p.parking_fee) > 0) feeParts.push('車位費 ' + money(p.parking_fee) + '元/月');
