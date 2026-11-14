@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>帶看行事曆|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261115j">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>帶看行事曆</h2>
+    <p>排定帶看、記錄結果<br>一鍵加入 Google 行事曆</p>
+    <div class="feat">
+      <div>📅 每筆帶看 → Google 行事曆</div>
+      <div>⏰ 出發前自動提醒(Google)</div>
+      <div>✅ 已完成 / 未到 / 取消 記錄</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="dash-head">
+        <div class="who"><b>📅 帶看行事曆</b><span id="sumLine" style="font-size:12px;color:var(--brown2)"></span></div>
+        <a class="bell" href="dashboard_agent.html" aria-label="回業務首頁">🏠</a>
+      </div>
+
+      <div class="card" style="display:flex;align-items:center;gap:6px">
+        <button class="mini-btn line" id="prevM" style="margin:0">‹</button>
+        <b id="mLabel" style="flex:1;text-align:center;color:var(--brown);font-size:15px"></b>
+        <button class="mini-btn line" id="nextM" style="margin:0">›</button>
+        <button class="mini-btn" id="addBtn" style="margin:0">+ 新增帶看</button>
+      </div>
+
+      <div class="card" id="list" style="padding:6px 16px"><p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">載入中…</p></div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-mask" id="mask">
+  <div class="sheet" style="height:auto;max-height:85dvh;overflow:auto">
+    <h3 style="margin:20px 20px 10px;color:var(--brown);font-size:17px" id="fTitle">新增帶看</h3>
+    <div style="padding:0 20px 24px">
+      <label style="font-size:12.5px;color:var(--brown2);font-weight:700">房屋</label>
+      <select id="fProp" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;background:var(--surface);color:var(--brown)"></select>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <div style="flex:1"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">客戶姓名 *</label>
+          <input id="fName" placeholder="例:王小姐" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;box-sizing:border-box"></div>
+        <div style="flex:1"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">客戶手機</label>
+          <input id="fPhone" placeholder="09..(可留空)" inputmode="numeric" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;box-sizing:border-box"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <div style="flex:2"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">日期時間 *</label>
+          <input id="fWhen" type="datetime-local" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;box-sizing:border-box"></div>
+        <div style="flex:1"><label style="font-size:12.5px;color:var(--brown2);font-weight:700">分鐘</label>
+          <select id="fDur" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px;background:var(--surface);color:var(--brown)">
+            <option>30</option><option selected>60</option><option>90</option><option>120</option>
+          </select></div>
+      </div>
+      <label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">備註</label>
+      <textarea id="fNote" placeholder="例:公司樓下碰面/帶撐傘" style="width:100%;min-height:60px;border:1.5px solid var(--beige2);border-radius:12px;padding:10px 12px;font-size:14px;box-sizing:border-box;font-family:inherit"></textarea>
+      <p style="font-size:11.5px;color:var(--brown2);margin:10px 2px 0">送出後按「📅 加入 Google 行事曆」即可放進您的 Google 行事曆(自動提醒)。</p>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn ghost" style="flex:1" onclick="closeSheet()">取消</button>
+        <button class="btn primary" id="fGo" style="flex:1">排定帶看</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="calendar.js?v=20261115j"></script>
+<script src="assets/js/tabbar.js?v=20261115j"></script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+/* 帶看行事曆(業務) */
+(function () {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  let toastTimer;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  let month = new Date().toISOString().slice(0, 7);
+  let props = [];
+  let editId = null;
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  /* Google 行事曆連結(主要工具) */
+  function gcalUrl(v) {
+    const start = new Date(v.scheduled_at.replace(' ', 'T'));
+    const end = new Date(start.getTime() + (Number(v.duration_min) || 60) * 60000);
+    const fmt = (d) => d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00';
+    const loc = [v.city, v.district, v.address].filter(Boolean).join('');
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: '帶看|' + v.property_title + '(' + v.client_name + ')',
+      dates: fmt(start) + '/' + fmt(end),
+      details: '安家生活GO 帶看行程\n客戶:' + v.client_name + (v.client_phone ? '(' + v.client_phone + ')' : '') + (v.note ? '\n備註:' + v.note : ''),
+      location: loc,
+      ctz: 'Asia/Taipei'
+    });
+    return 'https://calendar.google.com/calendar/render?' + params.toString();
+  }
+
+  function stHtml(st) {
+    return { scheduled: '<span class="st warn">排定</span>', done: '<span class="st ok">已完成</span>', no_show: '<span class="st idle">客戶未到</span>', cancelled: '<span class="st idle">已取消</span>' }[st] || '';
+  }
+
+  async function load() {
+    try {
+      const res = await fetch('api/viewings_list.php?month=' + month, { cache: 'no-store' });
+      const d = await res.json();
+      if (!d.ok || !d.authenticated) { location.href = 'login.html'; return; }
+      props = d.properties || [];
+      $('#mLabel').textContent = month.replace('-', ' 年 ') + ' 月';
+      const vs = d.viewings || [];
+      $('#sumLine').textContent = '本月 ' + vs.length + ' 筆' + (d.next ? '|下一筆:' + (d.next.client_name) + ' ' + (d.next.scheduled_at || '').slice(5, 16) : '');
+      if (!vs.length) {
+        $('#list').innerHTML = '<p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">本月尚無帶看,按「+ 新增帶看」排定行程。</p>';
+        return;
+      }
+      let lastDate = '';
+      $('#list').innerHTML = vs.map((v) => {
+        const dt = new Date(v.scheduled_at.replace(' ', 'T'));
+        const dateStr = dt.getFullYear() + '/' + pad(dt.getMonth() + 1) + '/' + pad(dt.getDate()) + '(' + ['日', '一', '二', '三', '四', '五', '六'][dt.getDay()] + ')';
+        const head = dateStr !== lastDate ? '<div class="sect" style="margin:10px 2px 4px">' + dateStr + '</div>' : '';
+        lastDate = dateStr;
+        const timeStr = pad(dt.getHours()) + ':' + pad(dt.getMinutes()) + ' ~ ' + pad(new Date(dt.getTime() + v.duration_min * 60000).getHours()) + ':' + pad(new Date(dt.getTime() + v.duration_min * 60000).getMinutes());
+        const addr = [v.city, v.district].filter(Boolean).join('');
+        const ops = [];
+        if (v.status === 'scheduled') {
+          ops.push('<a class="mini-btn" style="text-decoration:none" target="_blank" rel="noopener" href="' + esc(gcalUrl(v)) + '">📅 加入Google行事曆</a>');
+          ops.push('<button type="button" class="mini-btn line act-st" data-id="' + v.id + '" data-st="done">✅ 已完成</button>');
+          ops.push('<button type="button" class="mini-btn line act-st" data-id="' + v.id + '" data-st="no_show">💤 未到</button>');
+          ops.push('<button type="button" class="mini-btn line act-del" data-id="' + v.id + '">🗑</button>');
+        }
+        return head + '<div class="list-item"><span class="dot" style="background:' + (v.status === 'done' ? 'var(--green)' : v.status === 'scheduled' ? 'var(--wood)' : 'var(--beige2)') + '"></span>' +
+          '<div><b>' + timeStr + ' ' + esc(v.client_name) + (v.client_phone ? ' ' + esc(v.client_phone) : '') + '</b>' +
+          '<span>' + esc(v.property_title) + (addr ? '|' + esc(addr) : '') + (v.note ? '|' + esc(v.note) : '') + '</span></div>' +
+          stHtml(v.status) +
+          (ops.length ? '</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 2px 4px 26px">' + ops.join('') + '</div>' : '') +
+          '</div>';
+      }).join('');
+    } catch (e) {
+      $('#list').innerHTML = '<p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">連線失敗,請重試</p>';
+    }
+  }
+
+  function openSheet() {
+    $('#fProp').innerHTML = props.length
+      ? props.map((p) => '<option value="' + p.id + '">' + esc(p.title) + (p.city || p.district ? '(' + esc([p.city, p.district].filter(Boolean).join('')) + ')' : '') + '</option>').join('')
+      : '<option value="">(尚無可管理的房屋)</option>';
+    $('#fName').value = '';
+    $('#fPhone').value = '';
+    $('#fWhen').value = '';
+    $('#fDur').value = '60';
+    $('#fNote').value = '';
+    $('#mask').classList.add('show');
+    $('.sheet').classList.add('show');
+  }
+  function closeSheet() {
+    $('#mask').classList.remove('show');
+    $('.sheet').classList.remove('show');
+  }
+
+  $('#addBtn').addEventListener('click', openSheet);
+  $('#mask').addEventListener('click', (ev) => { if (ev.target === $('#mask')) closeSheet(); });
+  $('#prevM').addEventListener('click', () => { const d = new Date(month + '-01'); d.setMonth(d.getMonth() - 1); month = d.getFullYear() + '-' + pad(d.getMonth() + 1); load(); });
+  $('#nextM').addEventListener('click', () => { const d = new Date(month + '-01'); d.setMonth(d.getMonth() + 1); month = d.getFullYear() + '-' + pad(d.getMonth() + 1); load(); });
+
+  $('#fGo').addEventListener('click', async () => {
+    const propertyId = $('#fProp').value;
+    const name = $('#fName').value.trim();
+    const when = $('#fWhen').value;
+    if (!propertyId) { toast('請先選擇房屋'); return; }
+    if (!name) { toast('請輸入客戶姓名'); return; }
+    if (!when) { toast('請選擇日期時間'); return; }
+    try {
+      const res = await fetch('api/viewings.php', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', property_id: Number(propertyId), client_name: name, client_phone: $('#fPhone').value.trim(), scheduled_at: when.replace('T', ' ') + ':00', duration_min: Number($('#fDur').value), note: $('#fNote').value.trim() })
+      });
+      const r = await res.json();
+      toast(r.message);
+      if (r.ok) { closeSheet(); load(); }
+    } catch (e) { toast('連線異常'); }
+  });
+
+  document.addEventListener('click', async (ev) => {
+    const stBtn = ev.target.closest('.act-st');
+    if (stBtn) {
+      try {
+        const res = await fetch('api/viewings.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'status', id: Number(stBtn.dataset.id), status: stBtn.dataset.st })
+        });
+        const r = await res.json();
+        toast(r.message);
+        if (r.ok) load();
+      } catch (e) { toast('連線異常'); }
+      return;
+    }
+    const delBtn = ev.target.closest('.act-del');
+    if (delBtn && confirm('確定刪除這筆帶看紀錄?')) {
+      try {
+        const res = await fetch('api/viewings.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', id: Number(delBtn.dataset.id) })
+        });
+        const r = await res.json();
+        toast(r.message);
+        if (r.ok) load();
+      } catch (e) { toast('連線異常'); }
+    }
+  });
+
+  load();
+})();

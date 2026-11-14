@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>業務主頁|安家生活GO</title>
-<link rel="stylesheet" href="assets/css/style.css?v=20261115i">
+<link rel="stylesheet" href="assets/css/style.css?v=20261115j">
 </head>
 <body>
 <div class="shell">
@@ -13,7 +13,7 @@
     <p>我的房源、帶看、簽約<br>成交後一鍵移交</p>
     <div class="feat">
       <div>🏠 房源建檔(591 規格欄位)</div>
-      <div>📅 帶看行事曆(開發中)</div>
+      <div>📅 帶看行事曆(一鍵入 Google 日曆)</div>
       <div>🤝 成交移交管理員接手(開發中)</div>
     </div>
   </aside>
@@ -39,6 +39,7 @@
 
       <div style="display:flex;align-items:center;margin-top:16px">
         <div class="sect" style="flex:1;margin:0">我的房源</div>
+        <button class="mini-btn line" style="margin:0" onclick="location.href='calendar.html'">📅 帶看</button>
         <button class="mini-btn" style="margin:0" onclick="location.href='create_property.html'">+ 建立房源</button>
       </div>
       <div class="card" style="padding:6px 16px" id="listingList"></div>
@@ -58,7 +59,7 @@
   </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
-<script src="dashboard_agent.js?v=20261115i"></script>
+<script src="dashboard_agent.js?v=20261115j"></script>
 <script src="assets/js/notify.js?v=20261114e"></script>
 <script src="assets/js/tabbar.js?v=20261114e"></script>
 </body>
