@@ -5,6 +5,9 @@
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
+  function money(n) {
+    return Number(n).toLocaleString('zh-TW');
+  }
 
   function statusOf(p) {
     if (isVendor) return p.sub_status || 'expired';
@@ -122,7 +125,7 @@
       (qs.get('result') === 'ok' ? '<p style="color:#2e7d32;font-size:13.5px">✅ 付款成功,訂閱已開通!</p>' : '') +
       (qs.get('result') === 'fail' ? '<p style="color:#c0392b;font-size:13.5px">❌ 付款未完成,可再試一次。</p>' : '');
 
-    document.getElementById('plans').innerHTML = data.plans.map(planCard).join('')
+    document.getElementById('plans').innerHTML = data.plans.map(planCard).join('') + ladderHtml()
     const sIn = document.getElementById('s150n');
     if (sIn) sIn.addEventListener('input', () => {
       const n = Math.max(1, Math.min(500, Number(sIn.value) || 1));
@@ -137,7 +140,7 @@
           '<span>' + (x.trade_no || '') + (x.paid_at ? '|' + x.paid_at.slice(0, 10) : '') + '</span></div>' +
           (x.status === 'pending' ? '<button type="button" class="mini-btn act-repay" data-t="' + x.trade_no + '">💳 續付</button>' : '') +
           '<span class="st ' + (x.status === 'paid' ? 'ok' : (x.status === 'pending' ? 'warn' : 'bad')) + '">' +
-          ({paid: '已付款', pending: '未完成', failed: '失敗'}[x.status] || x.status) + '</span></div>').join('')
+          ({paid: '已付款', pending: '未完成', failed: '失敗'}[x.status] || x.status) + '</span></div>').join('') + ladderHtml()
       : '<p style="color:#a09070;margin:0">尚無紀錄</p>';
     document.querySelectorAll('.act-repay').forEach(b => b.addEventListener('click', async () => {
       b.disabled = true;
