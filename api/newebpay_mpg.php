@@ -89,11 +89,23 @@ if ($action === 'status') {
     $plans = $basis['amount'] > 0
         ? [['plan' => $basis['plan'], 'label' => $basis['label'], 'months' => 1, 'amount' => $basis['amount']]]
         : [];
+    /* 升降級連動(月制):級距異動於「本期到期日次日」生效,不比例分攤 */
+    $pendingChange = null;
+    if (!$isVendor && $prof && !empty($prof['plan']) && $prof['member_plan_fee'] !== null && (int)$prof['member_plan_fee'] !== (int)$basis['amount']) {
+        $eff = !empty($prof['sub_ends']) ? date('Y-m-d', strtotime($prof['sub_ends'] . ' +1 day')) : date('Y-m-d');
+        $pendingChange = [
+            'new_fee' => (int)$basis['amount'],
+            'new_label' => $basis['label'],
+            'effective' => $eff,
+            'direction' => (int)$basis['amount'] > (int)$prof['member_plan_fee'] ? 'up' : 'down',
+        ];
+    }
     respond(true, 'ok', [
         'audience' => $isVendor ? 'vendor' : 'member',
         'profile' => $prof ?: null,
         'plans' => $plans,
         'usage' => ['basis' => $role === 'vendor' ? 'fixed' : ($role === 'company_owner' || $role === 'admin_staff' || $role === 'accountant' ? 'seats' : 'units'), 'count' => $basis['usage']],
+        'pending_change' => $pendingChange,
         'history' => $last->fetchAll(),
         'pay_mode' => NEWEBPAY_MODE,
     ]);

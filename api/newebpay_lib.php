@@ -41,9 +41,9 @@ function newebpay_activate(PDO $pdo, string $trade_no, string $newebpay_trade_no
         $cur = $base->fetchColumn();
         $from = $cur && $cur > date('Y-m-d') ? new DateTimeImmutable($cur) : new DateTimeImmutable('today');
         $ends = $from->modify('+' . (int)$sub['months'] . ' months')->format('Y-m-d');
-        $pdo->prepare("UPDATE users SET member_plan=?, member_sub_ends=? WHERE id=?")
-            ->execute([$sub['plan'], $ends, $ownerId]);
-        $label = $sub['plan'] === 'pro' ? '專業會員' : '輕量會員';
+        $pdo->prepare("UPDATE users SET member_plan=?, member_sub_ends=?, member_plan_fee=? WHERE id=?")
+            ->execute([$sub['plan'], $ends, (int)$sub['amount'], $ownerId]);
+        $label = '會員方案(月費 NT$' . number_format((int)$sub['amount']) . ')';
         $pdo->prepare("INSERT IGNORE INTO notifications (user_id, type, ref_id, title, body) VALUES (?, 'sub_paid', ?, ?, ?)")
             ->execute([$ownerId, $sub['id'], '會員訂閱付款成功',
                 '「' . $label . '方案」已開通,有效期至 ' . $ends . '。感謝您使用安家生活GO!']);

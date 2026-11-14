@@ -47,6 +47,19 @@
         '<li><b>批次抄錄強制拍照</b> — 帳務零爭議</li>' +
         '<li><b>生活圈</b> — 房源周邊食衣住行醫</li></ul>';
   }
+  function ladderHtml() {
+    const u = data.usage || {};
+    if (u.basis === 'fixed') return '';
+    const isSeats = u.basis === 'seats';
+    const rows = isSeats
+      ? [['1–3 人', '$0'], ['4–10 人', '$149'], ['11–30 人', '$299'], ['31–50 人', '$599'], ['51–80 人', '$799'], ['81–100 人', '$999'], ['101–120 人', '$1,299'], ['121–150 人', '$1,499'], ['150 人以上', '每多 1 人 +$50']]
+      : [['1–3 戶', '$0'], ['4–9 戶', '$149'], ['10–29 戶', '$399'], ['30–99 戶', '$799'], ['100+ 戶', '$1,499']];
+    return '<div class="sect" style="margin-top:14px">📊 ' + (isSeats ? '員工名額級距表(管理+會計+業務全部計入)' : '房源戶數級距表') + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:13px;color:var(--brown);padding:4px 2px">' +
+      rows.map(r => '<span>' + r[0] + '</span><b style="text-align:right">' + r[1] + '/月</b>').join('') + '</div>' +
+      '<p style="font-size:11.5px;color:var(--brown2);margin:4px 2px">升降級以月為基準:級距異動於本期到期日次日生效,不比例分攤。</p>';
+  }
+
   function planCard(p) {
     const perk = data.audience === 'vendor'
       ? (p.plan === 'pro' ? '優先排序 + 自訂承接半徑 15 公里' : '承接案件數不限 + 5 公里廣播')
@@ -87,10 +100,13 @@
       '<div style="flex:1;min-width:0"><span class="tagline">' + (p.company || '我的' + (isVendor ? '廠商服務' : '會員')) + '</span><h4>' + badge + '</h4>' +
       '<p style="font-size:13px">' + detail + '</p>' +
       '<p style="font-size:12px;color:var(--brown2)">' + usageLine + '(月繳制)</p></div></div>' +
+      (data.pending_change
+        ? '<div style="background:var(--cream2);border-radius:12px;padding:8px 12px;margin-top:8px;font-size:12.5px;color:var(--brown)">🔁 ' + (data.pending_change.direction === 'up' ? '升級' : '降級') + '連動:現周期維持原方案,' + esc(data.pending_change.effective) + ' 起適用「' + esc(data.pending_change.new_label) + '」NT$' + money(data.pending_change.new_fee) + '/月</div>'
+        : '') +
       (qs.get('result') === 'ok' ? '<p style="color:#2e7d32;font-size:13.5px">✅ 付款成功,訂閱已開通!</p>' : '') +
       (qs.get('result') === 'fail' ? '<p style="color:#c0392b;font-size:13.5px">❌ 付款未完成,可再試一次。</p>' : '');
 
-    document.getElementById('plans').innerHTML = data.plans.map(planCard).join('') + fixedHtml();
+    document.getElementById('plans').innerHTML = data.plans.map(planCard).join('') + ladderHtml();
     document.querySelectorAll('.act-pay').forEach(b => b.addEventListener('click', () => pay(b)));
 
     const h = data.history || [];
