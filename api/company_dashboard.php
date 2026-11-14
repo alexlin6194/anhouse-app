@@ -45,8 +45,8 @@ unset($m);
 $unitStmt = $pdo->prepare("SELECT COUNT(*) AS c FROM properties WHERE org_id = ? AND listing_type = 'rental'");
 $unitStmt->execute([$orgId]);
 $units = (int)$unitStmt->fetch()['c'];
-$tier = get_seat_tier($employeeCount);
 $employeeCount = count(array_filter($members, function ($m) { return !in_array($m['role'], ['landlord', 'tenant'], true); }));
+$tier = get_seat_tier($employeeCount);
 
 $docStmt = $pdo->prepare("SELECT id, doc_type, file_path, status, note, reviewed_at, created_at FROM verification_documents WHERE org_id = ? ORDER BY id DESC LIMIT 10");
 $docStmt->execute([$orgId]);

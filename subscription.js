@@ -72,21 +72,22 @@
 
   function planCard(p) {
     const free = p.amount === 0;
-    const curBadge = p.current ? ' <span class="st ok">目前級距</span>' : '';
+    const paidCur = data.profile && data.profile.plan === p.plan;
+    const curBadge = paidCur ? ' <span class="st ok">目前方案</span>' : (p.current ? ' <span class="st warn">目前用量級距</span>' : '');
     if (p.plan === 's150p') {
       const def = (data.usage && data.usage.count > 150) ? data.usage.count - 150 : 1;
       return '<div class="list-item" style="align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:0">' +
-        '<b>' + p.label + '</b><span>NT$<b id="s150amt">' + (1499 + def * 50).toLocaleString() + '</b>元 / 月</span>' +
+        '<b>' + p.label + '</b>' + (paidCur ? ' <span class="st ok">目前方案</span>' : '') + '<span>NT$<b id="s150amt">' + (1499 + def * 50).toLocaleString() + '</b>元 / 月</span>' +
         '<div style="display:flex;align-items:center;gap:8px;margin:4px 0"><span style="font-size:12.5px;color:var(--brown2)">加購人數</span>' +
         '<input id="s150n" type="number" min="1" max="500" value="' + def + '" inputmode="numeric" style="width:80px;padding:6px 10px;border:1.5px solid var(--beige2);border-radius:10px;font-size:15px;color:var(--brown)">' +
         '<span style="font-size:12px;color:var(--brown2)">人 × $50 + $1,499</span></div>' +
         '<span style="color:#8a7a5c">下期生效(月繳);級距異動於本期到期日次日連動</span></div>' +
-        '<button type="button" class="mini-btn act-pay" data-plan="s150p" data-months="1">訂閱此級距</button></div>';
+        '<button type="button" class="mini-btn act-pay" data-plan="s150p" data-months="1">' + (paidCur ? '續訂/調整人數' : '訂閱此級距') + '</button></div>';
     }
     return '<div class="list-item" style="align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:0">' +
       '<b>' + p.label + '</b>' + curBadge + '<span>' + (free ? '免費(無需付款)' : 'NT$' + p.amount.toLocaleString() + '元 / 月') + '</span>' +
       (free ? '' : '<span style="color:#8a7a5c">下期生效(月繳);若級距異動,於本期到期日次日連動</span>') + '</div>' +
-      (free ? '<span class="st idle">—</span>' : '<button type="button" class="mini-btn act-pay" data-plan="' + p.plan + '" data-months="1">' + (p.current ? '續訂' : '訂閱此級距') + '</button>') + '</div>';
+      (free ? '<span class="st idle">—</span>' : '<button type="button" class="mini-btn act-pay" data-plan="' + p.plan + '" data-months="1">' + (paidCur ? '續訂' : '訂閱此級距') + '</button>') + '</div>';
   }
 
   function render() {
