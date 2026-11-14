@@ -36,7 +36,7 @@
   function chip(b) {
     const od = overdueDays(b);
     if (b.status === 'draft') return '<span class="st idle">草稿|待抄錄</span>';
-    if (b.status === 'paid' && b.lease_start && String(b.period) === String(b.lease_start).slice(0, 7)) return '<span class="st ok">簽約已繳</span>';
+    if (b.status === 'paid' && b.lease_start && String(b.period) === String(b.start_date).slice(0, 7)) return '<span class="st ok">簽約已繳</span>';
     if (b.status === 'paid') return '<span class="st ok">已繳</span>';
     if (od > 0) return '<span class="st overdue">逾期 ' + od + ' 天</span>';
     return '<span class="st warn">待繳</span>';
@@ -111,7 +111,7 @@
     const propSt = b.property_status === 'rented' ? '出租中' : (b.property_status === 'vacant' ? '空置' : (b.property_status === 'for_sale' ? '出售中' : (b.property_status === 'sold' ? '已售出' : String(b.property_status || ''))));
     const items = [];
     items.push(['租金', b.rent_amount]);
-    const isSignDetail = b.lease_start && String(b.period) === String(b.lease_start).slice(0, 7);
+    const isSignDetail = b.start_date && String(b.period) === String(b.start_date).slice(0, 7);
     if (isSignDetail) {
       items.push(['電費:併入下期(簽約基準 ' + money(b.lease_meter_start ?? 0) + ' 度)', null, '']);
     } else {
