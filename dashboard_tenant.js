@@ -81,7 +81,7 @@
           ? '應繳 NT$' + money(b.amount) + '元'
           : '總計 NT$' + money(b.amount) + '元';
         const payBtn = b.status !== 'paid'
-          ? '<div style="margin-top:6px"><button type="button" class="mini-btn pay-btn" data-id="' + b.id + '">💳 我要繳費(附轉帳證明)</button></div>'
+          ? '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="mini-btn pay-online-btn" data-id="' + b.id + '" style="background:var(--wood-d);color:#FFF9EC">💳 線上付款(藍新)</button><button type="button" class="mini-btn line pay-btn" data-id="' + b.id + '">轉帳證明回報</button></div>'
           : '';
         const chipTxt = isSign ? '簽約已繳' : (b.status === 'paid' ? '已繳' : '待繳');
         return '<div class="list-item" style="padding:8px 2px;flex-wrap:wrap"><div style="flex:1;min-width:0"><b>' + periodTxt + '|' + totalTxt + '</b><span>' + parts.join(' + ') + '</span>' + payBtn + '</div>' +
@@ -158,6 +158,32 @@
       b.addEventListener('click', () => {
         payBillId = Number(b.dataset.id);
         payFile.click();
+      });
+    });
+    (scope || document).querySelectorAll('.pay-online-btn:not([data-bound])').forEach(b => {
+      b.dataset.bound = '1';
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        try {
+          const res = await fetch('api/bills.php', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bill_id: Number(b.dataset.id), action: 'pay_link' })
+          });
+          const r = await res.json();
+          if (r.ok && r.pay_url) { location.href = r.pay_url; return; }
+          if (r.ok && r.gateway && r.trade_info) {
+            const f = document.createElement('form');
+            f.method = 'POST'; f.action = r.gateway;
+            for (const [k, v] of Object.entries(r.trade_info)) {
+              const hid = document.createElement('input');
+              hid.type = 'hidden'; hid.name = k; hid.value = v;
+              f.appendChild(hid);
+            }
+            document.body.appendChild(f); f.submit(); return;
+          }
+          showToast(r.message || '付款連結產生失敗');
+        } catch (e) { showToast('連線異常,請稍後再試'); }
+        b.disabled = false;
       });
     });
   }
