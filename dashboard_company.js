@@ -39,8 +39,8 @@
       : '組織已啟用;可邀請員工(職務權限可複選)並分派房屋。';
 
     const sub = data.subscription;
-    $('#subTier').textContent = sub.tier_name + '|組織房屋 ' + sub.units + ' 戶';
-    $('#subDesc').textContent = '員工帳號額度 ' + (sub.seats === null ? '不限' : sub.seats) + '(已用 ' + sub.employees + ')|級距以全公司戶數合計(跨分店)';
+    $('#subTier').textContent = sub.tier_name + '|房屋 ' + sub.units + ' 戶';
+    $('#subDesc').textContent = '目前 ' + (sub.employees ?? sub.seats ?? 0) + ' 名員工|' + (sub.fee > 0 ? '月費 NT$' + sub.fee : '免費級距') + '|級距以全公司員工名額計算(管理+會計+業務全部計入)';
     $('#subFee').innerHTML = sub.fee === 0 ? '<b>免費</b><span>入門級</span>' : '<b>' + money(sub.fee) + '元</b><span>月費</span>';
 
     $('#memberList').innerHTML = data.members.map(m =>

@@ -24,6 +24,31 @@ function get_tier(int $units): array
     return tier_table()[4];
 }
 
+/* 公司/組織:以員工名額計費(管理+會計+業務全部計入) */
+function seat_table(): array
+{
+    return [
+        ['max' => 3, 'name' => '公司級(1–3 名員工)', 'fee' => 0],
+        ['max' => 10, 'name' => '公司級(4–10 名員工)', 'fee' => 149],
+        ['max' => 30, 'name' => '公司級(11–30 名員工)', 'fee' => 299],
+        ['max' => 50, 'name' => '公司級(31–50 名員工)', 'fee' => 599],
+        ['max' => 80, 'name' => '公司級(51–80 名員工)', 'fee' => 799],
+        ['max' => 100, 'name' => '公司級(81–100 名員工)', 'fee' => 999],
+        ['max' => 120, 'name' => '公司級(101–120 名員工)', 'fee' => 1299],
+        ['max' => PHP_INT_MAX, 'name' => '公司級(121–150 名以上員工)', 'fee' => 1499],
+    ];
+}
+
+function get_seat_tier(int $seats): array
+{
+    foreach (seat_table() as $tier) {
+        if ($seats <= $tier['max']) {
+            return $tier;
+        }
+    }
+    return seat_table()[7];
+}
+
 function next_tier(int $units): ?array
 {
     $table = tier_table();

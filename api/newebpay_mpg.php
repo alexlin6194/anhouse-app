@@ -6,6 +6,7 @@ declare(strict_types=1);
                            mock 模式回 pay_url;test/prod 回藍新閘門表單欄位 */
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/notify.php';
+require_once __DIR__ . '/../includes/billing.php';
 
 require_methods('GET', 'POST');
 
@@ -25,31 +26,49 @@ if (!$me) respond(false, '帳號不存在');
 $role = (string)$me['registration_role'];
 $isVendor = $role === 'vendor';
 /* 租客完全免費,不需訂閱 */
-$subRoles = ['landlord', 'manager', 'agent', 'company_owner', 'admin_staff', 'accountant'];
 if ($role === 'tenant') respond(true, '租客完全免費,無需訂閱', ['audience' => 'free', 'plans' => [], 'active' => null, 'history' => []]);
-if (!$isVendor && !in_array($role, $subRoles, true)) respond(false, '此身份不需訂閱');
+if (!$isVendor && !in_array($role, ['landlord', 'manager', 'agent', 'company_owner', 'admin_staff', 'accountant'], true)) respond(false, '此身份不需訂閱');
 
-/* 訂閱方案表:plan_key => [label, 月價, 年價] */
-$rolePlans = [
-    'landlord'      => [['light', '房東|輕量方案', PLAN_LANDLORD_LIGHT_MONTH, PLAN_LANDLORD_LIGHT_YEAR], ['pro', '房東|專業方案', PLAN_LANDLORD_PRO_MONTH, PLAN_LANDLORD_PRO_YEAR]],
-    'manager'       => [['manager', '管家方案', PLAN_MANAGER_MONTH, PLAN_MANAGER_YEAR]],
-    'agent'         => [['agent', '業務方案', PLAN_AGENT_MONTH, PLAN_AGENT_YEAR]],
-    'company_owner' => [['company', '公司方案', PLAN_COMPANY_MONTH, PLAN_COMPANY_YEAR]],
-    'admin_staff'   => [['company', '公司方案', PLAN_COMPANY_MONTH, PLAN_COMPANY_YEAR]],
-    'accountant'    => [['company', '公司方案', PLAN_COMPANY_MONTH, PLAN_COMPANY_YEAR]],
-];
-$memberAmount = function (string $plan, int $months) use ($role, $rolePlans): int {
-    foreach ($rolePlans[$role] ?? [] as $p) {
-        if ($p[0] === $plan) return $months === 12 ? $p[3] : $p[2];
+/* ── 計價:公司以員工名額;房東/管家/個人業務以房源戶數;廠商固定 99 ── */
+function mpg_billing_basis(PDO $pdo, string $role, int $userId): array
+{
+    if ($role === 'vendor') {
+        return ['plan' => 'basic', 'label' => '廠商方案(固定月費)', 'amount' => VENDOR_PLAN_BASIC_MONTH, 'usage' => null];
     }
-    return 0;
-};
-$planLabel = function (string $plan) use ($rolePlans): string {
-    foreach ($rolePlans[$role] ?? [] as $p) {
-        if ($p[0] === $plan) return $p[1];
+    if ($role === 'company_owner' || $role === 'admin_staff' || $role === 'accountant') {
+        $org = $pdo->prepare("SELECT org_id FROM org_members WHERE user_id = ? AND status = 'active' LIMIT 1");
+        $org->execute([$userId]);
+        $orgId = (int)($org->fetch()['org_id'] ?? 0);
+        if ($orgId <= 0) return ['plan' => 'company', 'label' => '公司級(1–3 名員工)', 'amount' => 0, 'usage' => 0];
+        $c = $pdo->prepare("SELECT COUNT(*) AS c FROM org_members WHERE org_id = ? AND status = 'active'");
+        $c->execute([$orgId]);
+        $seats = (int)$c->fetch()['c'];
+        $t = get_seat_tier($seats);
+        return ['plan' => 'company', 'label' => $t['name'], 'amount' => $t['fee'], 'usage' => $seats];
     }
-    return $plan;
-};
+    if ($role === 'landlord') {
+        $c = $pdo->prepare("SELECT COUNT(*) AS c FROM properties WHERE created_by = ? AND delegated_user_id IS NULL AND pending_manager_id IS NULL");
+        $c->execute([$userId]);
+        $units = (int)$c->fetch()['c'];
+        $t = get_tier($units);
+        return ['plan' => 'light', 'label' => $t['name'], 'amount' => $t['fee'], 'usage' => $units];
+    }
+    if ($role === 'manager') {
+        $c = $pdo->prepare('SELECT COUNT(*) AS c FROM properties WHERE delegated_user_id = ?');
+        $c->execute([$userId]);
+        $units = (int)$c->fetch()['c'];
+        $t = get_tier($units);
+        return ['plan' => 'manager', 'label' => $t['name'], 'amount' => $t['fee'], 'usage' => $units];
+    }
+    /* agent:受託戶數 */
+    $c = $pdo->prepare("SELECT COUNT(DISTINCT property_id) AS c FROM property_agents WHERE agent_user_id = ? AND status IN ('invited','active')");
+    $c->execute([$userId]);
+    $units = (int)$c->fetch()['c'];
+    $t = get_tier($units);
+    return ['plan' => 'agent', 'label' => $t['name'], 'amount' => $t['fee'], 'usage' => $units];
+}
+
+$basis = mpg_billing_basis($pdo, $role, $meId);
 
 if ($isVendor) {
     $prof = $pdo->prepare('SELECT company, sub_status, plan, sub_ends, trial_ends FROM vendor_profiles WHERE user_id=? LIMIT 1');
@@ -67,18 +86,14 @@ $action = $_POST['action'] ?? ($_GET['status'] ? 'status' : '');
 if ($action === 'status') {
     $last = $pdo->prepare('SELECT trade_no, plan, months, amount, status, method, created_at, paid_at FROM subscriptions WHERE vendor_user_id=? ORDER BY id DESC LIMIT 5');
     $last->execute([$meId]);
-    $plans = $isVendor ? [
-        ['plan' => 'basic', 'label' => '基本方案', 'months' => 1, 'amount' => VENDOR_PLAN_BASIC_MONTH],
-        ['plan' => 'basic', 'label' => '基本方案(年繳)', 'months' => 12, 'amount' => VENDOR_PLAN_BASIC_YEAR],
-        ['plan' => 'pro', 'label' => '進階方案', 'months' => 1, 'amount' => VENDOR_PLAN_PRO_MONTH],
-        ['plan' => 'pro', 'label' => '進階方案(年繳)', 'months' => 12, 'amount' => VENDOR_PLAN_PRO_YEAR],
-    ] : array_merge(...array_map(function ($p) {
-        return [['plan' => $p[0], 'label' => $p[1], 'months' => 1, 'amount' => $p[2]], ['plan' => $p[0], 'label' => $p[1] . '(年繳)', 'months' => 12, 'amount' => $p[3]]];
-    }, $rolePlans[$role] ?? []));
+    $plans = $basis['amount'] > 0
+        ? [['plan' => $basis['plan'], 'label' => $basis['label'], 'months' => 1, 'amount' => $basis['amount']]]
+        : [];
     respond(true, 'ok', [
         'audience' => $isVendor ? 'vendor' : 'member',
         'profile' => $prof ?: null,
         'plans' => $plans,
+        'usage' => ['basis' => $role === 'vendor' ? 'fixed' : ($role === 'company_owner' || $role === 'admin_staff' || $role === 'accountant' ? 'seats' : 'units'), 'count' => $basis['usage']],
         'history' => $last->fetchAll(),
         'pay_mode' => NEWEBPAY_MODE,
     ]);
@@ -86,17 +101,10 @@ if ($action === 'status') {
 
 if ($action === 'start') {
     $audience = $isVendor ? 'vendor' : 'member';
-    $plan = ($_POST['plan'] ?? '') === 'pro' ? 'pro' : ($isVendor ? 'basic' : 'light');
-    $months = (int)($_POST['months'] ?? 1) === 12 ? 12 : 1;
-    if ($isVendor) {
-        $amount = $months === 12
-            ? ($plan === 'pro' ? VENDOR_PLAN_PRO_YEAR : VENDOR_PLAN_BASIC_YEAR)
-            : ($plan === 'pro' ? VENDOR_PLAN_PRO_MONTH : VENDOR_PLAN_BASIC_MONTH);
-    } else {
-        if (!in_array($plan, array_column($rolePlans[$role], 0), true)) $plan = $rolePlans[$role][0][0] ?? 'light';
-        $amount = $memberAmount($plan, $months);
-        if ($amount <= 0) respond(false, '查無此方案');
-    }
+    $plan = $basis['plan'];
+    $months = 1; /* 月繳制 */
+    if ($basis['amount'] <= 0) respond(false, '目前級距免費,無需訂閱');
+    $amount = $basis['amount'];
 
     $trade_no = 'ANJ' . date('YmdHis') . str_pad((string)random_int(0, 999), 3, '0', STR_PAD_LEFT);
     $pdo->prepare('INSERT INTO subscriptions (audience, vendor_user_id, plan, months, amount, trade_no, method, created_at) VALUES (?,?,?,?,?,?,?,NOW())')
@@ -118,8 +126,8 @@ if ($action === 'start') {
         'MerchantOrderNo' => $trade_no,
         'Amt'             => (string)$amount,
         'ItemDesc'        => '安家生活GO ' . ($isVendor
-            ? (($plan === 'pro' ? '進階' : '基本') . '方案' . ($months === 12 ? '(年繳)' : ''))
-            : $planLabel($plan) . ($months === 12 ? '(年繳)' : '')),
+            ? '廠商方案(月繳)'
+            : $basis['label'] . '(月繳)'),
         'Email'           => (string)($me['email'] ?? ''),
         'LoginType'       => 0,
         'CREDIT'          => 1,

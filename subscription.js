@@ -81,9 +81,12 @@
       badge = '<span class="st ' + (isVendor ? 'bad' : 'idle') + '">' + (isVendor ? '已停用' : '未訂閱') + '</span>';
       detail = isVendor ? '訂閱已過期,暫時無法承接案件與收到廣播,續訂立即恢復。' : '訂閱會員享完整功能與優先支援。';
     }
+    const u = data.usage || {};
+    const usageLine = u.basis === 'seats' ? '計費基準:員工名額(目前 ' + u.count + ' 人)' : (u.basis === 'units' ? '計費基準:房源戶數(目前 ' + u.count + ' 戶)' : '計費基準:固定月費');
     st.innerHTML = '<div class="row"><div class="ico">' + (isVendor ? '💼' : '🏠') + '</div>' +
       '<div style="flex:1;min-width:0"><span class="tagline">' + (p.company || '我的' + (isVendor ? '廠商服務' : '會員')) + '</span><h4>' + badge + '</h4>' +
-      '<p style="font-size:13px">' + detail + '</p></div></div>' +
+      '<p style="font-size:13px">' + detail + '</p>' +
+      '<p style="font-size:12px;color:var(--brown2)">' + usageLine + '(月繳制)</p></div></div>' +
       (qs.get('result') === 'ok' ? '<p style="color:#2e7d32;font-size:13.5px">✅ 付款成功,訂閱已開通!</p>' : '') +
       (qs.get('result') === 'fail' ? '<p style="color:#c0392b;font-size:13.5px">❌ 付款未完成,可再試一次。</p>' : '');
 
