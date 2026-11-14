@@ -69,7 +69,7 @@
         const res = await fetch('api/check_phone.php?phone=' + phoneEl.value);
         const data = await res.json();
         if (data.exists) { state.exists = true; hint('ok', '✓ 已註冊,可發送邀請'); }
-        else { state.exists = false; hint('err', '✗ 尚未註冊,無法接收邀請'); }
+        else { state.exists = false; hint('', 'ⓘ 尚未註冊 — 送出後可用「邀請連結」傳給對方,點連結即可註冊加入'); }
       } catch(e){ hint('',''); }
     }, 400);
   });
@@ -78,7 +78,6 @@
     e.preventDefault();
     const roles = [...document.querySelectorAll('.roleChecks input:checked')].map(c=>c.value);
     if (!RE_PHONE.test(phoneEl.value)) { showToast('請輸入正確的員工手機號碼'); return; }
-    if (!state.exists) { showToast('此號碼尚未註冊,無法接收邀請'); return; }
     if (!roles.length) { showToast('請至少勾選一個職務權限'); return; }
     const btn = $('#sendBtn');
     btn.disabled = true;
@@ -89,8 +88,27 @@
       });
       const data = await res.json();
       showToast(data.message);
-      if (data.ok) setTimeout(()=>location.href='dashboard_company.html', 1800);
-      else btn.disabled=false;
+      if (data.ok) {
+        const link = location.origin + location.pathname.replace('invite_employee.html', 'register.html') + '?invite=' + (data.code || '');
+        document.querySelector('.wrap').innerHTML =
+          '<div class="card"><div class="row"><div class="ico">✅</div><div><span class="tagline">邀請已送出(' + (data.roles || '') + ')</span>' +
+          '<h4>把邀請連結傳給員工</h4><p>對方點開連結即以「' + (data.roles || '') + '」身份註冊並自動加入公司(7 天內有效)。</p></div></div>' +
+          '<div style="background:var(--cream2);border-radius:12px;padding:10px 12px;font-size:12.5px;word-break:break-all;color:var(--brown)">' + link + '</div>' +
+          '<div style="display:flex;gap:10px;margin-top:12px">' +
+          '<button type="button" class="btn primary" id="shareBtn" style="flex:1">📤 傳送邀請(簡訊/LINE)</button>' +
+          '<button type="button" class="btn ghost" id="copyBtn" style="flex:1">📋 複製連結</button></div>' +
+          '<button type="button" class="btn line" id="backBtn" style="width:100%;margin-top:10px">返回公司首頁</button></div>';
+        document.getElementById('copyBtn').addEventListener('click', async () => {
+          try { await navigator.clipboard.writeText(link); showToast('已複製邀請連結'); }
+          catch (e) { showToast('複製失敗,請長按連結手動複製'); }
+        });
+        document.getElementById('shareBtn').addEventListener('click', async () => {
+          const msg = '【安家生活GO】' + (data.target_name === '(尚未註冊)' ? '' : '') + '邀請您加入公司,以「' + (data.roles || '') + '」職務:\n' + link;
+          if (navigator.share) { try { await navigator.share({ title: '安家生活GO 員工邀請', text: msg, url: link }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+          location.href = 'sms:?body=' + encodeURIComponent(msg);
+        });
+        document.getElementById('backBtn').addEventListener('click', () => { location.href = 'dashboard_company.html'; });
+      } else btn.disabled = false;
     } catch(err){ btn.disabled=false; showToast('連線異常'); }
   });
 })();

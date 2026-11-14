@@ -35,8 +35,28 @@ if (!valid_password($password)) {
 if ($password !== $confirm) {
     respond(false, '兩次輸入的密碼不一致');
 }
-if (!in_array($role, ['landlord', 'manager', 'agent', 'tenant', 'vendor'], true)) {
+if (!in_array($role, ['landlord', 'manager', 'agent', 'tenant', 'vendor', 'invite'], true)) {
     respond(false, '請選擇您的身份(房東/管理員/業務/房客/維修廠商)');
+}
+/* 公司邀請連結註冊:身份由邀請決定(註冊後自動加入公司) */
+$inviteCode = clean($in['invite_code'] ?? '');
+$invite = null;
+if ($role === 'invite') {
+    if ($inviteCode === '') respond(false, '缺少邀請碼,請從公司邀請連結進入');
+    $pdo = db();
+    $invChk = $pdo->prepare("SELECT i.id, i.org_id, i.roles, i.inviter_user_id, i.expires_at FROM invitations i WHERE i.code = ? AND i.status = 'pending' LIMIT 1");
+    $invChk->execute([$inviteCode]);
+    $invite = $invChk->fetch();
+    if (!$invite || strtotime((string)$invite['expires_at']) < time()) {
+        respond(false, '邀請連結已失效或已使用,請聯絡公司重新發送');
+    }
+    $roleMap = ['manager' => 'manager', 'agent' => 'agent', 'accountant' => 'accountant', 'admin_staff' => 'admin_staff'];
+    $invRoles = array_filter(array_map('trim', explode(',', (string)$invite['roles'])));
+    $primary = 'admin_staff';
+    foreach (['manager', 'agent', 'accountant', 'admin_staff'] as $pr) {
+        if (in_array($pr, $invRoles, true)) { $primary = $roleMap[$pr]; break; }
+    }
+    $role = $primary;
 }
 $company = clean($in['company'] ?? '');
 $specialty = clean($in['specialty'] ?? '');
@@ -78,6 +98,19 @@ try {
         $vpStmt = $pdo->prepare("INSERT INTO vendor_profiles (user_id, company, specialty, sub_status, trial_ends)
             VALUES (?, ?, ?, 'trial', DATE_ADD(CURDATE(), INTERVAL 14 DAY))");
         $vpStmt->execute([$userId, $company, $specialty]);
+    }
+
+    /* 公司邀請:自動加入組織+邀請單結案+通知邀請人 */
+    if ($invite) {
+        $invRoles = array_filter(array_map('trim', explode(',', (string)$invite['roles'])));
+        $roleNames = ['manager' => '管理員', 'agent' => '業務', 'accountant' => '會計人員', 'admin_staff' => '行政人員'];
+        foreach ($invRoles as $r) {
+            if (!isset($roleNames[$r])) continue;
+            $pdo->prepare('INSERT INTO org_members (org_id, user_id, role, status) VALUES (?, ?, ?, ?)')
+                ->execute([(int)$invite['org_id'], $userId, $r, 'active']);
+        }
+        $pdo->prepare("UPDATE invitations SET status = 'accepted' WHERE id = ?")->execute([(int)$invite['id']]);
+        notify((int)($invite['inviter_user_id'] ?? 0), 'invite_accepted', '員工已加入', $name . ' 已透過邀請連結註冊並加入公司。', (int)$invite['id']);
     }
 
     $pdo->commit();

@@ -22,7 +22,11 @@
   const RE_PASS = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
   const state = { phoneOk: false, phoneFree: false, emailOk: false, passOk: false, confirmOk: false, role: '' };
-  let checkTimer = null;
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+let checkTimer = null;
 
   function hint(id, type, text) {
     const el = $(id);
@@ -102,6 +106,24 @@
   };
   const roleErr = $('#roleErr');
 
+  /* 公司邀請連結:身份自動代入,不開放選擇 */
+  let inviteCode = '';
+  (async function () {
+    const inv = new URLSearchParams(location.search).get('invite');
+    if (!inv) return;
+    try {
+      const res = await fetch('api/invite_info.php?code=' + encodeURIComponent(inv));
+      const d = await res.json();
+      if (!d.ok) { roleErr.textContent = d.message || '邀請連結無效'; roleErr.style.display = 'block'; return; }
+      inviteCode = inv;
+      state.role = 'invite';
+      const roles = document.getElementById('roles');
+      if (roles) roles.style.display = 'none';
+      const hintEl = document.getElementById('roleHint');
+      if (hintEl) hintEl.innerHTML = '💼 <b>' + esc(d.org_name) + '</b> 邀請您以「<b>' + esc(d.roles_text) + '</b>」職務加入 — 註冊後將自動加入公司';
+    } catch (e) { /* 忽略,走一般註冊 */ }
+  })();
+
   document.querySelectorAll('.role[data-role]').forEach(btn => {
     btn.addEventListener('click', () => {
       state.role = btn.dataset.role;
@@ -171,6 +193,7 @@
           password: passEl.value,
           confirm_password: confirmEl.value,
           role: state.role,
+          invite_code: inviteCode || '',
           company: $('#f-company') ? $('#f-company').value.trim() : '',
           specialty: $('#f-specialty') ? $('#f-specialty').value.trim() : '',
           agree: '1'
