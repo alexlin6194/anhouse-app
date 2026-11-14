@@ -102,6 +102,7 @@
     $('#mask').classList.remove('show');
     $('.sheet').classList.remove('show');
   }
+  window.closeSheet = closeSheet;
 
   $('#addBtn').addEventListener('click', () => openSheet(null));
   $('#mask').addEventListener('click', (ev) => { if (ev.target === $('#mask')) closeSheet(); });
