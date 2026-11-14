@@ -2,6 +2,9 @@
   const qs = new URLSearchParams(location.search);
   let data = null;
   let isVendor = true;
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
 
   function statusOf(p) {
     if (isVendor) return p.sub_status || 'expired';
@@ -195,5 +198,9 @@
   }
   data = j;
   isVendor = data.audience === 'vendor';
-  render();
+  try {
+    render();
+  } catch (err) {
+    document.getElementById('plans').innerHTML = '<p style="color:#c0392b;font-size:13px">畫面載入異常:' + esc(err.message || err) + '(請重新整理)</p>';
+  }
 })();
