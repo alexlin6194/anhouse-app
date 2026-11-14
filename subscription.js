@@ -61,13 +61,12 @@
   }
 
   function planCard(p) {
-    const perk = data.audience === 'vendor'
-      ? (p.plan === 'pro' ? '優先排序 + 自訂承接半徑 15 公里' : '承接案件數不限 + 5 公里廣播')
-      : (p.plan === 'pro' ? '多物件管理 + 藍新自動對帳 + 進階報表' : '基本租賃管理 + 電子簽約');
+    const free = p.amount === 0;
+    const curBadge = p.current ? ' <span class="st ok">目前級距</span>' : '';
     return '<div class="list-item" style="align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:0">' +
-      '<b>' + p.label + '</b><span>NT$' + p.amount.toLocaleString() + '元 / ' + (p.months === 12 ? '年' : '月') + '</span>' +
-      '<span style="color:#8a7a5c">' + perk + '</span>' + planFeatures(p.plan) + '</div>' +
-      '<button type="button" class="mini-btn act-pay" data-plan="' + p.plan + '" data-months="' + p.months + '">訂閱</button></div>';
+      '<b>' + p.label + '</b>' + curBadge + '<span>' + (free ? '免費(無需付款)' : 'NT$' + p.amount.toLocaleString() + '元 / 月') + '</span>' +
+      (free ? '' : '<span style="color:#8a7a5c">下期生效(月繳);若級距異動,於本期到期日次日連動</span>') + '</div>' +
+      (free ? '<span class="st idle">—</span>' : '<button type="button" class="mini-btn act-pay" data-plan="' + p.plan + '" data-months="1">' + (p.current ? '續訂' : '訂閱此級距') + '</button>') + '</div>';
   }
 
   function render() {
@@ -106,7 +105,7 @@
       (qs.get('result') === 'ok' ? '<p style="color:#2e7d32;font-size:13.5px">✅ 付款成功,訂閱已開通!</p>' : '') +
       (qs.get('result') === 'fail' ? '<p style="color:#c0392b;font-size:13.5px">❌ 付款未完成,可再試一次。</p>' : '');
 
-    document.getElementById('plans').innerHTML = data.plans.map(planCard).join('') + ladderHtml();
+    document.getElementById('plans').innerHTML = data.plans.map(planCard).join('')
     document.querySelectorAll('.act-pay').forEach(b => b.addEventListener('click', () => pay(b)));
 
     const h = data.history || [];

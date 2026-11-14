@@ -70,6 +70,28 @@ function mpg_billing_basis(PDO $pdo, string $role, int $userId): array
 
 $basis = mpg_billing_basis($pdo, $role, $meId);
 
+/* 全部級距 = 可選方案(訂閱任一級距,月繳;下期生效) */
+function mpg_ladder(string $basis, int $count): array
+{
+    $isSeats = $basis === 'seats';
+    $table = $isSeats ? seat_table() : tier_table();
+    $out = [];
+    $currentKey = null;
+    foreach ($table as $t) {
+        if ($currentKey === null && $count <= $t['max']) {
+            $currentKey = ($isSeats ? 's' : 'u') . ($t['max'] >= PHP_INT_MAX ? 'inf' : $t['max']);
+        }
+        $out[] = ['plan' => ($isSeats ? 's' : 'u') . ($t['max'] >= PHP_INT_MAX ? 'inf' : $t['max']), 'label' => $t['name'], 'months' => 1, 'amount' => $t['fee']];
+    }
+    if ($isSeats) {
+        $out[] = ['plan' => 's150p', 'label' => '151 名以上(每多 1 人 +$50/月)', 'months' => 1, 'amount' => 1499];
+    }
+    foreach ($out as &$o) {
+        $o['current'] = ($o['plan'] === $currentKey);
+    }
+    return $out;
+}
+
 if ($isVendor) {
     $prof = $pdo->prepare('SELECT company, sub_status, plan, sub_ends, trial_ends FROM vendor_profiles WHERE user_id=? LIMIT 1');
     $prof->execute([$meId]);
@@ -86,8 +108,8 @@ $action = $_POST['action'] ?? ($_GET['status'] ? 'status' : '');
 if ($action === 'status') {
     $last = $pdo->prepare('SELECT trade_no, plan, months, amount, status, method, created_at, paid_at FROM subscriptions WHERE vendor_user_id=? ORDER BY id DESC LIMIT 5');
     $last->execute([$meId]);
-    $plans = $basis['amount'] > 0
-        ? [['plan' => $basis['plan'], 'label' => $basis['label'], 'months' => 1, 'amount' => $basis['amount']]]
+    $plans = $basis['amount'] > 0 || true
+        ? mpg_ladder(($role === 'company_owner' || $role === 'admin_staff' || $role === 'accountant') ? 'seats' : ($isVendor ? 'fixed' : 'units'), (int)$basis['usage'])
         : [];
     /* 升降級連動(月制):級距異動於「本期到期日次日」生效,不比例分攤 */
     $pendingChange = null;
@@ -113,10 +135,29 @@ if ($action === 'status') {
 
 if ($action === 'start') {
     $audience = $isVendor ? 'vendor' : 'member';
-    $plan = $basis['plan'];
+    $plan = clean($_POST['plan'] ?? '');
     $months = 1; /* 月繳制 */
-    if ($basis['amount'] <= 0) respond(false, '目前級距免費,無需訂閱');
-    $amount = $basis['amount'];
+    /* 選定級距:伺服器端階梯表計價(不可自訂金額) */
+    if ($isVendor) {
+        $amount = VENDOR_PLAN_BASIC_MONTH;
+        $plan = 'basic';
+    } else {
+        $ladder = mpg_ladder(($role === 'company_owner' || $role === 'admin_staff' || $role === 'accountant') ? 'seats' : 'units', (int)$basis['usage']);
+        $hit = null;
+        foreach ($ladder as $t) {
+            if ($t['plan'] === $plan) { $hit = $t; break; }
+        }
+        if (!$hit) {
+            /* 未帶 tier:沿用目前級距(冪等續訂) */
+            $hit = null;
+            foreach ($ladder as $t) { if (!empty($t['current'])) { $hit = $t; break; } }
+        }
+        if (!$hit) $hit = $basis['amount'] > 0 ? ['plan' => $basis['plan'], 'amount' => $basis['amount'], 'label' => $basis['label']] : null;
+        if (!$hit) respond(false, '目前級距免費,無需訂閱');
+        $plan = $hit['plan'];
+        $amount = (int)$hit['amount'];
+        if ($amount <= 0) respond(false, '此級距為免費級距,無需訂閱');
+    }
 
     $trade_no = 'ANJ' . date('YmdHis') . str_pad((string)random_int(0, 999), 3, '0', STR_PAD_LEFT);
     $pdo->prepare('INSERT INTO subscriptions (audience, vendor_user_id, plan, months, amount, trade_no, method, created_at) VALUES (?,?,?,?,?,?,?,NOW())')
