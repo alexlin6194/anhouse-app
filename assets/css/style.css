@@ -51,10 +51,11 @@ a{color:var(--wood-d)}
 
 .field{margin-bottom:14px}
 .field label{font-size:13px;font-weight:700;color:var(--brown2);display:block;margin:0 0 6px 6px}
-.field input{width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:16px;
-  padding:13px 16px;font-size:16px;color:var(--brown);font-family:inherit;outline:none;transition:.2s}
-.field input:focus{border-color:var(--wood);box-shadow:0 0 0 4px rgba(200,155,107,.15)}
-.field input::placeholder{color:#CBB690}
+.field input,.field textarea{width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:16px;
+  padding:13px 16px;font-size:16px;color:var(--brown);font-family:inherit;outline:none;transition:.2s;box-sizing:border-box}
+.field textarea{min-height:110px;resize:vertical;line-height:1.6}
+.field input:focus,.field textarea:focus{border-color:var(--wood);box-shadow:0 0 0 4px rgba(200,155,107,.15)}
+.field input::placeholder,.field textarea::placeholder{color:#CBB690}
 .hint{font-size:12px;margin:4px 6px 0;min-height:1.2em;line-height:1.5}
 .hint.err{color:var(--err)}
 .hint.ok{color:var(--green-d)}
