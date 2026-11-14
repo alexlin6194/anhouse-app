@@ -35,7 +35,7 @@ function seat_table(): array
         ['max' => 80, 'name' => '公司級(51–80 名員工)', 'fee' => 799],
         ['max' => 100, 'name' => '公司級(81–100 名員工)', 'fee' => 999],
         ['max' => 120, 'name' => '公司級(101–120 名員工)', 'fee' => 1299],
-        ['max' => PHP_INT_MAX, 'name' => '公司級(121–150 名以上員工)', 'fee' => 1499],
+        ['max' => 150, 'name' => '公司級(121–150 名員工)', 'fee' => 1499],
     ];
 }
 
@@ -46,7 +46,9 @@ function get_seat_tier(int $seats): array
             return $tier;
         }
     }
-    return seat_table()[7];
+    /* 151 人以上:每多 1 人加購 NT$50/月 */
+    $extra = $seats - 150;
+    return ['name' => '公司級(150 名+' . $extra . ' 位加購)', 'fee' => 1499 + $extra * 50];
 }
 
 function next_tier(int $units): ?array
