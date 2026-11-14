@@ -24,14 +24,15 @@ if (!$me) respond(false, '帳號不存在');
 
 $role = (string)$me['registration_role'];
 $isVendor = $role === 'vendor';
-$subRoles = ['landlord', 'manager', 'tenant', 'agent', 'company_owner', 'admin_staff', 'accountant'];
+/* 租客完全免費,不需訂閱 */
+$subRoles = ['landlord', 'manager', 'agent', 'company_owner', 'admin_staff', 'accountant'];
+if ($role === 'tenant') respond(true, '租客完全免費,無需訂閱', ['audience' => 'free', 'plans' => [], 'active' => null, 'history' => []]);
 if (!$isVendor && !in_array($role, $subRoles, true)) respond(false, '此身份不需訂閱');
 
-/* 全角色方案表:plan_key => [label, 月價, 年價] */
+/* 訂閱方案表:plan_key => [label, 月價, 年價] */
 $rolePlans = [
     'landlord'      => [['light', '房東|輕量方案', PLAN_LANDLORD_LIGHT_MONTH, PLAN_LANDLORD_LIGHT_YEAR], ['pro', '房東|專業方案', PLAN_LANDLORD_PRO_MONTH, PLAN_LANDLORD_PRO_YEAR]],
     'manager'       => [['manager', '管家方案', PLAN_MANAGER_MONTH, PLAN_MANAGER_YEAR]],
-    'tenant'        => [['tenant', '租客方案', PLAN_TENANT_MONTH, PLAN_TENANT_YEAR]],
     'agent'         => [['agent', '業務方案', PLAN_AGENT_MONTH, PLAN_AGENT_YEAR]],
     'company_owner' => [['company', '公司方案', PLAN_COMPANY_MONTH, PLAN_COMPANY_YEAR]],
     'admin_staff'   => [['company', '公司方案', PLAN_COMPANY_MONTH, PLAN_COMPANY_YEAR]],

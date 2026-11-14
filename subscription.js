@@ -58,6 +58,14 @@
   }
 
   function render() {
+    /* 租客完全免費:顯示免費說明,不列方案 */
+    if (data.audience === 'free') {
+      document.getElementById('statusCard').innerHTML = '<div class="row"><div class="ico">🎁</div><div><span class="tagline">我的會員</span><h4>租客會員 — 完全免費</h4><p>租客使用所有功能(線上繳租/報修/生活圈/電子簽約)皆免費,無需訂閱。</p></div><span class="st ok">免費</span></div>';
+      document.getElementById('plans').innerHTML = '';
+      const fix = document.getElementById('fixedBlock');
+      if (fix) fix.innerHTML = '';
+      return;
+    }
     const st = document.getElementById('statusCard');
     const p = data.profile || {};
     const sub = statusOf(p);
