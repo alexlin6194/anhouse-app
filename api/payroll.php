@@ -52,7 +52,7 @@ function loadRoster(PDO $pdo, int $orgId, string $month, array $payRows): array 
     $roster = $st->fetchAll();
 
     /* 業績:該月成交移交件數與月租金合計(仲介費=月租金 100%,房客 50%+房東 50%;獎金基礎=房客 50%) */
-    $hSt = $pdo->prepare("SELECT COUNT(*) AS c, COALESCE(SUM(l.rent), 0) AS rent_sum
+    $hSt = $pdo->prepare("SELECT COUNT(*) AS c, COALESCE(SUM(l.rent_amount), 0) AS rent_sum
         FROM handovers h JOIN leases l ON l.id = h.lease_id
         WHERE h.agent_user_id = ? AND DATE_FORMAT(h.created_at, '%Y-%m') = ?");
     $pRow = function (int $uid) use ($payRows) {
