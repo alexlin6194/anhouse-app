@@ -147,7 +147,24 @@ if ($action === 'confirm') {
     $st = $pdo->prepare("SELECT gross FROM payroll WHERE org_id = ? AND user_id = ? AND period = ?");
     $st->execute([$orgId, $targetId, $month]);
     $row = $st->fetch();
-    if (!$row) respond(false, '請先儲存此員工的薪資');
+    if (!$row) {
+        /* 從未儲存過:以制度(底薪+獎金%)自動計算並建立草稿 */
+        $om = $pdo->prepare("SELECT base_salary, bonus_per_deal, bonus_pct FROM org_members WHERE org_id = ? AND user_id = ? LIMIT 1");
+        $om->execute([$orgId, $targetId]);
+        $omRow = $om->fetch();
+        if (!$omRow) respond(false, '找不到此員工');
+        $hv = $pdo->prepare("SELECT COUNT(*) AS c, COALESCE(SUM(l.rent_amount), 0) AS rent_sum FROM handovers h JOIN leases l ON l.id = h.lease_id WHERE h.agent_user_id = ? AND DATE_FORMAT(h.created_at, '%Y-%m') = ?");
+        $hv->execute([$targetId, $month]);
+        $hvRow = $hv->fetch();
+        $autoBonus = ((int)$omRow['bonus_pct'] > 0) ? (int)round(((int)$hvRow['rent_sum'] * 0.5) * (int)$omRow['bonus_pct'] / 100) : (int)$hvRow['c'] * (int)$omRow['bonus_per_deal'];
+        $base = (int)$omRow['base_salary'];
+        $grossAuto = max(0, $base + $autoBonus);
+        $pdo->prepare("INSERT INTO payroll (org_id, user_id, period, base_salary, bonus_amount, bonus_detail, gross, status, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?)")
+            ->execute([$orgId, $targetId, $month, $base, $autoBonus,
+                $autoBonus ? '成交 ' . (int)$hvRow['c'] . ' 件・制度自動計算' : null, $grossAuto, $userId]);
+        $row = ['gross' => $grossAuto];
+    }
     $pdo->prepare("UPDATE payroll SET status = 'confirmed' WHERE org_id = ? AND user_id = ? AND period = ?")
         ->execute([$orgId, $targetId, $month]);
     notify($targetId, 'payroll', '薪資條已出|' . $month, $me['org_name'] . ' 已確認您 ' . $month . ' 的薪資(應發 NT$' . number_format((int)$row['gross']) . '),請至「薪資」查看明細。', 0, true);

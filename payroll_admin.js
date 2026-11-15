@@ -49,7 +49,7 @@
         (cache.can_manage ?
           '<button class="btn ghost" style="padding:6px 12px;margin-left:auto" onclick="openScheme(' + i + ')">⚙ 制度</button>' +
           '<button class="btn ghost" style="padding:6px 12px" onclick="openEdit(' + i + ')">✏️ 編輯</button>' +
-          (r.pay_status === 'draft' ? '<button class="btn primary" style="padding:6px 12px" onclick="doPay(\'' + r.user_id + '\',\'confirm\')">出表</button>' : '') +
+          (r.pay_status === '' || r.pay_status === 'draft' ? '<button class="btn primary" style="padding:6px 12px" onclick="doPay(\'' + r.user_id + '\',\'confirm\')">出表</button>' : '') +
           (r.pay_status === 'confirmed' ? '<button class="btn primary" style="padding:6px 12px" onclick="doPay(\'' + r.user_id + '\',\'mark_paid\')">已發放</button>' : '')
           : '<span style="margin-left:auto;font-size:11.5px;color:var(--brown2)">僅老闆/會計可設定</span>') +
         '</div></div>';
