@@ -34,7 +34,7 @@
       const isAcct = data.my_role === 'accountant';
       const tiles = [];
       if (isBoss) tiles.push(['🪪', '資格審核', "location.href='qualification.html'"]);
-      if (isBoss) tiles.push(['🏬', '分店管理', "toast('分店管理規劃中:目前以全公司戶數合計計費,分店功能日後開放')"]);
+      if (isBoss) tiles.push(['🏬', '分店管理', "location.href='branches.html'"]);
       if (isBoss || isStaff) tiles.push(['🏠', '房屋指派', 'openAssign()']);
       if (isAcct || isBoss || isStaff) tiles.push(['🧾', '帳單管理', "location.href='bills.html'"]);
       if (isAcct || isBoss) tiles.push(['💳', '收款確認', "location.href='bills.html?tab=pending'"]);

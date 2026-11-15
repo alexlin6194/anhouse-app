@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>分公司管理|安家生活GO</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20261115gg">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <h2>分公司管理</h2>
+    <p>多分店組織架構管理<br>員工與房屋歸屬清楚</p>
+    <div class="feat">
+      <div>🏢 分公司建立/編輯/停用</div>
+      <div>👥 員工歸屬分公司</div>
+      <div>🏠 房屋歸屬分公司</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="wrap">
+      <div class="dash-head">
+        <div class="who"><b>🏢 分公司管理</b><span id="orgLine" style="font-size:12px;color:var(--brown2)"></span></div>
+        <a class="bell" href="dashboard_company.html" aria-label="回首頁">🏠</a>
+      </div>
+
+      <div style="display:flex;gap:10px">
+        <button class="btn primary" id="addBr" style="flex:1">➕ 新增分公司</button>
+        <button class="btn ghost" id="assignBr" style="flex:1">📌 指派員工/房屋</button>
+      </div>
+
+      <div id="list" style="margin-top:12px"></div>
+    </div>
+  </main>
+</div>
+<div class="modal-mask" id="mask">
+  <div class="sheet" style="height:auto;max-height:85dvh;overflow:auto">
+    <h3 style="margin:20px 20px 10px;color:var(--brown);font-size:17px" id="ttl"></h3>
+    <div style="padding:0 20px 24px" id="body"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="branches.js?v=20261115gg"></script>
+<script src="assets/js/tabbar.js?v=20261115gg"></script>
+</body>
+</html>
