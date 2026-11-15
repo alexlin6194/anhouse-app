@@ -35,6 +35,8 @@ if (!$me) {
     respond(false, '僅公司負責人/行政/會計可作業薪資');
 }
 $orgId = (int)$me['org_id'];
+/* 只有老闆與會計能設定/調整薪資;行政人員可查看 */
+$canManage = in_array($me['role'], ['company_owner', 'accountant'], true);
 
 $month = clean($in['month'] ?? date('Y-m'));
 if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
@@ -94,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $st = $pdo->prepare('SELECT * FROM payroll WHERE org_id = ? AND period = ?');
     $st->execute([$orgId, $month]);
     $payRows = $st->fetchAll();
-    respond(true, 'ok', ['month' => $month, 'org_name' => $me['org_name'], 'roster' => loadRoster($pdo, $orgId, $month, $payRows)]);
+    respond(true, 'ok', ['month' => $month, 'org_name' => $me['org_name'], 'roster' => loadRoster($pdo, $orgId, $month, $payRows), 'can_manage' => $canManage]);
 }
 
 $action = clean($in['action'] ?? '');
@@ -109,6 +111,10 @@ if (!$emp) {
 }
 
 /* 薪資設定(底薪/每件成交獎金)— 存 org_members */
+if (in_array($action, ['set_salary', 'save', 'confirm', 'mark_paid'], true) && !$canManage) {
+    respond(false, '僅公司負責人與會計可設定/調整薪資(其他人員僅可查看)');
+}
+
 if ($action === 'set_salary') {
     $base = max(0, (int)($in['base_salary'] ?? 0));
     $pct = max(0, min(100, (int)($in['bonus_pct'] ?? 0)));

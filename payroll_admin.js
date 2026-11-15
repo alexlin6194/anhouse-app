@@ -46,10 +46,12 @@
         (r.bonus_stale ? '<p style="font-size:12px;color:#8A6D3B;margin:6px 2px 0">ℹ 已存草稿的獎金與本月業績不同步——點「✏️ 編輯」重新儲存即可更新</p>' : '') +
         '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">' +
         '<b style="font-size:16px;color:var(--brown)">應發 ' + fmt(r.gross) + '</b>' +
-        '<button class="btn ghost" style="padding:6px 12px;margin-left:auto" onclick="openScheme(' + i + ')">⚙ 制度</button>' +
-        '<button class="btn ghost" style="padding:6px 12px" onclick="openEdit(' + i + ')">✏️ 編輯</button>' +
-        (r.pay_status === 'draft' ? '<button class="btn primary" style="padding:6px 12px" onclick="doPay(\'' + r.user_id + '\',\'confirm\')">出表</button>' : '') +
-        (r.pay_status === 'confirmed' ? '<button class="btn primary" style="padding:6px 12px" onclick="doPay(\'' + r.user_id + '\',\'mark_paid\')">已發放</button>' : '') +
+        (cache.can_manage ?
+          '<button class="btn ghost" style="padding:6px 12px;margin-left:auto" onclick="openScheme(' + i + ')">⚙ 制度</button>' +
+          '<button class="btn ghost" style="padding:6px 12px" onclick="openEdit(' + i + ')">✏️ 編輯</button>' +
+          (r.pay_status === 'draft' ? '<button class="btn primary" style="padding:6px 12px" onclick="doPay(\'' + r.user_id + '\',\'confirm\')">出表</button>' : '') +
+          (r.pay_status === 'confirmed' ? '<button class="btn primary" style="padding:6px 12px" onclick="doPay(\'' + r.user_id + '\',\'mark_paid\')">已發放</button>' : '')
+          : '<span style="margin-left:auto;font-size:11.5px;color:var(--brown2)">僅老闆/會計可設定</span>') +
         '</div></div>';
     }).join('');
   }
