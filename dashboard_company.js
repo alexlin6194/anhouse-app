@@ -86,6 +86,9 @@
   }
 
   /* ── 房屋指派 ── */
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
   let asData = null;
   window.openAssign = async function () {
     try {
