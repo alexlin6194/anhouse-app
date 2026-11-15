@@ -42,6 +42,9 @@ function doc_scope(PDO $pdo, int $userId, int $myOrgId, int $did): ?array
     if ($r = $s->fetch()) return $r;
     $s = $pdo->prepare('SELECT d.* FROM documents d WHERE d.id = ? AND d.signer_user_id = ? LIMIT 1');
     $s->execute([$did, $userId]);
+    if ($r = $s->fetch()) return $r;
+    $s = $pdo->prepare('SELECT d.* FROM documents d WHERE d.id = ? AND d.signer2_user_id = ? LIMIT 1');
+    $s->execute([$did, $userId]);
     return $s->fetch() ?: null;
 }
 
@@ -121,6 +124,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         JOIN properties p ON p.id = d.property_id
         WHERE {$scopeSql}
         ORDER BY FIELD(d.status,'pending','signed','rejected'), d.id DESC LIMIT 100")->fetchAll();
+    $s2Stmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');
+    foreach ($rows as &$dr) {
+        $dr['signer2_name'] = '';
+        if ((int)($dr['signer2_user_id'] ?? 0) > 0) {
+            $s2Stmt->execute([(int)$dr['signer2_user_id']]);
+            $dr['signer2_name'] = (string)($s2Stmt->fetch()['name'] ?? '');
+        }
+    }
+    unset($dr);
 
     $signerStmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');
     $signerStmt->execute([$userId]);
@@ -288,6 +300,81 @@ if ($action === 'create_repair_charge') {
     respond(true, '確認函已發送給 ' . $tenantName . '(含報價與照片),待房客簽署後收費始生效');
 }
 
+/* ── 房源委託管理授權書(一次性,房東先簽→公司負責人副署)──
+ * 用途:公司代管房東委託屋時,行政人員得以代理人身份簽署租約,不必每次找房東 */
+if ($action === 'create_mandate') {
+    $pid = (int)($in['property_id'] ?? 0);
+    $pStmt = $pdo->prepare('SELECT id, title, org_id, owner_user_id, delegated_user_id, status FROM properties WHERE id = ? LIMIT 1');
+    $pStmt->execute([$pid]);
+    $prop = $pStmt->fetch();
+    if (!$prop) {
+        respond(false, '找不到此房屋');
+    }
+    /* 權限:本公司成員(負責人/行政)或該屋房東本人 */
+    $isCompany = false;
+    if ((int)$prop['org_id'] > 0) {
+        $mChk = $pdo->prepare("SELECT COUNT(*) FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active' AND role IN ('company_owner','admin_staff','accountant')");
+        $mChk->execute([(int)$prop['org_id'], $userId]);
+        $isCompany = (int)$mChk->fetchColumn() > 0;
+    }
+    $landlordUid = (int)($prop['owner_user_id'] ?? 0);
+    if (!$isCompany && $landlordUid !== $userId) {
+        respond(false, '僅房東本人或公司(負責人/行政)可產生委託授權書');
+    }
+    if ($landlordUid <= 0) {
+        respond(false, '此屋為公司名下房源(無房東委託),公司以出租人身分簽約即可,不需授權書');
+    }
+    $dup = $pdo->prepare("SELECT id, status FROM documents WHERE type = 'mandate' AND ref_id = ? AND status IN ('pending','partially_signed','signed') LIMIT 1");
+    $dup->execute([$pid]);
+    if ($m = $dup->fetch()) {
+        respond(false, $m['status'] === 'signed' ? '此屋已有生效中的委託授權書(文件 #' . $m['id'] . ')' : '此屋已有一份進行中的委託授權書(文件 #' . $m['id'] . '),待雙方簽署');
+    }
+    $oStmt = $pdo->prepare('SELECT owner_user_id, name FROM organizations WHERE id = ?');
+    $oStmt->execute([(int)$prop['org_id']]);
+    $orgRow = $oStmt->fetch();
+    $ownerUid = (int)($orgRow['owner_user_id'] ?? 0);
+    if (!$ownerUid) {
+        respond(false, '找不到公司負責人');
+    }
+    $uStmt = $pdo->prepare('SELECT name, phone FROM users WHERE id = ?');
+    $uStmt->execute([$landlordUid]);
+    $landlord = $uStmt->fetch();
+    if (!$landlord) {
+        respond(false, '找不到房東資料');
+    }
+    $uStmt->execute([$ownerUid]);
+    $boss = $uStmt->fetch();
+
+    $today = date('Y年m月d日');
+    $L = [];
+    $L[] = '房源委託管理授權書(電子文件)';
+    $L[] = '────────────────────';
+    $L[] = '委託人(房東/甲方):' . ($landlord['name'] ?? '') . '(' . ($landlord['phone'] ?? '') . ')';
+    $L[] = '受託人(乙方):' . ($orgRow['name'] ?? '') . '(負責人:' . ($boss['name'] ?? '') . ')';
+    $L[] = '標的房屋:' . ($prop['title'] ?? '');
+    $L[] = '委託日期:' . $today;
+    $L[] = '────────────────────';
+    $L[] = '第一條(委託事項):甲方就上述標的房屋,委託乙方辦理出租媒合與租賃管理事務。';
+    $L[] = '第二條(授權範圍):乙方及其所指派人員(含行政人員、業務人員)有權代理甲方:①刊登與推廣本房屋;②帶看與媒合承租人;③以甲方之名義代理簽署房屋租賃契約及相關文件;④代收租金與相關款項;⑤辦理交屋、報修與日常管理。';
+    $L[] = '第三條(代理簽署之效力):乙方人員於前條授權範圍內代理甲方所簽訂之租賃契約,其效力及於甲方,甲方不得以未經本人親自簽署為由否認之。';
+    $L[] = '第四條(仲介報酬):服務報酬依雙方另行議定之收費標準辦理(如:租賃仲介費為月租金之一個月,由房客與房東各負擔二分之一,或依個案約定)。';
+    $L[] = '第五條(委託期間):自簽署日起至甲方以書面或本系統通知終止委託之日止。委託終止後,乙方即不得再代理甲方簽署任何契約。';
+    $L[] = '第六條(誠實義務):乙方應善良管理人注意履行受託事務,並每年向甲方報告經營狀況;如有代收款項,應依約定結算交付。';
+    $L[] = '第七條(電子文件效力):雙方同意以本系統之電子簽名(姓名+手寫簽名+IP+時間戳)作為簽署方式,與紙本簽名具同等效力,系統留存之簽署軌跡視為交付原件。';
+    $content = implode("\n", $L);
+
+    $ins = $pdo->prepare("INSERT INTO documents (type, ref_id, property_id, created_by, signer_user_id, signer2_user_id, title, content, status, trail)
+        VALUES ('mandate', ?, ?, ?, ?, ?, ?, ?, 'pending', ?)");
+    $trail = json_encode([['event' => 'created', 'by' => $userId, 'at' => date('Y-m-d H:i:s')]], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $ins->execute([$pid, $pid, $userId, $landlordUid, $ownerUid, '房源委託管理授權書|' . ($prop['title'] ?? ''), $content, $trail]);
+    $docId = (int)$pdo->lastInsertId();
+    notify($landlordUid, 'system', '委託授權書待您簽署|' . ($prop['title'] ?? ''),
+        ($orgRow['name'] ?? '') . ' 已為您產生「房源委託管理授權書」:授權公司代為出租、代收租金與代理簽約。請至「文件簽署」詳閱後電子簽名。', $docId, true);
+    notify($ownerUid, 'system', '委託授權書待您副署|' . ($prop['title'] ?? ''),
+        '房東 ' . ($landlord['name'] ?? '') . ' 之委託授權書已產生,待房東簽名後請完成副署,行政人員即可代理簽署租約。', $docId, true);
+    respond(true, '已產生「房源委託管理授權書」(文件 #' . $docId . '),通知房東與負責人簽署');
+}
+
 if ($action === 'sign') {
     $did = (int)($in['doc_id'] ?? 0);
     $d = doc_scope($pdo, $userId, $myOrgId, $did);
@@ -295,19 +382,23 @@ if ($action === 'sign') {
         respond(false, '找不到這份文件或無權限');
     }
     $isLease = ($d['type'] === 'lease_contract');
+    $isMandate = ($d['type'] === 'mandate');
+    $needSig = ($isLease || $isMandate);
     $side = 0;
     if ((int)$d['signer_user_id'] === $userId) {
         $side = 1;
-    } elseif ($isLease && (int)($d['signer2_user_id'] ?? 0) === $userId) {
+    } elseif (($isLease || $isMandate) && (int)($d['signer2_user_id'] ?? 0) === $userId) {
         $side = 2;
     } else {
         respond(false, $isLease ? '僅契約雙方當事人可簽署' : '僅文件指定的簽署人可簽署');
     }
+    $firstLabel = $isMandate ? '房東' : '房客';
+    $secondLabel = $isMandate ? '公司負責人' : '屋主';
     if ($side === 1 && $d['status'] !== 'pending') {
         respond(false, '此文件已簽署或已結案');
     }
     if ($side === 2 && $d['status'] !== 'partially_signed') {
-        respond(false, $d['status'] === 'pending' ? '請先等待房客完成電子簽名' : '此契約已完成或已結案');
+        respond(false, $d['status'] === 'pending' ? '請先等待' . $firstLabel . '完成電子簽名' : '此文件已完成或已結案');
     }
     /* 已審閱勾選:強制留存(保護雙方) */
     if (empty($in['reviewed'])) {
@@ -319,7 +410,7 @@ if ($action === 'sign') {
         respond(false, '請輸入完整姓名作為電子簽名');
     }
     $sigPath = null;
-    if ($isLease) {
+    if ($needSig) {
         $sigPath = doc_save_signature($did, $side === 1 ? 't' : 'l', (string)($in['signature'] ?? ''));
         if (!$sigPath) {
             respond(false, '請在手寫簽名板簽名後送出(空白簽名無效)');
@@ -327,15 +418,15 @@ if ($action === 'sign') {
     }
 
     if ($side === 1) {
-        $newStatus = ($isLease && (int)($d['signer2_user_id'] ?? 0) > 0) ? 'partially_signed' : 'signed';
+        $newStatus = ($needSig && (int)($d['signer2_user_id'] ?? 0) > 0) ? 'partially_signed' : 'signed';
         $pdo->prepare("UPDATE documents SET status = ?, signed_at = NOW(), sign_name = ?, signature_img = ?, sign_ip = ?, sign_ua = ? WHERE id = ?")
             ->execute([$newStatus, $signName, $sigPath, $_SERVER['REMOTE_ADDR'] ?? '', substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 250), $did]);
         doc_trail_append($pdo, $did, $side === 1 ? 'reviewed_by_tenant' : 'reviewed_by_landlord');
         doc_trail_append($pdo, $did, $newStatus === 'signed' ? 'signed' : 'tenant_signed');
         if ($newStatus === 'partially_signed') {
-            notify((int)$d['signer2_user_id'], 'system', '房客已簽名,待您副署|' . $d['title'],
-                ($_SESSION['name'] ?? '房客') . ' 已於 ' . date('Y-m-d H:i') . ' 完成租賃契約電子簽名,請至「文件簽署」檢視並完成屋主副署,契約即生效歸檔。', $did);
-            respond(true, '簽名完成!已通知屋主副署,契約於屋主副署後正式生效');
+            notify((int)$d['signer2_user_id'], 'system', ($isMandate ? '房東已簽名,待您副署|' : '房客已簽名,待您副署|') . $d['title'],
+                ($_SESSION['name'] ?? $firstLabel) . ' 已於 ' . date('Y-m-d H:i') . ' 完成電子簽名,請至「文件簽署」檢視並完成副署,文件即生效歸檔。', $did);
+            respond(true, $isMandate ? '簽名完成!已通知公司負責人副署,副署後授權書生效' : '簽名完成!已通知屋主副署,契約於屋主副署後正式生效');
         }
         foreach (doc_managers($pdo, (int)$d['property_id']) as $uid) {
             if ($uid !== $userId) {
@@ -349,6 +440,14 @@ if ($action === 'sign') {
         ->execute([$signName, $sigPath, $_SERVER['REMOTE_ADDR'] ?? '', substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 250), $did]);
     doc_trail_append($pdo, $did, 'reviewed_by_landlord');
     doc_trail_append($pdo, $did, 'countersigned');
+    if ($isMandate) {
+        notify((int)$d['signer_user_id'], 'system', '委託授權書已生效|' . $d['title'],
+            '公司負責人已完成副署,「房源委託管理授權書」正式生效:公司人員自此可代理您簽署本屋租約,每筆租約將通知您並提供副本。', $did);
+        foreach (doc_managers($pdo, (int)$d['property_id']) as $uid) {
+            notify($uid, 'system', '委託授權書已生效|' . $d['title'], '房東與負責人已完成雙簽,行政人員可代理簽署此屋租約(合約將自動註明代理聲明)。', $did);
+        }
+        respond(true, '副署完成!「房源委託管理授權書」已生效');
+    }
     if ((int)$d['ref_id'] > 0 && $d['ref_id']) {
         $lStmt = $pdo->prepare('SELECT status FROM leases WHERE id = ?');
         $lStmt->execute([(int)$d['ref_id']]);

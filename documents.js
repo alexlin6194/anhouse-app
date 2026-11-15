@@ -11,7 +11,7 @@
   }
   const dstr = (d) => d ? String(d).replace(/-/g, '/').slice(0, 16) : '';
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const typeNames = { lease_contract: '📜 租賃契約書', repair_charge: '🧾 維修自費確認函' };
+  const typeNames = { lease_contract: '📜 租賃契約書', repair_charge: '🧾 維修自費確認函', mandate: '📄 房源委託管理授權書' };
   const eventNames = { created: '發起契約', sent: '發出簽署邀請', tenant_signed: '房客完成電子簽名', countersigned: '屋主完成副署(契約生效)', signed: '完成簽署', declined: '拒簽', rejected: '拒絕簽署', cancelled: '撤回契約' };
 
   let cache = null;
@@ -47,12 +47,12 @@
       return;
     }
     listEl.innerHTML = docs.map(d => {
-      const signedBoth = d.status === 'signed' && d.type === 'lease_contract';
+      const signedBoth = d.status === 'signed' && (d.type === 'lease_contract' || d.type === 'mandate');
       return '<div class="lrow doc-row" data-id="' + d.id + '" style="cursor:pointer">' +
         '<div class="ltop"><div class="linfo">' +
         '<b>' + (typeNames[d.type] || '📄') + ' ' + esc(d.title) + '</b>' +
         '<span>' + (d.amount ? '金額 NT$' + Number(d.amount).toLocaleString('zh-TW') + '元|' : '') + '建立 ' + dstr(d.created_at) +
-        (signedBoth ? '|✍ 承租 ' + esc(d.sign_name || '') + '|' + esc(d.sign2_name || '') + ' 副署' : '') +
+        (signedBoth ? '|' + (d.type === 'mandate' ? '✍ 房東 ' : '✍ 承租 ') + esc(d.sign_name || '') + '|' + esc(d.signer2_name || d.sign2_name || '') + ' 副署' : '') +
         '</span>' +
         '</div>' + chip(d) + '</div>' +
         '</div>';
@@ -63,12 +63,14 @@
   }
 
   function sigBlock(d) {
-    if (d.type !== 'lease_contract' || d.status !== 'signed') return '';
+    if (!(d.type === 'lease_contract' || d.type === 'mandate') || d.status !== 'signed') return '';
+    const p1 = d.type === 'mandate' ? '委託人(房東)' : '承租人';
+    const p2 = d.type === 'mandate' ? '受託公司負責人' : '出租人';
     let h = '<div style="margin-top:14px;border-top:1.5px dashed var(--beige2);padding-top:10px">' +
       '<b>🖊 雙方電子簽名</b><div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px">';
-    if (d.signature_img) h += '<div style="text-align:center"><img src="uploads/' + esc(d.signature_img) + '" alt="承租人簽名" style="width:150px;height:64px;object-fit:contain;background:#fff;border:1.5px solid var(--beige2);border-radius:10px"><div style="font-size:11.5px;color:var(--brown2);margin-top:2px">承租人:' + esc(d.sign_name || '') + '<br>' + dstr(d.signed_at) + '</div></div>';
-    if (d.signature2_img) h += '<div style="text-align:center"><img src="uploads/' + esc(d.signature2_img) + '" alt="出租人簽名" style="width:150px;height:64px;object-fit:contain;background:#fff;border:1.5px solid var(--beige2);border-radius:10px"><div style="font-size:11.5px;color:var(--brown2);margin-top:2px">出租人:' + esc(d.sign2_name || '') + '<br>' + dstr(d.sign2_at) + '</div></div>';
-    h += '</div><div style="font-size:11px;color:var(--brown2);margin-top:6px">簽署紀錄:承租人 IP ' + esc(d.sign_ip || '-') + '|屋主 IP ' + esc(d.sign2_ip || '-') + '(依電子簽章法與書面簽名具同等效力)</div></div>';
+    if (d.signature_img) h += '<div style="text-align:center"><img src="uploads/' + esc(d.signature_img) + '" alt="簽名" style="width:150px;height:64px;object-fit:contain;background:#fff;border:1.5px solid var(--beige2);border-radius:10px"><div style="font-size:11.5px;color:var(--brown2);margin-top:2px">' + p1 + ':' + esc(d.sign_name || '') + '<br>' + dstr(d.signed_at) + '</div></div>';
+    if (d.signature2_img) h += '<div style="text-align:center"><img src="uploads/' + esc(d.signature2_img) + '" alt="副署簽名" style="width:150px;height:64px;object-fit:contain;background:#fff;border:1.5px solid var(--beige2);border-radius:10px"><div style="font-size:11.5px;color:var(--brown2);margin-top:2px">' + p2 + ':' + esc(d.sign2_name || '') + '<br>' + dstr(d.sign2_at) + '</div></div>';
+    h += '</div><div style="font-size:11px;color:var(--brown2);margin-top:6px">簽署紀錄:' + p1 + ' IP ' + esc(d.sign_ip || '-') + '|' + p2 + ' IP ' + esc(d.sign2_ip || '-') + '(依電子簽章法與書面簽名具同等效力)</div></div>';
     return h;
   }
 

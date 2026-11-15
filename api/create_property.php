@@ -19,7 +19,9 @@ $userId = (int)$_SESSION['user_id'];
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $optStmt = $pdo->prepare("SELECT DISTINCT p.org_id, o.name AS org_name FROM properties p JOIN organizations o ON o.id = p.org_id WHERE p.delegated_user_id = ? ORDER BY p.org_id");
     $optStmt->execute([$userId]);
-    respond(true, 'ok', ['authenticated' => true, 'for_landlords' => $optStmt->fetchAll()]);
+    $myRoleStmt = $pdo->prepare("SELECT role FROM org_members WHERE user_id = ? AND status = 'active' AND role IN ('company_owner','admin_staff','accountant') LIMIT 1");
+    $myRoleStmt->execute([$userId]);
+    respond(true, 'ok', ['authenticated' => true, 'for_landlords' => $optStmt->fetchAll(), 'my_role' => (string)($myRoleStmt->fetch()['role'] ?? '')]);
 }
 
 $in = $_POST ?: json_input();
@@ -158,6 +160,17 @@ $memStmt->execute([$userId]);
 $mem = $memStmt->fetch();
 
 $forOrg = (int)($_POST['for_org'] ?? $in['for_org'] ?? 0);
+/* 公司職務建檔可指定「委託房東」(手機找會員)→ 之後簽委託授權書即可代理簽租約 */
+$ownerUid = 0;
+$ownerPhone = clean($_POST['owner_phone'] ?? $in['owner_phone'] ?? '');
+if ($ownerPhone !== '') {
+    $oChk = $pdo->prepare('SELECT id FROM users WHERE phone = ? LIMIT 1');
+    $oChk->execute([$ownerPhone]);
+    $ownerUid = (int)($oChk->fetch()['id'] ?? 0);
+    if ($ownerUid <= 0) {
+        respond(false, '委託房東手機查無會員 — 請確認房東已註冊(手號即帳號),或留空以公司名義(包租)建檔');
+    }
+}
 $actingAsManager = false;
 if (!$mem && $forOrg > 0) {
     $relStmt = $pdo->prepare('SELECT COUNT(*) AS c FROM properties WHERE org_id = ? AND delegated_user_id = ?');
@@ -173,10 +186,10 @@ if (!$mem && $forOrg > 0) {
     $orgId = (int)$mem['org_id'];
 }
 
-$stmt = $pdo->prepare('INSERT INTO properties (org_id, listing_type, created_by, title, city, district, address, property_type, layout_rooms, layout_living, layout_bath, area_ping, floor_current, floor_total, rent, mgmt_fee, elec_rate, elec_mode, min_lease, legal_use, deposit, sale_price, parking, pet_friendly, cooking_allowed, gender_limit, no_smoking, tax_ok, household_ok, special_terms, water_fee, parking_fee, cleaning_fee, internet_fee, cable_fee, available_date, facilities, status, note, pending_manager_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+$stmt = $pdo->prepare('INSERT INTO properties (org_id, owner_user_id, listing_type, created_by, title, city, district, address, property_type, layout_rooms, layout_living, layout_bath, area_ping, floor_current, floor_total, rent, mgmt_fee, elec_rate, elec_mode, min_lease, legal_use, deposit, sale_price, parking, pet_friendly, cooking_allowed, gender_limit, no_smoking, tax_ok, household_ok, special_terms, water_fee, parking_fee, cleaning_fee, internet_fee, cable_fee, available_date, facilities, status, note, pending_manager_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 $stmt->execute([
-    $orgId, $listingType, $userId, $title,
+    $orgId, ($ownerUid ?: null), $listingType, $userId, $title,
     $city !== '' ? $city : null, $district !== '' ? $district : null,
     $address !== '' ? $address : null,
     $propertyType !== '' ? $propertyType : null,

@@ -92,10 +92,15 @@ function contract_build_content(array $lease, array $prop, array $tenant, array 
     return implode("\n", $L);
 }
 
-/* 建立租約電子合同 documents 資料列(signer=房客, signer2=屋主) */
+/* 建立租約電子合同 documents 資料列(signer=房客, signer2=屋主/代理人)
+ * 三種出租模式:
+ *  A 房東自管:signer2=房東(個人組織負責人)
+ *  B 公司代管:房東已簽「委託授權書」→ signer2=處理的公司成員(行政/負責人,代理簽),合約註明代理聲明
+ *  C 公司包租:無房東 → signer2=公司負責人當出租人
+ *  委託房東存在但無有效授權書 → 擋下要求先完成授權 */
 function contract_create_for_lease(PDO $pdo, int $leaseId, int $createdBy, string $extraTerms = '', array $fees = []): array
 {
-    $lStmt = $pdo->prepare('SELECT l.*, p.title AS property_title, p.city, p.district, p.address, p.elec_mode, p.elec_rate, p.org_id
+    $lStmt = $pdo->prepare('SELECT l.*, p.title AS property_title, p.city, p.district, p.address, p.elec_mode, p.elec_rate, p.org_id, p.owner_user_id, p.delegated_user_id
         FROM leases l JOIN properties p ON p.id = l.property_id WHERE l.id = ? LIMIT 1');
     $lStmt->execute([$leaseId]);
     $lease = $lStmt->fetch();
@@ -107,12 +112,34 @@ function contract_create_for_lease(PDO $pdo, int $leaseId, int $createdBy, strin
     if ($dup = $dupStmt->fetch()) {
         return [false, $dup['status'] === 'signed' ? '此租約已完成電子簽約' : '此租約已有一份進行中的電子簽約(文件 #' . $dup['id'] . ')'];
     }
-    $oStmt = $pdo->prepare('SELECT owner_user_id FROM organizations WHERE id = ?');
+    $oStmt = $pdo->prepare('SELECT owner_user_id, name FROM organizations WHERE id = ?');
     $oStmt->execute([(int)$lease['org_id']]);
-    $ownerUid = (int)($oStmt->fetch()['owner_user_id'] ?? 0);
+    $orgRow = $oStmt->fetch();
+    $ownerUid = (int)($orgRow['owner_user_id'] ?? 0);
     if (!$ownerUid) {
         return [false, '找不到此房屋的屋主'];
     }
+
+    /* 模式判定 */
+    $mandateDocId = 0;
+    $proxyNote = '';
+    $landlordUid = (int)($lease['owner_user_id'] ?? 0);
+    if ($landlordUid > 0 && $landlordUid !== $ownerUid) {
+        /* B:公司代管房東委託屋 → 須有已生效的委託授權書 */
+        $mStmt = $pdo->prepare("SELECT id, status FROM documents WHERE type = 'mandate' AND ref_id = ? AND status = 'signed' ORDER BY id DESC LIMIT 1");
+        $mStmt->execute([(int)$lease['property_id']]);
+        $mandate = $mStmt->fetch();
+        if (!$mandate) {
+            return [false, '此屋為房東委託,請先完成「房東委託授權書」電子簽署(房東+公司負責人),或改由房東自行簽署租約'];
+        }
+        $mandateDocId = (int)$mandate['id'];
+        $ownerUid = (int)$lease['created_by'] > 0 ? (int)$lease['created_by'] : $ownerUid; /* 代理簽署人=處理本租約的公司成員(行政/負責人) */
+        $llStmt = $pdo->prepare('SELECT name, phone FROM users WHERE id = ?');
+        $llStmt->execute([$landlordUid]);
+        $landlord = $llStmt->fetch();
+        $proxyNote = '出租人(甲方):' . ($landlord['name'] ?? '') . '(' . ($landlord['phone'] ?? '') . ')——由 ' . ($orgRow['name'] ?? '') . ' 依「房源委託管理授權書」(文件 #' . $mandateDocId . ') 代理簽署,代理人在授權範圍內所簽訂之本契約,效力歸屬於出租人。';
+    }
+
     $uStmt = $pdo->prepare('SELECT name, phone FROM users WHERE id = ?');
     $uStmt->execute([$ownerUid]);
     $owner = $uStmt->fetch();
@@ -120,9 +147,15 @@ function contract_create_for_lease(PDO $pdo, int $leaseId, int $createdBy, strin
     $tenant = $uStmt->fetch();
 
     $content = contract_build_content($lease, $lease, $tenant, $owner, trim($extraTerms), $fees);
+    if ($proxyNote !== '') {
+        $content = str_replace('出租人(甲方):' . ($owner['name'] ?? '') . '(' . ($owner['phone'] ?? '') . ')', $proxyNote, $content);
+    }
     $ins = $pdo->prepare("INSERT INTO documents (type, ref_id, property_id, created_by, signer_user_id, signer2_user_id, title, content, status, trail)
         VALUES ('lease_contract', ?, ?, ?, ?, ?, ?, ?, 'pending', ?)");
-    $trail = json_encode([['event' => 'created', 'by' => $createdBy, 'at' => date('Y-m-d H:i:s')]], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $trail = json_encode([
+        ['event' => 'created', 'by' => $createdBy, 'at' => date('Y-m-d H:i:s')],
+        ($mandateDocId ? ['event' => 'proxy_signing', 'mandate_doc' => $mandateDocId, 'by' => $createdBy, 'at' => date('Y-m-d H:i:s')] : []),
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     $ins->execute([$leaseId, (int)$lease['property_id'], $createdBy, (int)$lease['tenant_user_id'], $ownerUid,
         '租賃契約書|' . $lease['property_title'], $content, $trail]);
     $docId = (int)$pdo->lastInsertId();

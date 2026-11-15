@@ -26,6 +26,11 @@
       const res = await fetch('api/create_property.php', { cache: 'no-store' });
       const d = await res.json();
       if (!d.ok || !d.authenticated) return;
+      /* 公司職務:顯示委託房東欄(房東委託 vs 公司包租二選一) */
+      if (d.my_role && ['company_owner', 'admin_staff', 'accountant'].includes(d.my_role)) {
+        const ow = document.getElementById('ownerWrap');
+        if (ow) ow.style.display = '';
+      }
       const list = d.for_landlords || [];
       if (!list.length) return;
       isManagerMode = true;
@@ -206,6 +211,8 @@
     fd.append('facilities', $('#facilities').value.trim());
     fd.append('note', $('#note').value.trim());
     if (isManagerMode) fd.append('for_org', $('#forOrg').value);
+    const ownerEl = $('#owner_phone');
+    if (ownerEl && ownerEl.value.trim() !== '') fd.append('owner_phone', ownerEl.value.trim());
     files.slice(0, MAX_PHOTOS).forEach(f => fd.append('photos[]', f, f.name));
 
     const btn = $('#submitBtn');

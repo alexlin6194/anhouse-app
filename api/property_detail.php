@@ -35,6 +35,7 @@ if (!$p) {
 $memStmt = $pdo->prepare("SELECT role, org_id FROM org_members WHERE user_id = ? AND status = 'active' LIMIT 1");
 $memStmt->execute([$userId]);
 $mem = $memStmt->fetch();
+$myRole = $mem ? (string)$mem['role'] : '';
 $isLandlordOwner = $mem && $mem['role'] === 'landlord' && (int)$mem['org_id'] === (int)$p['org_id'];
 $isManager = (int)($p['delegated_user_id'] ?? 0) === $userId;
 
@@ -92,6 +93,21 @@ $ownStmt = $pdo->prepare('SELECT id, file_path, note, created_at FROM property_o
 $ownStmt->execute([(int)$p['id']]);
 $ownershipDocs = $ownStmt->fetchAll();
 
+/* 委託授權書狀態(公司職務/房東本人可見) */
+$mandateInfo = null;
+if ((int)$p['owner_user_id'] > 0) {
+    $mStmt = $pdo->prepare("SELECT id, status, signer_user_id, signer2_user_id, sign_name, sign2_name FROM documents WHERE type = 'mandate' AND ref_id = ? ORDER BY id DESC LIMIT 1");
+    $mStmt->execute([(int)$p['id']]);
+    $mandateInfo = $mStmt->fetch() ?: null;
+    $loStmt = $pdo->prepare('SELECT name, phone FROM users WHERE id = ?');
+    $loStmt->execute([(int)$p['owner_user_id']]);
+    $loRow = $loStmt->fetch();
+    if ($loRow) {
+        $mandateInfo['landlord_name'] = $loRow['name'];
+        $mandateInfo['landlord_phone'] = $loRow['phone'];
+    }
+}
+
 $hvStmt = $pdo->prepare("SELECT h.note, h.created_at, u.name AS agent_name FROM handovers h JOIN users u ON u.id = h.agent_user_id WHERE h.property_id = ? ORDER BY h.id DESC LIMIT 1");
 $hvStmt->execute([(int)$p['id']]);
 $handover = $hvStmt->fetch() ?: null;
@@ -102,7 +118,9 @@ respond(true, 'ok', [
     'photos' => $photos,
     'leases' => $leases,
     'ownership_docs' => $ownershipDocs,
+    'mandate' => $mandateInfo,
     'handover' => $handover,
     'can_manage' => (($isLandlordOwner && $p['delegated_user_id'] === null && $p['pending_manager_id'] === null) || $isManager) && !$paActive,
+    'my_role' => $myRole ?? '',
     'view' => $paActive ? 'agent' : ($isLandlordOwner ? 'landlord' : ($isManager ? 'manager' : 'tenant')),
 ]);
