@@ -195,8 +195,8 @@ function generate_lease_bills(array $lease): int
                 ->execute([$dep, $dep, (int)$firstBillRow['id']]);
             $pdo->prepare("DELETE FROM bills WHERE lease_id = ? AND period = 'deposit' AND status = 'pending'")->execute([$leaseId]);
         }
-    } elseif ($dep > 0 && $firstBillRow['status'] === 'paid') {
-        /* 首期已繳才允許獨立押金單存在;若尚無則補開(押金獨立欄位) */
+    } elseif ($dep > 0 && $firstBillRow['status'] === 'paid' && !($firstBillRow['deposit_amount'] > 0) && stripos((string)($firstBillRow['misc_note'] ?? ''), '押金') === false) {
+        /* 僅舊制首期(未含押金)已繳時,才補開獨立押金單;新制首期已含押金,不再重複開 */
         $dchk = $pdo->prepare("SELECT id FROM bills WHERE lease_id = ? AND period = 'deposit' LIMIT 1");
         $dchk->execute([$leaseId]);
         if (!$dchk->fetch()) {
