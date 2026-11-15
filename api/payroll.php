@@ -70,6 +70,8 @@ function loadRoster(PDO $pdo, int $orgId, string $month, array $payRows): array 
         $r['base_salary_pay'] = $row ? (int)$row['base_salary'] : (int)$r['base_salary'];
         $r['gross'] = $row ? (int)$row['gross'] : max(0, (int)$r['base_salary'] + $deals * (int)$r['bonus_per_deal']);
         $r['pay_status'] = $row ? $row['status'] : '';
+        $r['bonus_stale'] = ($row && $r['role'] === 'agent' && $row['status'] === 'draft' && (int)$row['bonus_amount'] !== $deals * (int)$r['bonus_per_deal']) ? 1 : 0;
+        $r['no_scheme'] = ($r['role'] === 'agent' && (int)$r['bonus_per_deal'] === 0) ? 1 : 0;
         $r['note'] = $row ? ($row['note'] ?? '') : '';
         $r['paid_at'] = $row ? ($row['paid_at'] ?? null) : null;
     }

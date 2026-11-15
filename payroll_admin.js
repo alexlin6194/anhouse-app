@@ -34,19 +34,54 @@
       return '<div class="card" style="padding:12px 16px;margin-bottom:10px">' +
         '<div style="display:flex;align-items:center;gap:8px"><b style="font-size:15px;color:var(--brown)">' + esc(r.name) + '</b>' +
         '<span style="font-size:11.5px;color:var(--brown2)">' + (roleTxt[r.role] || esc(r.role)) + '</span>' + st + '</div>' +
-        '<div style="font-size:12.5px;color:var(--brown2);margin-top:4px">底薪 ' + fmt(r.base_salary_pay) +
-        (r.role === 'agent' ? '・本月成交 ' + r.deals + ' 件・獎金 ' + fmt(r.bonus_amount) : '') +
+        '<div style="font-size:12.5px;color:var(--brown2);margin-top:4px">制度:底薪 ' + fmt(r.base_salary) +
+        (r.role === 'agent' ? '・每件成交獎金 ' + (Number(r.bonus_per_deal) ? fmt(r.bonus_per_deal) : '<b style="color:#c0392b">未設定(0 元)</b>') : '') + '</div>' +
+        '<div style="font-size:12.5px;color:var(--brown2);margin-top:2px">本月:底薪 ' + fmt(r.base_salary_pay) +
+        (r.role === 'agent' ? '・成交 ' + r.deals + ' 件・獎金 ' + fmt(r.bonus_amount) : '') +
         (r.extra_amount ? '・其他加減 ' + (r.extra_amount > 0 ? '+' : '') + fmt(r.extra_amount).replace('NT$', '$') : '') +
         (r.ins_deduct ? '・勞健保自付 -' + fmt(r.ins_deduct).replace('NT$', '$') : '') +
         (r.pension_employer ? '・勞退提撥 ' + fmt(r.pension_employer) : '') + '</div>' +
+        (r.no_scheme && r.deals > 0 ? '<p style="font-size:12px;color:#c0392b;margin:6px 2px 0">⚠ 已成交 ' + r.deals + ' 件,但「每件成交獎金」未設定(0 元)——請點 ⚙ 設定制度,或在編輯中手動填獎金</p>' : '') +
+        (r.bonus_stale ? '<p style="font-size:12px;color:#8A6D3B;margin:6px 2px 0">ℹ 已存草稿的獎金與本月業績不同步——點「✏️ 編輯」重新儲存即可更新</p>' : '') +
         '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">' +
         '<b style="font-size:16px;color:var(--brown)">應發 ' + fmt(r.gross) + '</b>' +
-        '<button class="btn ghost" style="padding:6px 12px;margin-left:auto" onclick="openEdit(' + i + ')">✏️ 編輯</button>' +
+        '<button class="btn ghost" style="padding:6px 12px;margin-left:auto" onclick="openScheme(' + i + ')">⚙ 制度</button>' +
+        '<button class="btn ghost" style="padding:6px 12px" onclick="openEdit(' + i + ')">✏️ 編輯</button>' +
         (r.pay_status === 'draft' ? '<button class="btn primary" style="padding:6px 12px" onclick="doPay(\'' + r.user_id + '\',\'confirm\')">出表</button>' : '') +
         (r.pay_status === 'confirmed' ? '<button class="btn primary" style="padding:6px 12px" onclick="doPay(\'' + r.user_id + '\',\'mark_paid\')">已發放</button>' : '') +
         '</div></div>';
     }).join('');
   }
+
+  window.openScheme = function (i) {
+    const r = cache.roster[i];
+    $('#edTitle').textContent = '⚙ 薪資制度|' + r.name + '(' + (roleTxt[r.role] || r.role) + ')';
+    $('#edBody').innerHTML =
+      '<p style="font-size:12.5px;color:var(--brown2);margin:0 2px 10px">制度為長期設定,每月出薪自動套用;單月份要特別調整時再用「✏️ 編輯」。</p>' +
+      '<label style="font-size:12.5px;color:var(--brown2);font-weight:700">每月底薪(NT$)</label>' +
+      '<input id="scBase" type="number" min="0" value="' + r.base_salary + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px">' +
+      (r.role === 'agent' ?
+        '<label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">每件成交獎金(NT$,0=不發)</label>' +
+        '<input id="scPer" type="number" min="0" value="' + r.bonus_per_deal + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px">' +
+        '<p style="font-size:11.5px;color:var(--brown2);margin:8px 2px 0">業績來源:「成交移交」完成的件數(該月份)。例:每件 $5,000 × 本月 2 件 = 獎金 $10,000。</p>'
+        : '') +
+      '<div style="display:flex;gap:10px;margin-top:14px">' +
+      '<button class="btn ghost" style="flex:1" onclick="closeEdit()">取消</button>' +
+      '<button class="btn primary" style="flex:1" id="scGo">儲存制度</button></div>';
+    document.getElementById('editMask').classList.add('show');
+    document.querySelector('.sheet').classList.add('show');
+    document.getElementById('scGo').addEventListener('click', async () => {
+      try {
+        const res = await fetch('api/payroll.php', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set_salary', user_id: Number(r.user_id), base_salary: Number($('#scBase').value || 0), bonus_per_deal: Number($('#scPer') ? $('#scPer').value || 0 : 0) })
+        });
+        const rr = await res.json();
+        toast(rr.message);
+        if (rr.ok) { window.closeEdit(); load(); }
+      } catch (e) { toast('連線異常'); }
+    });
+  };
 
   window.openEdit = function (i) {
     const r = cache.roster[i];
