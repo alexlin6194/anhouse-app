@@ -35,6 +35,7 @@
       const tiles = [];
       if (isBoss) tiles.push(['🪪', '資格審核', "location.href='qualification.html'"]);
       if (isBoss) tiles.push(['🏬', '分店管理', "location.href='branches.html'"]);
+      if (isBoss || isStaff) tiles.push(['🏗', '建立房源', "location.href='create_property.html'"]);
       if (isBoss || isStaff) tiles.push(['🏠', '房屋指派', 'openAssign()']);
       if (isAcct || isBoss || isStaff) tiles.push(['🧾', '帳單管理', "location.href='bills.html'"]);
       if (isAcct || isBoss) tiles.push(['💳', '收款確認', "location.href='bills.html?tab=pending'"]);

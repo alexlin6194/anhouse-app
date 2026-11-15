@@ -153,7 +153,7 @@ if (!$ownershipPath) {
 $pdo = db();
 $userId = (int)$_SESSION['user_id'];
 $memStmt = $pdo->prepare("SELECT om.role, o.id AS org_id FROM org_members om JOIN organizations o ON o.id = om.org_id
-    WHERE om.user_id = ? AND om.status = 'active' AND om.role IN ('landlord','agent','company_owner') LIMIT 1");
+    WHERE om.user_id = ? AND om.status = 'active' AND om.role IN ('landlord','agent','company_owner','admin_staff') LIMIT 1");
 $memStmt->execute([$userId]);
 $mem = $memStmt->fetch();
 
@@ -168,7 +168,7 @@ if (!$mem && $forOrg > 0) {
     $orgId = $forOrg;
     $actingAsManager = true;
 } elseif (!$mem) {
-    respond(false, '目前身份無法建立房源(房東/業務/公司負責人;管理員需有房東代管關係)');
+    respond(false, '目前身份無法建立房源(房東/業務/公司負責人/行政人員;管理員需有房東代管關係)');
 } else {
     $orgId = (int)$mem['org_id'];
 }
@@ -242,6 +242,8 @@ if ($actingAsManager) {
     $redirect = 'dashboard_manager.html';
 } elseif ($mem['role'] === 'agent') {
     $redirect = 'dashboard_agent.html';
+} elseif (in_array($mem['role'], ['company_owner', 'admin_staff'], true)) {
+    $redirect = 'dashboard_company.html';
 }
 
 respond(true, '房源已建立:' . $title . ($saved > 0 ? '(照片 ' . $saved . ' 張)' : '') . ($actingAsManager ? ',待房東授權後納入您的代管清單' : ''), [
