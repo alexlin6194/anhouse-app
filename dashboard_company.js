@@ -89,7 +89,11 @@
     try {
       const res = await fetch('api/assign_staff.php', { cache: 'no-store' });
       const d = await res.json();
-      if (!d.ok) { toast(d.message || '載入失敗'); return; }
+      if (!d.ok) {
+        toast(d.message || '載入失敗');
+        if (String(d.message || '').includes('登入')) { setTimeout(() => location.href = 'login.html', 900); }
+        return;
+      }
       asData = d;
       const props = d.properties || [];
       const emps = d.employees || [];
@@ -100,7 +104,7 @@
       $('#asEmp').innerHTML = emps.map(e => '<option value="' + e.user_id + '">' + esc(e.name) + '(' + esc(e.phone) + ')|' + (e.role === 'manager' ? '管理員' : '業務') + '</option>').join('');
       document.getElementById('mask').classList.add('show');
       document.querySelector('.sheet').classList.add('show');
-    } catch (e) { toast('連線異常'); }
+    } catch (e) { toast('連線異常:' + (e && e.message ? e.message : '請重新整理')); }
   };
   window.closeAssign = function () {
     document.getElementById('mask').classList.remove('show');
