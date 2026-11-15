@@ -39,7 +39,7 @@
           '<span>上傳:' + esc(String(doc.created_at).slice(0, 10)) + (doc.reviewed_at ? '|審核:' + esc(String(doc.reviewed_at).slice(0, 10)) : '') + '</span>' +
           (doc.note ? '<span style="color:var(--wood-d);font-weight:700">💬 平台備註:' + esc(doc.note) + '</span>' : '') +
           '</div>' +
-          (doc.file_path ? '<a href="' + esc(doc.file_path) + '" target="_blank" style="color:#8A6D3B;font-weight:700;font-size:12.5px;text-decoration:none">[查看文件]</a>' : '') +
+          (doc.file_path ? '<a href="javascript:void(0)" class="docLink" data-src="' + esc(doc.file_path) + '" style="color:#8A6D3B;font-weight:700;font-size:12.5px;text-decoration:none">[查看文件]</a>' : '') +
           '<span class="st ' + ((ST_MAP[doc.status] || ['', 'idle'])[1]) + '">' + ((ST_MAP[doc.status] || [doc.status])[0]) + '</span></div>').join('')
         : '<p style="padding:10px 2px;color:var(--brown2);font-size:13px;margin:0">目前沒有資料可供查看:尚無任何資格文件。</p>';
 
@@ -72,6 +72,26 @@
       $('#statusCard').innerHTML = '<p style="color:#c0392b;font-size:13px">畫面載入異常:' + esc(e.message || e) + '(請重新整理)</p>';
     }
   }
+
+  /* 文件 App 內檢視器:✕ 或點黑邊返回,不另開分頁 */
+  const docMask = document.getElementById('docMask');
+  const docBox = document.getElementById('docBox');
+  function closeDoc() {
+    docMask.classList.remove('show');
+    docBox.innerHTML = '';
+  }
+  document.addEventListener('click', (ev) => {
+    const a = ev.target.closest('.docLink');
+    if (!a) return;
+    ev.preventDefault();
+    const src = a.dataset.src || '';
+    docBox.innerHTML = /\.(pdf)(\?|$)/i.test(src)
+      ? '<iframe src="' + esc(src) + '" style="width:min(92vw,900px);height:86dvh;border:0;border-radius:12px"></iframe>'
+      : '<img src="' + esc(src) + '" style="max-width:92vw;max-height:86dvh;display:block;border-radius:12px">';
+    docMask.classList.add('show');
+  });
+  document.getElementById('docClose').addEventListener('click', closeDoc);
+  docMask.addEventListener('click', (ev) => { if (ev.target !== docBox && !docBox.contains(ev.target)) closeDoc(); });
 
   load();
 })();
