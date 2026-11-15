@@ -8,7 +8,11 @@
     lease_pending: () => 'dashboard_tenant.html',
     lease_accepted: () => 'leases.html',
     lease_declined: () => 'leases.html',
-    property_authorized: () => 'dashboard_manager.html',
+    property_authorized: () => 'ROLE',
+    pa_invite: () => 'dashboard_agent.html',
+    payroll: () => 'payroll.html',
+    bill_overdue: () => 'bills.html',
+    bill_due_soon: () => 'bills.html',
     property_created: () => 'dashboard.html'
   };
   let filter = '';
@@ -87,7 +91,20 @@
     const go = $('#nGo');
     if (links[type] && ref) {
       go.style.display = '';
-      go.onclick = () => { closeSheet(); location.href = links[type](ref); };
+      go.textContent = '前往處理';
+      go.onclick = () => {
+        closeSheet();
+        const dest = links[type](ref);
+        if (dest === 'ROLE') {
+          /* 依身份導向:業務→業務工作台,管理員→管理員工作台,其他→公司首頁 */
+          fetch('api/me.php', { cache: 'no-store' }).then(r => r.json()).then(d => {
+            const rr = d && d.user ? d.user.registration_role : '';
+            location.href = rr === 'agent' ? 'dashboard_agent.html' : rr === 'manager' ? 'dashboard_manager.html' : rr === 'tenant' ? 'dashboard_tenant.html' : 'dashboard_company.html';
+          }).catch(() => { location.href = 'dashboard.html'; });
+        } else {
+          location.href = dest;
+        }
+      };
     } else {
       go.style.display = 'none';
     }
