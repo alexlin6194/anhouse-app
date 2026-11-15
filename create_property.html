@@ -94,6 +94,11 @@
         <div class="field" id="depositWrap">
           <label for="deposit">押金(NT$,留空=未填)</label>
           <input id="deposit" type="tel" inputmode="numeric" placeholder="例:31600(兩個月)" maxlength="9">
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button type="button" class="dep-chip btn ghost" data-months="1" style="padding:6px 14px;font-size:12.5px">1 個月</button>
+            <button type="button" class="dep-chip btn ghost" data-months="2" style="padding:6px 14px;font-size:12.5px">2 個月</button>
+            <button type="button" class="dep-chip btn ghost" data-months="3" style="padding:6px 14px;font-size:12.5px">3 個月</button>
+          </div>
         </div>
         <div class="field" id="saleWrap" style="display:none">
           <label for="sale">售價(NT$)*</label>
@@ -195,7 +200,7 @@
   </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
-<script src="create_property.js?v=20261115m"></script>
+<script src="create_property.js?v=20261115ii"></script>
 <script src="assets/js/notify.js?v=20261114e"></script>
 <script src="assets/js/tabbar.js?v=20261114e"></script>
 </body>

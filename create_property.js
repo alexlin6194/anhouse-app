@@ -49,8 +49,7 @@
       listingType = btn.dataset.t;
       const isSale = listingType === 'sale';
       $('#rentWrap').style.display = isSale ? 'none' : '';
-      $('#depositWrap').style.display = isSale ? 'none' : '';
-      ['mgmtWrap','waterWrap','pfeeWrap','cfeeWrap','ifeeWrap','cableWrap'].forEach(id => { $('#' + id).style.display = isSale ? 'none' : ''; });
+      $('#depositWrap').style.display = isSale ? 'none' : '';      ['mgmtWrap','waterWrap','pfeeWrap','cfeeWrap','ifeeWrap','cableWrap'].forEach(id => { $('#' + id).style.display = isSale ? 'none' : ''; });
       $('#erateWrap').style.display = isSale ? 'none' : '';
       $('#erate').disabled = $('.mode-opt.on') && $('.mode-opt.on').dataset.mode === 'taipower';
       if ($('#erate').disabled) $('#erate').value = '';
@@ -72,6 +71,17 @@
   ['rent', 'deposit', 'sale', 'mgmt'].forEach(id => {
     const el = $('#' + id);
     if (el) el.addEventListener('input', () => { el.value = el.value.replace(/[^\d]/g, '').slice(0, 12); });
+  });
+
+  /* 押金快速帶入:1/2/3 個月(以月租金計算) */
+  document.querySelectorAll('.dep-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const rent = Number(num($('#rent').value) || 0);
+      if (!rent) { showToast('請先填月租金,再點押金月數快速帶入'); $('#rent').focus(); return; }
+      const m = Number(chip.dataset.months);
+      $('#deposit').value = String(rent * m);
+      showToast('已帶入押金 ' + m + ' 個月(NT$' + (rent * m).toLocaleString() + ')');
+    });
   });
 
   document.querySelectorAll('.mode-opt').forEach(btn => {
