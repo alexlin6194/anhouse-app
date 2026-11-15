@@ -174,7 +174,7 @@ if (!$mem && $forOrg > 0) {
 }
 
 $stmt = $pdo->prepare('INSERT INTO properties (org_id, listing_type, created_by, title, city, district, address, property_type, layout_rooms, layout_living, layout_bath, area_ping, floor_current, floor_total, rent, mgmt_fee, elec_rate, elec_mode, min_lease, legal_use, deposit, sale_price, parking, pet_friendly, cooking_allowed, gender_limit, no_smoking, tax_ok, household_ok, special_terms, water_fee, parking_fee, cleaning_fee, internet_fee, cable_fee, available_date, facilities, status, note, pending_manager_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 $stmt->execute([
     $orgId, $listingType, $userId, $title,
     $city !== '' ? $city : null, $district !== '' ? $district : null,
