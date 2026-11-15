@@ -182,10 +182,14 @@
 
         <div class="sect">⑥ 房屋照片</div>
         <div class="field">
-          <label for="photos">照片(最多 12 張,首張自動設為封面)</label>
-          <input id="photos" type="file" accept="image/*" multiple style="padding:10px">
+          <label>照片(最多 12 張,首張自動設為封面)</label>
+          <div id="photoPick" style="border:2px dashed var(--beige2);border-radius:16px;padding:18px 12px;text-align:center;cursor:pointer;color:var(--brown2);font-size:13.5px;font-weight:700;background:var(--cream2)">
+            📷 點此選擇照片(可按住 Ctrl 多選;也可直接把照片拖曳進來)
+          </div>
+          <input id="photos" type="file" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
+          <p class="hint" id="photoCount" style="margin-top:8px">📷 已選 0 / 12 張</p>
+          <div id="preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
           <p class="hint" id="hint-photos" aria-live="polite"></p>
-          <div id="preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
         </div>
 
         <div class="field">
@@ -200,7 +204,7 @@
   </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
-<script src="create_property.js?v=20261115ii"></script>
+<script src="create_property.js?v=20261115jj"></script>
 <script src="assets/js/notify.js?v=20261114e"></script>
 <script src="assets/js/tabbar.js?v=20261114e"></script>
 </body>

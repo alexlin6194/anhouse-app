@@ -103,8 +103,10 @@
   });
 
   let files = [];
-  $('#photos').addEventListener('change', () => {
-    const incoming = [...($('#photos').files || [])];
+  const photoInput = $('#photos');
+
+  function addPhotoFiles(list) {
+    const incoming = Array.from(list || []);
     for (const f of incoming) {
       if (files.length >= MAX_PHOTOS) { showToast('照片最多 12 張'); break; }
       if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { showToast('照片格式僅限 JPG/PNG/WEBP'); continue; }
@@ -112,18 +114,25 @@
       files.push(f);
     }
     renderPreviews();
-    $('#photos').value = '';
+  }
+
+  photoInput.addEventListener('change', () => {
+    addPhotoFiles(photoInput.files);
+    photoInput.value = '';
   });
+  $('#photoPick').addEventListener('click', () => photoInput.click());
+  ['dragover', 'dragenter'].forEach(ev => document.getElementById('photoPick').addEventListener(ev, (e) => {
+    e.preventDefault();
+    document.getElementById('photoPick').style.borderColor = 'var(--wood)';
+  }));
+  ['dragleave', 'drop'].forEach(ev => document.getElementById('photoPick').addEventListener(ev, (e) => {
+    e.preventDefault();
+    document.getElementById('photoPick').style.borderColor = 'var(--beige2)';
+    if (ev === 'drop' && e.dataTransfer && e.dataTransfer.files.length) addPhotoFiles(e.dataTransfer.files);
+  }));
 
   function renderPreviews() {
-    let cnt = $('#photoCount');
-    if (!cnt) {
-      cnt = document.createElement('div');
-      cnt.id = 'photoCount';
-      cnt.style.cssText = 'font-size:12px;color:var(--brown2);margin:6px 2px;font-weight:700';
-      $('#preview').parentNode.insertBefore(cnt, $('#preview'));
-    }
-    cnt.textContent = '📷 已選 ' + files.length + ' / ' + MAX_PHOTOS + ' 張';
+    $('#photoCount').textContent = '📷 已選 ' + files.length + ' / ' + MAX_PHOTOS + ' 張' + (files.length ? '(首張為封面,✕ 可移除)' : '(尚未選擇照片)');
     $('#preview').innerHTML = '';
     files.forEach((f, i) => {
       const box = document.createElement('div');
