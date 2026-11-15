@@ -43,6 +43,7 @@
       if (isAcct || isBoss || isStaff) tiles.push(['🪙', '零用金', "location.href='petty_cash.html'"]);
       if (isBoss || isAcct) tiles.push(['📄', '訂閱付款', "location.href='subscription.html'"]);
       if (isBoss) tiles.push(['📊', '稽核報表', "location.href='audit.html'"]);
+      tiles.push(['💰', '我的薪資', "location.href='payroll.html'"]);
       tiles.push(['💬', '訊息', "location.href='messages.html'"]);
       tiles.push(['🔔', '通知', "location.href='notifications.html'"]);
       tiles.push(['👤', '我的', "location.href='profile.html'"]);
