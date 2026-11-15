@@ -35,13 +35,14 @@
         '<div style="display:flex;align-items:center;gap:8px"><b style="font-size:15px;color:var(--brown)">' + esc(r.name) + '</b>' +
         '<span style="font-size:11.5px;color:var(--brown2)">' + (roleTxt[r.role] || esc(r.role)) + '</span>' + st + '</div>' +
         '<div style="font-size:12.5px;color:var(--brown2);margin-top:4px">制度:底薪 ' + fmt(r.base_salary) +
-        (r.role === 'agent' ? '・每件成交獎金 ' + (Number(r.bonus_per_deal) ? fmt(r.bonus_per_deal) : '<b style="color:#c0392b">未設定(0 元)</b>') : '') + '</div>' +
+        (r.role === 'agent' ? '・成交獎金 ' + (Number(r.bonus_pct) ? '<b>' + r.bonus_pct + '%</b>(房客仲介費)' : (Number(r.bonus_per_deal) ? '每件 ' + fmt(r.bonus_per_deal) + '(舊制)' : '<b style="color:#c0392b">未設定</b>')) : '') + '</div>' +
+        (r.role === 'agent' ? '<div style="font-size:12.5px;color:var(--brown2);margin-top:2px">本月:成交 ' + r.deals + ' 件・租金合計 ' + fmt(r.rent_sum) + '・公司仲介費 ' + fmt(r.company_fee * 2) + '(房客+房東各半)・獎金 ' + fmt(r.bonus_amount) + '</div>' : '') +
         '<div style="font-size:12.5px;color:var(--brown2);margin-top:2px">本月:底薪 ' + fmt(r.base_salary_pay) +
         (r.role === 'agent' ? '・成交 ' + r.deals + ' 件・獎金 ' + fmt(r.bonus_amount) : '') +
         (r.extra_amount ? '・其他加減 ' + (r.extra_amount > 0 ? '+' : '') + fmt(r.extra_amount).replace('NT$', '$') : '') +
         (r.ins_deduct ? '・勞健保自付 -' + fmt(r.ins_deduct).replace('NT$', '$') : '') +
         (r.pension_employer ? '・勞退提撥 ' + fmt(r.pension_employer) : '') + '</div>' +
-        (r.no_scheme && r.deals > 0 ? '<p style="font-size:12px;color:#c0392b;margin:6px 2px 0">⚠ 已成交 ' + r.deals + ' 件,但「每件成交獎金」未設定(0 元)——請點 ⚙ 設定制度,或在編輯中手動填獎金</p>' : '') +
+        (r.no_scheme && r.deals > 0 ? '<p style="font-size:12px;color:#c0392b;margin:6px 2px 0">⚠ 已成交 ' + r.deals + ' 件,但獎金制度未設定——請點 ⚙ 設定成交獎金 %,或在編輯中手動填獎金</p>' : '') +
         (r.bonus_stale ? '<p style="font-size:12px;color:#8A6D3B;margin:6px 2px 0">ℹ 已存草稿的獎金與本月業績不同步——點「✏️ 編輯」重新儲存即可更新</p>' : '') +
         '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">' +
         '<b style="font-size:16px;color:var(--brown)">應發 ' + fmt(r.gross) + '</b>' +
@@ -61,10 +62,11 @@
       '<label style="font-size:12.5px;color:var(--brown2);font-weight:700">每月底薪(NT$)</label>' +
       '<input id="scBase" type="number" min="0" value="' + r.base_salary + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px">' +
       (r.role === 'agent' ?
-        '<label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">每件成交獎金(NT$,0=不發)</label>' +
-        '<input id="scPer" type="number" min="0" value="' + r.bonus_per_deal + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px">' +
-        '<p style="font-size:11.5px;color:var(--brown2);margin:8px 2px 0">業績來源:「成交移交」完成的件數(該月份)。例:每件 $5,000 × 本月 2 件 = 獎金 $10,000。</p>'
-        : '') +
+        '<label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">成交獎金比例 %(向房客收取仲介費的 %)</label>' +
+        '<input id="scPct" type="number" min="0" max="100" value="' + (r.bonus_pct || 40) + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px">' +
+        '<p style="font-size:11.5px;color:var(--brown2);margin:8px 2px 0">公司收費制:仲介費 = 月租金 100%(房客 50% + 房東 50%)。業務獎金 = 房客 50% × 此比例。<br>例:租金 $12,000 → 公司收 $12,000(房客 $6,000)→ 業務 40% = <b>$2,400</b>。設 0 = 不自動發獎金。</p>' +
+        '<input id="scPer" type="hidden" value="' + r.bonus_per_deal + '">'
+        : '<input id="scPct" type="hidden" value="' + (r.bonus_pct || 0) + '"><input id="scPer" type="hidden" value="' + r.bonus_per_deal + '">') +
       '<div style="display:flex;gap:10px;margin-top:14px">' +
       '<button class="btn ghost" style="flex:1" onclick="closeEdit()">取消</button>' +
       '<button class="btn primary" style="flex:1" id="scGo">儲存制度</button></div>';
@@ -74,7 +76,7 @@
       try {
         const res = await fetch('api/payroll.php', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'set_salary', user_id: Number(r.user_id), base_salary: Number($('#scBase').value || 0), bonus_per_deal: Number($('#scPer') ? $('#scPer').value || 0 : 0) })
+          body: JSON.stringify({ action: 'set_salary', user_id: Number(r.user_id), base_salary: Number($('#scBase').value || 0), bonus_pct: Number($('#scPct') ? $('#scPct').value || 0 : 0), bonus_per_deal: Number($('#scPer') ? $('#scPer').value || 0 : 0) })
         });
         const rr = await res.json();
         toast(rr.message);
@@ -90,7 +92,7 @@
       '<label style="font-size:12.5px;color:var(--brown2);font-weight:700">底薪(每月固定)</label>' +
       '<input id="edBase" type="number" min="0" value="' + r.base_salary_pay + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px">' +
       (r.role === 'agent' ?
-        '<label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">業績獎金(本月成交 ' + r.deals + ' 件,自動算 ' + fmt(r.deals * r.bonus_per_deal) + ')</label>' +
+        '<label style="font-size:12.5px;color:var(--brown2);font-weight:700;display:block;margin-top:10px">業績獎金(本月成交 ' + r.deals + ' 件・租金合計 ' + fmt(r.rent_sum) + '・制度自動算 ' + fmt(r.bonus_amount) + ')</label>' +
         '<input id="edBonus" type="number" min="0" value="' + r.bonus_amount + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:14px">' +
         '<input id="edDetail" placeholder="獎金說明(選填)" value="' + esc(r.bonus_detail) + '" style="width:100%;padding:12px;border:1.5px solid var(--beige2);border-radius:12px;font-size:13px;margin-top:8px">'
         : '<input id="edBonus" type="hidden" value="' + r.bonus_amount + '"><input id="edDetail" type="hidden" value="' + esc(r.bonus_detail) + '">') +

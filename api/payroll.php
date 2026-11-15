@@ -43,13 +43,16 @@ if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
 
 /* 員工名單+底薪設定+該月自動業績 */
 function loadRoster(PDO $pdo, int $orgId, string $month, array $payRows): array {
-    $st = $pdo->prepare("SELECT om.user_id, om.role, om.base_salary, om.bonus_per_deal, u.name, u.phone
+    $st = $pdo->prepare("SELECT om.user_id, om.role, om.base_salary, om.bonus_per_deal, om.bonus_pct, u.name, u.phone
         FROM org_members om JOIN users u ON u.id = om.user_id
-        WHERE om.org_id = ? AND om.status = 'active' AND om.role IN ('agent','accountant','admin_staff','manager') ORDER BY FIELD(om.role,'agent','manager','accountant','admin_staff'), u.name");
+        WHERE om.org_id = ? AND om.status = 'active' AND om.role IN ('agent','manager','accountant','admin_staff') ORDER BY FIELD(om.role,'agent','manager','accountant','admin_staff'), u.name");
     $st->execute([$orgId]);
     $roster = $st->fetchAll();
 
-    $hSt = $pdo->prepare("SELECT COUNT(*) AS c FROM handovers WHERE agent_user_id = ? AND DATE_FORMAT(created_at, '%Y-%m') = ?");
+    /* 業績:該月成交移交件數與月租金合計(仲介費=月租金 100%,房客 50%+房東 50%;獎金基礎=房客 50%) */
+    $hSt = $pdo->prepare("SELECT COUNT(*) AS c, COALESCE(SUM(l.rent), 0) AS rent_sum
+        FROM handovers h JOIN leases l ON l.id = h.lease_id
+        WHERE h.agent_user_id = ? AND DATE_FORMAT(h.created_at, '%Y-%m') = ?");
     $pRow = function (int $uid) use ($payRows) {
         foreach ($payRows as $r) { if ((int)$r['user_id'] === $uid) return $r; }
         return null;
@@ -57,21 +60,29 @@ function loadRoster(PDO $pdo, int $orgId, string $month, array $payRows): array 
     foreach ($roster as &$r) {
         $uid = (int)$r['user_id'];
         $hSt->execute([$uid, $month]);
-        $deals = (int)$hSt->fetch()['c'];
+        $hRow = $hSt->fetch();
+        $deals = (int)$hRow['c'];
+        $rentSum = (int)$hRow['rent_sum'];
+        $companyFee = (int)round($rentSum * 0.5); /* 房客半(房東半另計,獎金基礎=房客半) */
+        $pct = (int)$r['bonus_pct'];
+        $autoBonus = $pct > 0 ? (int)round($companyFee * $pct / 100) : $deals * (int)$r['bonus_per_deal'];
         $r['deals'] = $deals;
+        $r['rent_sum'] = $rentSum;
+        $r['company_fee'] = $companyFee;
+        $r['bonus_pct'] = $pct;
         $row = $pRow($uid);
         $r['pay_id'] = $row ? (int)$row['id'] : 0;
-        $r['bonus_amount'] = $row ? (int)$row['bonus_amount'] : $deals * (int)$r['bonus_per_deal'];
-        $r['bonus_detail'] = $row ? ($row['bonus_detail'] ?? '') : ($deals ? '本月成交 ' . $deals . ' 件 × $' . number_format((int)$r['bonus_per_deal']) : '');
+        $r['bonus_amount'] = $row ? (int)$row['bonus_amount'] : $autoBonus;
+        $r['bonus_detail'] = $row ? ($row['bonus_detail'] ?? '') : ($deals ? '成交 ' . $deals . ' 件・租金合計 $' . number_format($rentSum) . '・公司收 $' . number_format($companyFee * 2) . '(房客+房東各半)・獎金 ' . ($pct ? $pct . '% 房客仲介費' : '制度未設定') : '');
         $r['extra_label'] = $row ? ($row['extra_label'] ?? '') : '';
         $r['extra_amount'] = $row ? (int)$row['extra_amount'] : 0;
         $r['ins_deduct'] = $row ? (int)$row['ins_deduct'] : 0;
-        $r['pension_employer'] = $row ? (int)$row['pension_employer'] : round(((int)$r['base_salary'] + $deals * (int)$r['bonus_per_deal']) * 0.06);
+        $r['pension_employer'] = $row ? (int)$row['pension_employer'] : round(((int)$r['base_salary'] + $autoBonus) * 0.06);
         $r['base_salary_pay'] = $row ? (int)$row['base_salary'] : (int)$r['base_salary'];
-        $r['gross'] = $row ? (int)$row['gross'] : max(0, (int)$r['base_salary'] + $deals * (int)$r['bonus_per_deal']);
+        $r['gross'] = $row ? (int)$row['gross'] : max(0, (int)$r['base_salary'] + $autoBonus);
         $r['pay_status'] = $row ? $row['status'] : '';
-        $r['bonus_stale'] = ($row && $r['role'] === 'agent' && $row['status'] === 'draft' && (int)$row['bonus_amount'] !== $deals * (int)$r['bonus_per_deal']) ? 1 : 0;
-        $r['no_scheme'] = ($r['role'] === 'agent' && (int)$r['bonus_per_deal'] === 0) ? 1 : 0;
+        $r['bonus_stale'] = ($row && $r['role'] === 'agent' && $row['status'] === 'draft' && (int)$row['bonus_amount'] !== $autoBonus) ? 1 : 0;
+        $r['no_scheme'] = ($r['role'] === 'agent' && $pct === 0 && (int)$r['bonus_per_deal'] === 0) ? 1 : 0;
         $r['note'] = $row ? ($row['note'] ?? '') : '';
         $r['paid_at'] = $row ? ($row['paid_at'] ?? null) : null;
     }
@@ -100,10 +111,11 @@ if (!$emp) {
 /* 薪資設定(底薪/每件成交獎金)— 存 org_members */
 if ($action === 'set_salary') {
     $base = max(0, (int)($in['base_salary'] ?? 0));
+    $pct = max(0, min(100, (int)($in['bonus_pct'] ?? 0)));
     $perDeal = max(0, (int)($in['bonus_per_deal'] ?? 0));
-    $pdo->prepare('UPDATE org_members SET base_salary = ?, bonus_per_deal = ? WHERE org_id = ? AND user_id = ?')
-        ->execute([$base, $perDeal, $orgId, $targetId]);
-    respond(true, '已更新 ' . $emp['name'] . ' 的薪資設定(底薪 $' . number_format($base) . '、每件成交獎金 $' . number_format($perDeal) . ')');
+    $pdo->prepare('UPDATE org_members SET base_salary = ?, bonus_pct = ?, bonus_per_deal = ? WHERE org_id = ? AND user_id = ?')
+        ->execute([$base, $pct, $perDeal, $orgId, $targetId]);
+    respond(true, '已更新 ' . $emp['name'] . ' 的薪資制度(底薪 $' . number_format($base) . ($pct ? '、成交獎金 = 房客仲介費的 ' . $pct . '%' : ($perDeal ? '、每件成交獎金 $' . number_format($perDeal) : '、獎金制度未設定')) . ')');
 }
 
 if ($action === 'save') {
