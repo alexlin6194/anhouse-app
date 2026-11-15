@@ -6,6 +6,13 @@
   let editingId = null;
   let toastTimer;
 
+  fetch('api/me.php').then(r => r.json()).then(d => {
+    if (d && d.ok && d.user && ['company_owner', 'admin_staff', 'accountant'].includes(d.user.registration_role)) {
+      const hb = document.getElementById('homeBack');
+      if (hb) hb.setAttribute('href', 'dashboard_company.html');
+    }
+  }).catch(() => {});
+
   function showToast(msg) {
     const t = $('#toast');
     t.textContent = msg;

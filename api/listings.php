@@ -19,12 +19,12 @@ $roleStmt->execute([$userId]);
 $myRole = (string)($roleStmt->fetch()['registration_role'] ?? '');
 
 $memStmt = $pdo->prepare("SELECT om.role, o.id AS org_id FROM org_members om JOIN organizations o ON o.id = om.org_id
-    WHERE om.user_id = ? AND om.status = 'active' AND om.role = 'landlord' LIMIT 1");
+    WHERE om.user_id = ? AND om.status = 'active' AND om.role IN ('landlord','company_owner','admin_staff') LIMIT 1");
 $memStmt->execute([$userId]);
 $mem = $memStmt->fetch();
 $orgId = $mem ? (int)$mem['org_id'] : 0;
 if (!$mem && $myRole !== 'agent') {
-    respond(false, '僅房東身份可管理房源刊登', ['authenticated' => true]);
+    respond(false, '僅房東/公司(負責人/行政)身份可管理房源刊登', ['authenticated' => true]);
 }
 
 $delegatedExpr = '(p.delegated_user_id IS NOT NULL OR p.delegated_org_id IS NOT NULL)';
