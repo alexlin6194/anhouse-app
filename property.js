@@ -189,7 +189,7 @@
           (md.status === 'signed'
             ? '<p style="font-size:12px;color:var(--green);margin:2px">授權生效中 — 行政人員可代理房東簽署租約(合約自動註明代理聲明,房東收通知+副本)。</p>'
             : '') +
-          (md.status === 'partially_signed' && data.my_role === 'company_owner' ? '<button type="button" class="mini-btn" id="mdGo">✍️ 前往文件簽署(副署)</button>' : '') +
+          (md.status === 'partially_signed' && isCompanyViewer ? '<button type="button" class="mini-btn" id="mdGo">✍️ 前往文件簽署(副署)</button>' : '') +
           (md.id > 0 ? '<a href="documents.html?doc=' + md.id + '" style="font-size:12px;color:#8A6D3B;font-weight:700;margin-left:6px">查看授權書全文(文件 #' + md.id + ')</a>' : '');
       }
     } else if (data.view === 'landlord' && md) {

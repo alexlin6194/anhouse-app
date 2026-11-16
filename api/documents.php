@@ -22,6 +22,13 @@ $landlordStmt = $pdo->prepare("SELECT o.id AS org_id FROM org_members om JOIN or
 $landlordStmt->execute([$userId]);
 $landlord = $landlordStmt->fetch();
 $myOrgId = $landlord ? (int)$landlord['org_id'] : 0;
+/* 公司職務(負責人/行政/會計)也納入組織範圍:可見公司文件列表 */
+if (!$myOrgId) {
+    $coStmt = $pdo->prepare("SELECT o.id AS org_id FROM org_members om JOIN organizations o ON o.id = om.org_id
+        WHERE om.user_id = ? AND om.status = 'active' AND om.role IN ('company_owner','admin_staff','accountant') LIMIT 1");
+    $coStmt->execute([$userId]);
+    $myOrgId = (int)($coStmt->fetch()['org_id'] ?? 0);
+}
 
 $roleStmt = $pdo->prepare('SELECT registration_role FROM users WHERE id = ?');
 $roleStmt->execute([$userId]);
@@ -353,7 +360,9 @@ if ($action === 'create_mandate') {
     $oStmt = $pdo->prepare('SELECT owner_user_id, name FROM organizations WHERE id = ?');
     $oStmt->execute([$mandateCompanyId]);
     $orgRow = $oStmt->fetch();
-    $ownerUid = (int)($orgRow['owner_user_id'] ?? 0);
+    $orgOwnerUid = (int)($orgRow['owner_user_id'] ?? 0);
+    /* 副署人:公司端產生者(行政/負責人皆可);房東自行產生時=公司負責人 */
+    $ownerUid = ($isCompany && $userId !== $landlordUid) ? $userId : $orgOwnerUid;
     if (!$ownerUid) {
         respond(false, '找不到受託公司的負責人');
     }
@@ -413,7 +422,23 @@ if ($action === 'sign') {
         $side = 1;
     } elseif (($isLease || $isMandate) && (int)($d['signer2_user_id'] ?? 0) === $userId) {
         $side = 2;
-    } else {
+    } elseif ($isMandate) {
+        /* 授權書副署:不限負責人 — 受託公司任何職務成員(負責人/行政/會計)皆可副署 */
+        $pOrg = $pdo->prepare('SELECT org_id, delegated_org_id FROM properties WHERE id = ? LIMIT 1');
+        $pOrg->execute([(int)$d['property_id']]);
+        $prRow = $pOrg->fetch();
+        $coOrg = $prRow ? (int)($prRow['delegated_org_id'] ?: $prRow['org_id']) : 0;
+        if ($coOrg > 0) {
+            $coChk = $pdo->prepare("SELECT COUNT(*) FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active' AND role IN ('company_owner','admin_staff','accountant')");
+            $coChk->execute([$coOrg, $userId]);
+            if ((int)$coChk->fetchColumn() > 0) {
+                $side = 2;
+                $pdo->prepare('UPDATE documents SET signer2_user_id = ? WHERE id = ?')->execute([$userId, $did]); /* 紀錄實際副署人 */
+                $d['signer2_user_id'] = $userId;
+            }
+        }
+    }
+    if ($side === 0) {
         respond(false, $isLease ? '僅契約雙方當事人可簽署' : '僅文件指定的簽署人可簽署');
     }
     $firstLabel = $isMandate ? '房東' : '房客';
