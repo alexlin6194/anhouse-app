@@ -507,6 +507,28 @@ if ($action === 'sign') {
             ensure_active_lease_bills(); /* 當場收款:首期租金立即待繳+押金帳單(billing 引擎冪等處理+通知) */
             notify((int)$d['signer_user_id'], 'lease_accepted', '租約已生效|' . $d['title'],
                 '雙方已完成租賃契約電子簽署,租約正式生效!第一期租金與押金帳單已產生,請至「帳單財務」繳納。', (int)$d['ref_id']);
+            /* 即時通知登記房東:您的房源已出租(公司代理簽署時房東沒在流程裡) */
+            $pInfo = $pdo->prepare('SELECT owner_user_id, org_id, delegated_org_id FROM properties WHERE id = ? LIMIT 1');
+            $pInfo->execute([(int)$d['property_id']]);
+            $pRow2 = $pInfo->fetch();
+            $landlordUid2 = (int)($pRow2['owner_user_id'] ?? 0);
+            if ($landlordUid2 <= 0 && (int)($pRow2['delegated_org_id'] ?? 0) > 0) {
+                $lo3 = $pdo->prepare('SELECT owner_user_id FROM organizations WHERE id = ?');
+                $lo3->execute([(int)$pRow2['org_id']]);
+                $landlordUid2 = (int)($lo3->fetch()['owner_user_id'] ?? 0);
+            }
+            if ($landlordUid2 > 0 && $landlordUid2 !== $userId) {
+                $ltStmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');
+                $ltStmt->execute([(int)$d['signer_user_id']]);
+                notify($landlordUid2, 'system', '您的房源已出租|' . $d['title'],
+                    ($_SESSION['name'] ?? '公司') . ' 已代理完成租賃契約電子簽署:承租人 ' . ($ltStmt->fetch()['name'] ?? '') . ',租約正式生效。租約副本已歸檔,可至「文件簽署」查看。', (int)$d['ref_id']);
+            }
+            /* 通知負責該屋的業務:成交落實 */
+            foreach (doc_managers($pdo, (int)$d['property_id']) as $duid) {
+                if ($duid !== $userId && $duid !== (int)$d['signer_user_id'] && $duid !== $landlordUid2) {
+                    notify($duid, 'lease_accepted', '租約已生效|' . $d['title'], '您負責的房屋已完成租賃契約電子簽署,租約正式生效。', (int)$d['ref_id']);
+                }
+            }
         }
     }
     notify((int)$d['signer_user_id'], 'system', '租賃契約已生效|' . $d['title'],
