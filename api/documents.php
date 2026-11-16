@@ -422,19 +422,30 @@ if ($action === 'sign') {
         $side = 1;
     } elseif (($isLease || $isMandate) && (int)($d['signer2_user_id'] ?? 0) === $userId) {
         $side = 2;
-    } elseif ($isMandate) {
-        /* 授權書副署:僅負責人/行政(會計不管授權)— 受託公司職務成員可副署 */
+    } elseif ($isMandate || $isLease) {
+        /* 公司端副署:負責人/行政皆可代簽(公司政策:簽約屬行政工作,會計不管)
+         * 授權書:受託公司(負責人/行政);租賃契約:該屋所屬/受託公司(負責人/行政) */
         $pOrg = $pdo->prepare('SELECT org_id, delegated_org_id FROM properties WHERE id = ? LIMIT 1');
         $pOrg->execute([(int)$d['property_id']]);
         $prRow = $pOrg->fetch();
-        $coOrg = $prRow ? (int)($prRow['delegated_org_id'] ?: $prRow['org_id']) : 0;
-        if ($coOrg > 0) {
+        $coOrgs = [];
+        if ($prRow) {
+            if ($isMandate) {
+                $coOrgs[] = (int)($prRow['delegated_org_id'] ?: $prRow['org_id']);
+            } else {
+                if ((int)$prRow['org_id'] > 0) $coOrgs[] = (int)$prRow['org_id'];
+                if ((int)($prRow['delegated_org_id'] ?? 0) > 0) $coOrgs[] = (int)$prRow['delegated_org_id'];
+            }
+        }
+        foreach (array_unique($coOrgs) as $coOrg) {
+            if ($coOrg <= 0) continue;
             $coChk = $pdo->prepare("SELECT COUNT(*) FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active' AND role IN ('company_owner','admin_staff')");
             $coChk->execute([$coOrg, $userId]);
             if ((int)$coChk->fetchColumn() > 0) {
                 $side = 2;
                 $pdo->prepare('UPDATE documents SET signer2_user_id = ? WHERE id = ?')->execute([$userId, $did]); /* 紀錄實際副署人 */
                 $d['signer2_user_id'] = $userId;
+                break;
             }
         }
     }

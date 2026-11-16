@@ -28,8 +28,8 @@
     if (!cache) return 0;
     if (Number(d.signer_user_id) === Number(cache.my_id)) return 1;
     if (Number(d.signer2_user_id) === Number(cache.my_id)) return 2;
-    /* 授權書:受託公司負責人/行政可副署(會計不管授權) */
-    if (d.type === 'mandate' && d.status === 'partially_signed' && ['company_owner', 'admin_staff'].includes(String(cache.my_role || ''))) return 2;
+    /* 公司端副署:負責人/行政(授權書與租賃契約皆可;會計不管簽約) */
+    if (d.status === 'partially_signed' && (d.type === 'mandate' || d.type === 'lease_contract') && ['company_owner', 'admin_staff'].includes(String(cache.my_role || ''))) return 2;
     return 0;
   }
 
@@ -187,7 +187,7 @@
         const n = (inp.value.trim() || cache.my_name || '').trim();
         if (n.length < 2) { showToast('請先輸入您的全名'); return; }
         inp.blur();
-        const sig = await openPad(isMd ? '受託公司副署簽名' : '出租人(屋主)簽名');
+        const sig = await openPad(isMd ? '受託公司副署簽名' : '出租人副署簽名');
         if (!sig) return;
         renderSignConfirm(foot, id, n, sig, isMd ? '受託公司' : '出租人');
       });
