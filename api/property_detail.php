@@ -37,7 +37,8 @@ $memStmt->execute([$userId]);
 $mem = $memStmt->fetch();
 $myRole = $mem ? (string)$mem['role'] : '';
 $isLandlordOwner = $mem && $mem['role'] === 'landlord' && (int)$mem['org_id'] === (int)$p['org_id'];
-$isCompanyStaff = $mem && in_array($mem['role'], ['company_owner', 'admin_staff', 'accountant'], true) && (int)$mem['org_id'] === (int)$p['org_id'];
+$isCompanyStaff = $mem && in_array($mem['role'], ['company_owner', 'admin_staff', 'accountant'], true)
+    && ((int)$mem['org_id'] === (int)$p['org_id'] || (int)($p['delegated_org_id'] ?? 0) === (int)$mem['org_id']);
 $isManager = (int)($p['delegated_user_id'] ?? 0) === $userId;
 
 /* 受託業務(委託生效中)可查看詳情 */
@@ -94,19 +95,31 @@ $ownStmt = $pdo->prepare('SELECT id, file_path, note, created_at FROM property_o
 $ownStmt->execute([(int)$p['id']]);
 $ownershipDocs = $ownStmt->fetchAll();
 
-/* 委託授權書狀態(公司職務/房東本人可見) */
+/* 委託授權書狀態:房東委託屋(公司名下建檔 owner_user_id 或 房東屋 delegated_org_id)雙方皆可見 */
+$landlordUid = (int)($p['owner_user_id'] ?? 0);
+$mandateCompanyId = 0;
+if ($landlordUid <= 0 && (int)($p['delegated_org_id'] ?? 0) > 0) {
+    /* 房東自管屋委託公司代管:房東=房屋所屬(個人)組織的負責人;受託公司=delegated_org_id */
+    $lo2 = $pdo->prepare('SELECT owner_user_id FROM organizations WHERE id = ?');
+    $lo2->execute([(int)$p['org_id']]);
+    $landlordUid = (int)($lo2->fetch()['owner_user_id'] ?? 0);
+    $mandateCompanyId = (int)$p['delegated_org_id'];
+} elseif ($landlordUid > 0) {
+    $mandateCompanyId = (int)$p['org_id'];
+}
 $mandateInfo = null;
-if ((int)$p['owner_user_id'] > 0) {
+if ($landlordUid > 0) {
     $mStmt = $pdo->prepare("SELECT id, status, signer_user_id, signer2_user_id, sign_name, sign2_name FROM documents WHERE type = 'mandate' AND ref_id = ? ORDER BY id DESC LIMIT 1");
     $mStmt->execute([(int)$p['id']]);
     $mandateInfo = $mStmt->fetch() ?: null;
     $loStmt = $pdo->prepare('SELECT name, phone FROM users WHERE id = ?');
-    $loStmt->execute([(int)$p['owner_user_id']]);
+    $loStmt->execute([$landlordUid]);
     $loRow = $loStmt->fetch();
     if ($loRow) {
         $mandateInfo['landlord_name'] = $loRow['name'];
         $mandateInfo['landlord_phone'] = $loRow['phone'];
     }
+    $mandateInfo['company_org_id'] = $mandateCompanyId;
 }
 
 $hvStmt = $pdo->prepare("SELECT h.note, h.created_at, u.name AS agent_name FROM handovers h JOIN users u ON u.id = h.agent_user_id WHERE h.property_id = ? ORDER BY h.id DESC LIMIT 1");

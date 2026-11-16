@@ -100,7 +100,7 @@ function contract_build_content(array $lease, array $prop, array $tenant, array 
  *  委託房東存在但無有效授權書 → 擋下要求先完成授權 */
 function contract_create_for_lease(PDO $pdo, int $leaseId, int $createdBy, string $extraTerms = '', array $fees = []): array
 {
-    $lStmt = $pdo->prepare('SELECT l.*, p.title AS property_title, p.city, p.district, p.address, p.elec_mode, p.elec_rate, p.org_id, p.owner_user_id, p.delegated_user_id
+    $lStmt = $pdo->prepare('SELECT l.*, p.title AS property_title, p.city, p.district, p.address, p.elec_mode, p.elec_rate, p.org_id, p.owner_user_id, p.delegated_user_id, p.delegated_org_id
         FROM leases l JOIN properties p ON p.id = l.property_id WHERE l.id = ? LIMIT 1');
     $lStmt->execute([$leaseId]);
     $lease = $lStmt->fetch();
@@ -124,16 +124,28 @@ function contract_create_for_lease(PDO $pdo, int $leaseId, int $createdBy, strin
     $mandateDocId = 0;
     $proxyNote = '';
     $landlordUid = (int)($lease['owner_user_id'] ?? 0);
-    if ($landlordUid > 0 && $landlordUid !== $ownerUid) {
-        /* B:公司代管房東委託屋 → 須有已生效的委託授權書 */
+    $isProxyCase = false;
+    if ((int)($lease['delegated_org_id'] ?? 0) > 0) {
+        /* 房東屋委託公司代管:租約由受託公司成員建立 → 代理簽(須有效授權書);房東本人建立 → 房東自簽 */
+        $memChk = $pdo->prepare("SELECT COUNT(*) FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active' AND role IN ('company_owner','admin_staff','accountant')");
+        $memChk->execute([(int)$lease['delegated_org_id'], $createdBy]);
+        $isProxyCase = (int)$memChk->fetchColumn() > 0;
+        $lo2 = $pdo->prepare('SELECT owner_user_id FROM organizations WHERE id = ?');
+        $lo2->execute([(int)$lease['org_id']]);
+        $landlordUid = (int)($lo2->fetch()['owner_user_id'] ?? 0);
+    } elseif ($landlordUid > 0 && $landlordUid !== $ownerUid) {
+        $isProxyCase = true; /* 公司名下綁定委託房東 */
+    }
+    if ($isProxyCase && $landlordUid > 0 && $landlordUid !== $ownerUid) {
+        /* B:代理簽 → 須有已生效的委託授權書 */
         $mStmt = $pdo->prepare("SELECT id, status FROM documents WHERE type = 'mandate' AND ref_id = ? AND status = 'signed' ORDER BY id DESC LIMIT 1");
         $mStmt->execute([(int)$lease['property_id']]);
         $mandate = $mStmt->fetch();
         if (!$mandate) {
-            return [false, '此屋為房東委託,請先完成「房東委託授權書」電子簽署(房東+公司負責人),或改由房東自行簽署租約'];
+            return [false, '此屋為房東委託,請先完成「房源委託管理授權書」電子簽署(房東+公司負責人),或改由房東自行簽署租約'];
         }
         $mandateDocId = (int)$mandate['id'];
-        $ownerUid = (int)$lease['created_by'] > 0 ? (int)$lease['created_by'] : $ownerUid; /* 代理簽署人=處理本租約的公司成員(行政/負責人) */
+        $ownerUid = $createdBy > 0 ? $createdBy : $ownerUid; /* 代理簽署人=處理本租約的公司成員(行政/負責人) */
         $llStmt = $pdo->prepare('SELECT name, phone FROM users WHERE id = ?');
         $llStmt->execute([$landlordUid]);
         $landlord = $llStmt->fetch();

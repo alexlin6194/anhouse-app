@@ -33,6 +33,9 @@ function doc_scope(PDO $pdo, int $userId, int $myOrgId, int $did): ?array
         $s = $pdo->prepare('SELECT d.* FROM documents d WHERE d.id = ? AND d.property_id IN (SELECT id FROM properties WHERE org_id = ?) LIMIT 1');
         $s->execute([$did, $myOrgId]);
         if ($r = $s->fetch()) return $r;
+        $s = $pdo->prepare("SELECT d.* FROM documents d WHERE d.id = ? AND d.type = 'mandate' AND d.property_id IN (SELECT id FROM properties WHERE delegated_org_id = ?) LIMIT 1");
+        $s->execute([$did, $myOrgId]);
+        if ($r = $s->fetch()) return $r;
     }
     $s = $pdo->prepare('SELECT d.* FROM documents d WHERE d.id = ? AND d.property_id IN (SELECT id FROM properties WHERE delegated_user_id = ?) LIMIT 1');
     $s->execute([$did, $userId]);
@@ -112,9 +115,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
     $parts = [];
     if ($myOrgId > 0) $parts[] = "d.property_id IN (SELECT id FROM properties WHERE org_id = {$myOrgId})";
+    if ($myOrgId > 0) $parts[] = "(d.type = 'mandate' AND d.property_id IN (SELECT id FROM properties WHERE delegated_org_id = {$myOrgId}))";
     $parts[] = "d.property_id IN (SELECT id FROM properties WHERE delegated_user_id = {$userId})";
     $parts[] = "d.property_id IN (SELECT property_id FROM property_agents WHERE agent_user_id = {$userId} AND status = 'active')";
     $parts[] = "d.signer_user_id = {$userId}";
+    $parts[] = "d.signer2_user_id = {$userId}";
     $scopeSql = '(' . implode(' OR ', $parts) . ')';
 
     $rows = $pdo->query("SELECT d.*, u.name AS creator_name, s.name AS signer_name, p.title AS property_title
@@ -300,29 +305,45 @@ if ($action === 'create_repair_charge') {
     respond(true, '確認函已發送給 ' . $tenantName . '(含報價與照片),待房客簽署後收費始生效');
 }
 
-/* ── 房源委託管理授權書(一次性,房東先簽→公司負責人副署)──
- * 用途:公司代管房東委託屋時,行政人員得以代理人身份簽署租約,不必每次找房東 */
+/* ── 房源委託管理授權書(一次性,房東先簽→受託公司負責人副署)──
+ * 適用:①公司名下建檔並綁定委託房東 ②房東自管屋委託公司代管(delegated_org_id)
+ * 授權生效後,公司行政/負責人可代理房東簽署該屋租約 */
 if ($action === 'create_mandate') {
     $pid = (int)($in['property_id'] ?? 0);
-    $pStmt = $pdo->prepare('SELECT id, title, org_id, owner_user_id, delegated_user_id, status FROM properties WHERE id = ? LIMIT 1');
+    $pStmt = $pdo->prepare('SELECT id, title, org_id, owner_user_id, delegated_org_id, delegated_user_id, status FROM properties WHERE id = ? LIMIT 1');
     $pStmt->execute([$pid]);
     $prop = $pStmt->fetch();
     if (!$prop) {
         respond(false, '找不到此房屋');
     }
-    /* 權限:本公司成員(負責人/行政)或該屋房東本人 */
+    $isLandlordSelf = false;
+    $landlordUid = (int)($prop['owner_user_id'] ?? 0);
+    $mandateCompanyId = 0;
+    if ((int)($prop['delegated_org_id'] ?? 0) > 0) {
+        /* 房東屋委託公司代管:房東=房屋所屬組織負責人 */
+        $lo2 = $pdo->prepare('SELECT owner_user_id FROM organizations WHERE id = ?');
+        $lo2->execute([(int)$prop['org_id']]);
+        $landlordUid = (int)($lo2->fetch()['owner_user_id'] ?? 0);
+        $mandateCompanyId = (int)$prop['delegated_org_id'];
+        $isLandlordSelf = ($landlordUid === $userId);
+    } elseif ($landlordUid > 0) {
+        $mandateCompanyId = (int)$prop['org_id'];
+    }
+    /* 權限:受託公司成員(負責人/行政/會計)或該屋房東本人 */
     $isCompany = false;
-    if ((int)$prop['org_id'] > 0) {
-        $mChk = $pdo->prepare("SELECT COUNT(*) FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active' AND role IN ('company_owner','admin_staff','accountant')");
-        $mChk->execute([(int)$prop['org_id'], $userId]);
+    $mChk = $pdo->prepare("SELECT COUNT(*) FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active' AND role IN ('company_owner','admin_staff','accountant')");
+    if ($mandateCompanyId > 0) {
+        $mChk->execute([$mandateCompanyId, $userId]);
         $isCompany = (int)$mChk->fetchColumn() > 0;
     }
-    $landlordUid = (int)($prop['owner_user_id'] ?? 0);
-    if (!$isCompany && $landlordUid !== $userId) {
-        respond(false, '僅房東本人或公司(負責人/行政)可產生委託授權書');
+    if (!$isCompany && !$isLandlordSelf && $landlordUid !== $userId) {
+        respond(false, '僅房東本人或受託公司(負責人/行政)可產生委託授權書');
     }
     if ($landlordUid <= 0) {
         respond(false, '此屋為公司名下房源(無房東委託),公司以出租人身分簽約即可,不需授權書');
+    }
+    if ($mandateCompanyId <= 0) {
+        respond(false, '此屋尚無受託公司 — 請先將房屋委託給公司代管,再產生授權書');
     }
     $dup = $pdo->prepare("SELECT id, status FROM documents WHERE type = 'mandate' AND ref_id = ? AND status IN ('pending','partially_signed','signed') LIMIT 1");
     $dup->execute([$pid]);
@@ -330,11 +351,14 @@ if ($action === 'create_mandate') {
         respond(false, $m['status'] === 'signed' ? '此屋已有生效中的委託授權書(文件 #' . $m['id'] . ')' : '此屋已有一份進行中的委託授權書(文件 #' . $m['id'] . '),待雙方簽署');
     }
     $oStmt = $pdo->prepare('SELECT owner_user_id, name FROM organizations WHERE id = ?');
-    $oStmt->execute([(int)$prop['org_id']]);
+    $oStmt->execute([$mandateCompanyId]);
     $orgRow = $oStmt->fetch();
     $ownerUid = (int)($orgRow['owner_user_id'] ?? 0);
     if (!$ownerUid) {
-        respond(false, '找不到公司負責人');
+        respond(false, '找不到受託公司的負責人');
+    }
+    if ($ownerUid === $landlordUid) {
+        respond(false, '此屋的受託公司即為房東本人,不需授權書');
     }
     $uStmt = $pdo->prepare('SELECT name, phone FROM users WHERE id = ?');
     $uStmt->execute([$landlordUid]);

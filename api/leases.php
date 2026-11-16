@@ -35,6 +35,11 @@ function lease_scope(PDO $pdo, int $userId, int $myOrgId, int $propertyId): ?str
         $c->execute([$propertyId, $myOrgId]);
         if ((int)$c->fetch()['c'] > 0) return 'landlord';
     }
+    /* 公司職務(負責人/行政/會計):公司名下屋 或 受託代管屋(delegated_org_id) */
+    $c = $pdo->prepare("SELECT COUNT(*) AS c FROM org_members om JOIN properties p ON (p.org_id = om.org_id OR p.delegated_org_id = om.org_id)
+        WHERE om.user_id = ? AND om.status = 'active' AND om.role IN ('company_owner','admin_staff','accountant') AND p.id = ?");
+    $c->execute([$userId, $propertyId]);
+    if ((int)$c->fetch()['c'] > 0) return 'company';
     $c = $pdo->prepare('SELECT COUNT(*) AS c FROM properties WHERE id = ? AND delegated_user_id = ?');
     $c->execute([$propertyId, $userId]);
     if ((int)$c->fetch()['c'] > 0) return 'manager';
