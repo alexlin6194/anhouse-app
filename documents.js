@@ -28,8 +28,8 @@
     if (!cache) return 0;
     if (Number(d.signer_user_id) === Number(cache.my_id)) return 1;
     if (Number(d.signer2_user_id) === Number(cache.my_id)) return 2;
-    /* 授權書:受託公司任何職務成員皆可副署(伺服器同步放行) */
-    if (d.type === 'mandate' && d.status === 'partially_signed' && ['company_owner', 'admin_staff', 'accountant'].includes(String(cache.my_role || ''))) return 2;
+    /* 授權書:受託公司負責人/行政可副署(會計不管授權) */
+    if (d.type === 'mandate' && d.status === 'partially_signed' && ['company_owner', 'admin_staff'].includes(String(cache.my_role || ''))) return 2;
     return 0;
   }
 

@@ -336,9 +336,9 @@ if ($action === 'create_mandate') {
     } elseif ($landlordUid > 0) {
         $mandateCompanyId = (int)$prop['org_id'];
     }
-    /* 權限:受託公司成員(負責人/行政/會計)或該屋房東本人 */
+    /* 權限:受託公司成員(負責人/行政 — 授權書與會計無關)或該屋房東本人 */
     $isCompany = false;
-    $mChk = $pdo->prepare("SELECT COUNT(*) FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active' AND role IN ('company_owner','admin_staff','accountant')");
+    $mChk = $pdo->prepare("SELECT COUNT(*) FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active' AND role IN ('company_owner','admin_staff')");
     if ($mandateCompanyId > 0) {
         $mChk->execute([$mandateCompanyId, $userId]);
         $isCompany = (int)$mChk->fetchColumn() > 0;
@@ -423,13 +423,13 @@ if ($action === 'sign') {
     } elseif (($isLease || $isMandate) && (int)($d['signer2_user_id'] ?? 0) === $userId) {
         $side = 2;
     } elseif ($isMandate) {
-        /* 授權書副署:不限負責人 — 受託公司任何職務成員(負責人/行政/會計)皆可副署 */
+        /* 授權書副署:僅負責人/行政(會計不管授權)— 受託公司職務成員可副署 */
         $pOrg = $pdo->prepare('SELECT org_id, delegated_org_id FROM properties WHERE id = ? LIMIT 1');
         $pOrg->execute([(int)$d['property_id']]);
         $prRow = $pOrg->fetch();
         $coOrg = $prRow ? (int)($prRow['delegated_org_id'] ?: $prRow['org_id']) : 0;
         if ($coOrg > 0) {
-            $coChk = $pdo->prepare("SELECT COUNT(*) FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active' AND role IN ('company_owner','admin_staff','accountant')");
+            $coChk = $pdo->prepare("SELECT COUNT(*) FROM org_members WHERE org_id = ? AND user_id = ? AND status = 'active' AND role IN ('company_owner','admin_staff')");
             $coChk->execute([$coOrg, $userId]);
             if ((int)$coChk->fetchColumn() > 0) {
                 $side = 2;
