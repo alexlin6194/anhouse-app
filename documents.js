@@ -28,6 +28,8 @@
     if (!cache) return 0;
     if (Number(d.signer_user_id) === Number(cache.my_id)) return 1;
     if (Number(d.signer2_user_id) === Number(cache.my_id)) return 2;
+    /* 授權書:受託公司任何職務成員皆可副署(伺服器同步放行) */
+    if (d.type === 'mandate' && d.status === 'partially_signed' && ['company_owner', 'admin_staff', 'accountant'].includes(String(cache.my_role || ''))) return 2;
     return 0;
   }
 
@@ -174,9 +176,10 @@
         await postAction({ doc_id: id, action: 'decline' });
       });
     } else if (d.status === 'partially_signed' && side === 2) {
+      const isMd = d.type === 'mandate';
       foot.innerHTML = '<input id="signName" value="' + esc(cache.my_name || '') + '" placeholder="請輸入您的全名" style="width:100%;border:1.8px solid var(--beige2);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:15px;color:var(--brown);font-family:inherit;margin-bottom:8px">' +
         '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--brown);margin:2px 2px 10px;font-weight:700"><input type="checkbox" id="signReviewed" style="width:19px;height:19px;accent-color:var(--wood-d);margin-top:1px;flex:none">我已詳閱契約全文並同意全部條款(勾選時間將留存紀錄)</label>' +
-        '<div style="display:flex;gap:10px"><button class="btn primary" id="signBtn" style="flex:1">🖊 屋主副署(契約生效)</button><button class="btn ghost" id="declineBtn" style="flex:1">拒簽</button></div>';
+        '<div style="display:flex;gap:10px"><button class="btn primary" id="signBtn" style="flex:1">🖊 ' + (isMd ? '公司副署(授權書生效)' : '屋主副署(契約生效)') + '</button><button class="btn ghost" id="declineBtn" style="flex:1">拒簽</button></div>';
       foot.querySelector('#signBtn').addEventListener('click', async () => {
         const rev = foot.querySelector('#signReviewed');
         if (rev && !rev.checked) { showToast('請先勾選「我已詳閱契約全文並同意全部條款」'); return; }
@@ -184,16 +187,18 @@
         const n = (inp.value.trim() || cache.my_name || '').trim();
         if (n.length < 2) { showToast('請先輸入您的全名'); return; }
         inp.blur();
-        const sig = await openPad('出租人(屋主)簽名');
+        const sig = await openPad(isMd ? '受託公司副署簽名' : '出租人(屋主)簽名');
         if (!sig) return;
-        renderSignConfirm(foot, id, n, sig, '出租人');
+        renderSignConfirm(foot, id, n, sig, isMd ? '受託公司' : '出租人');
       });
       foot.querySelector('#declineBtn').addEventListener('click', async () => {
         if (!confirm('確定拒簽此契約?')) return;
         await postAction({ doc_id: id, action: 'decline' });
       });
     } else if ((d.status === 'pending' || d.status === 'partially_signed') && isManager) {
-      foot.innerHTML = '<p style="font-size:12.5px;color:var(--brown2);text-align:center;margin:0 0 8px">' + (d.status === 'pending' ? '等待房客完成電子簽名' : '房客已簽名,等待屋主副署') + '</p>' +
+      foot.innerHTML = '<p style="font-size:12.5px;color:var(--brown2);text-align:center;margin:0 0 8px">' + (d.type === 'mandate'
+        ? (d.status === 'pending' ? '等待房東完成電子簽名' : '房東已簽名,等待公司人員副署')
+        : (d.status === 'pending' ? '等待房客完成電子簽名' : '房客已簽名,等待屋主副署')) + '</p>' +
         (isCreator ? '<button class="btn ghost" id="cancelBtn" style="width:100%">撤回此契約</button>' : '');
       const cb = foot.querySelector('#cancelBtn');
       if (cb) cb.addEventListener('click', async () => {
