@@ -185,6 +185,7 @@
       } else {
         const mdStatus = md.status === 'signed' ? '<span style="color:var(--green);font-weight:700">✅ 已生效</span>' : md.status === 'partially_signed' ? '<span style="color:#B7791F;font-weight:700">⏳ 房東已簽,待負責人副署</span>' : md.status === 'none' ? '<span style="color:#c0392b;font-weight:700">尚未產生授權書</span>' : '<span style="color:#c0392b;font-weight:700">⚠ 房東尚未簽署</span>';
         mandateHtml = '<div class="sect">📄 房東委託授權書</div><p style="font-size:12.5px;color:var(--brown2);margin:2px">委託房東:<b>' + esc(md.landlord_name || '') + '</b>(' + esc(md.landlord_phone || '') + ')・狀態:' + mdStatus + '</p>' +
+          (md.status === 'none' ? '<button type="button" class="mini-btn" id="mdCreate">📄 產生委託授權書(房東+負責人雙簽)</button>' : '') +
           (md.status === 'signed'
             ? '<p style="font-size:12px;color:var(--green);margin:2px">授權生效中 — 行政人員可代理房東簽署租約(合約自動註明代理聲明,房東收通知+副本)。</p>'
             : '') +
