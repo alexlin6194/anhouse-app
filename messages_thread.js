@@ -4,7 +4,7 @@
   const convId = new URLSearchParams(location.search).get('id');
   const threadEl = $('#thread');
   const inputEl = $('#msgInput');
-  const state = { lastId: 0, myLastId: 0, otherRead: 0, polling: null };
+  const state = { lastId: 0, myLastId: 0, otherRead: 0, polling: null, lastDate: null };
   let toastTimer;
 
   function showToast(msg) {
@@ -15,7 +15,26 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
   }
 
+  function dateLabel(dt) {
+    const d = new Date(String(dt).replace(' ', 'T'));
+    const today = new Date();
+    const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    if (sameDay(d, today)) return '今天';
+    const yest = new Date(today.getTime() - 86400000);
+    if (sameDay(d, yest)) return '昨天';
+    return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
+  }
+
   function render(m) {
+    /* 跨日分隔線:往上回看也能知道日期 */
+    const dl = dateLabel(m.created_at);
+    if (state.lastDate !== dl) {
+      const sep = document.createElement('div');
+      sep.style.cssText = 'text-align:center;margin:10px 0 4px';
+      sep.innerHTML = '<span style="font-size:11.5px;color:var(--brown2);background:var(--cream2);border:1px solid var(--beige2);border-radius:999px;padding:4px 14px;font-weight:700">' + dl + '</span>';
+      threadEl.appendChild(sep);
+      state.lastDate = dl;
+    }
     const div = document.createElement('div');
     div.className = 'bubble ' + (Number(m.mine) ? 'me' : 'you');
     div.dataset.id = m.id;

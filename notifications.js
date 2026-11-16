@@ -56,7 +56,7 @@
     listEl.innerHTML = data.items.map(n =>
       '<div class="notif' + (Number(n.is_read) ? ' read' : '') + '" data-id="' + n.id + '" data-type="' + n.type + '" data-ref="' + (n.ref_id || '') + '" data-read="' + n.is_read + '">' +
       '<div class="nic">' + (icons[n.type] || '🏠') + '</div>' +
-      '<div class="nt"><b>' + n.title + '</b><span>' + n.body + '</span><em>' + timeAgo(n.created_at) + '</em></div>' +
+      '<div class="nt"><b>' + n.title + '</b><span>' + n.body + '</span><em>' + n.created_at.replace(/-/g, '/').slice(0, 19) + '</em><em style="color:var(--brown2)" data-ago="1">' + timeAgo(n.created_at) + '</em></div>' +
       (Number(n.is_read) ? '' : '<span class="dot"></span>') +
       '</div>'
     ).join('');
@@ -87,7 +87,10 @@
     const ref = item.dataset.ref;
     $('#nIcon').innerHTML = (icons[type] || '🏠') + ' <span>' + esc(item.querySelector('.nt b').textContent) + '</span>';
     $('#nBody').textContent = item.querySelector('.nt span').textContent;
-    $('#nTime').textContent = timeAgo((item.querySelector('.nt em') || { textContent: '' }).textContent);
+    const ems = item.querySelectorAll('.nt em');
+    const fullTs = ems[0] ? ems[0].textContent : '';
+    const agoTxt = ems.length > 1 ? ems[1].textContent : '';
+    $('#nTime').textContent = '系統發送:' + fullTs + '(' + agoTxt + ')';
     const go = $('#nGo');
     if (links[type] && ref) {
       go.style.display = '';
