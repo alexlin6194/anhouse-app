@@ -33,11 +33,11 @@ $pdo = db();
 $userId = (int)$_SESSION['user_id'];
 
 $memStmt = $pdo->prepare("SELECT o.id AS org_id FROM org_members om JOIN organizations o ON o.id = om.org_id
-    WHERE om.user_id = ? AND om.status = 'active' AND om.role = 'company_owner' LIMIT 1");
+    WHERE om.user_id = ? AND om.status = 'active' AND om.role IN ('company_owner','admin_staff') LIMIT 1");
 $memStmt->execute([$userId]);
 $mem = $memStmt->fetch();
 if (!$mem) {
-    respond(false, '僅公司負責人(母帳號)可邀請員工');
+    respond(false, '僅公司負責人/行政人員可邀請員工');
 }
 $orgId = (int)$mem['org_id'];
 

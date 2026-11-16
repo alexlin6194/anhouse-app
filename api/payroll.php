@@ -36,7 +36,8 @@ if (!$me) {
 }
 $orgId = (int)$me['org_id'];
 /* 只有老闆與會計能設定/調整薪資;行政人員可查看 */
-$canManage = in_array($me['role'], ['company_owner', 'accountant'], true);
+/* 行政工作行政人員皆可操作(公司政策:僅重大決策限負責人);訂閱購買等花錢決策才限負責人 */
+$canManage = in_array($me['role'], ['company_owner', 'admin_staff', 'accountant'], true);
 
 $month = clean($in['month'] ?? date('Y-m'));
 if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
