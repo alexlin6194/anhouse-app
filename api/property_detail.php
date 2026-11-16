@@ -37,6 +37,7 @@ $memStmt->execute([$userId]);
 $mem = $memStmt->fetch();
 $myRole = $mem ? (string)$mem['role'] : '';
 $isLandlordOwner = $mem && $mem['role'] === 'landlord' && (int)$mem['org_id'] === (int)$p['org_id'];
+$isCompanyStaff = $mem && in_array($mem['role'], ['company_owner', 'admin_staff', 'accountant'], true) && (int)$mem['org_id'] === (int)$p['org_id'];
 $isManager = (int)($p['delegated_user_id'] ?? 0) === $userId;
 
 /* 受託業務(委託生效中)可查看詳情 */
@@ -56,7 +57,7 @@ foreach ($leases as $l) {
     if ((int)$l['tenant_user_id'] === $userId) $isTenantHere = true;
 }
 
-if (!$isLandlordOwner && !$isManager && !$isTenantHere && !$paActive) {
+if (!$isLandlordOwner && !$isCompanyStaff && !$isManager && !$isTenantHere && !$paActive) {
     respond(false, '您沒有權限查看這筆房屋');
 }
 
@@ -65,7 +66,7 @@ $photoStmt->execute([$id]);
 $photos = $photoStmt->fetchAll();
 
 foreach ($leases as &$l) {
-    if ($l['status'] === 'active' && ($isLandlordOwner || $isManager)) {
+    if ($l['status'] === 'active' && ($isLandlordOwner || $isCompanyStaff || $isManager)) {
         $bStmt = $pdo->prepare("SELECT id, period, amount, rent_amount, electric_amount, meter_reading, mgmt_amount, parking_amount, deposit_amount, misc_amount, misc_note, due_date, status
             FROM bills WHERE lease_id = ? ORDER BY period ASC LIMIT 12");
         $bStmt->execute([(int)$l['id']]);
@@ -120,7 +121,7 @@ respond(true, 'ok', [
     'ownership_docs' => $ownershipDocs,
     'mandate' => $mandateInfo,
     'handover' => $handover,
-    'can_manage' => (($isLandlordOwner && $p['delegated_user_id'] === null && $p['pending_manager_id'] === null) || $isManager) && !$paActive,
+    'can_manage' => (($isLandlordOwner && $p['delegated_user_id'] === null && $p['pending_manager_id'] === null) || $isManager || $isCompanyStaff) && !$paActive,
     'my_role' => $myRole ?? '',
-    'view' => $paActive ? 'agent' : ($isLandlordOwner ? 'landlord' : ($isManager ? 'manager' : 'tenant')),
+    'view' => $paActive ? 'agent' : ($isLandlordOwner ? 'landlord' : ($isManager ? 'manager' : ($isCompanyStaff ? 'company' : 'tenant'))),
 ]);

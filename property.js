@@ -27,7 +27,13 @@
       showToast('連線異常');
       return;
     }
-    if (!data.ok || !data.authenticated) { location.href = 'login.html'; return; }
+    if (!data.ok || !data.authenticated) {
+      if (data && data.authenticated === false) { location.href = 'login.html'; return; }
+      /* 有登入但無權限/查無房屋:顯示錯誤,不跳頁 */
+      $('#detail').innerHTML = '<div class="card"><p style="padding:14px 2px;color:#c0392b;font-size:13.5px;margin:0">' + esc(data.message || '無法載入房屋') + '</p><a class="btn line" id="errBack" href="javascript:history.back()" style="text-align:center;display:block;text-decoration:none;margin-top:10px">← 返回</a></div>';
+      return;
+    }
+    if (data.view === 'company') $('#navBack').setAttribute('href', 'dashboard_company.html');
     if (data.view === 'manager') $('#navBack').setAttribute('href', 'dashboard_manager.html');
     if (data.view === 'agent') $('#navBack').setAttribute('href', 'dashboard_agent.html');
     if (data.view === 'tenant') $('#navBack').setAttribute('href', 'dashboard_tenant.html');

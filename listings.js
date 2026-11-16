@@ -207,7 +207,12 @@
   function renderPhotoManager(photos) {
     editPhotos = photos.slice();
     const wrap = $('#photoManager');
-    wrap.innerHTML = '<p class="hint" style="margin:0 2px 8px">📷 已有 ' + editPhotos.length + ' / 12 張' + (editPhotos.length ? '(★ 設封面/✕ 刪除)' : ',下方可新增') + '</p>';
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'row';
+    wrap.style.flexWrap = 'wrap';
+    wrap.style.gap = '8px';
+    wrap.style.alignItems = 'flex-start';
+    wrap.innerHTML = '<p class="hint" style="margin:0 2px 8px;width:100%">📷 已有 ' + editPhotos.length + ' / 12 張' + (editPhotos.length ? '(★ 設封面/✕ 刪除)' : ',下方可新增') + '</p>';
     editPhotos.forEach((ph, i) => {
       const box = document.createElement('div');
       box.style.cssText = 'position:relative;width:74px;height:74px;border-radius:12px;overflow:hidden;border:2px solid var(--beige2)';
