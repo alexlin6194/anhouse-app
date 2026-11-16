@@ -47,6 +47,12 @@ function newebpay_activate(PDO $pdo, string $trade_no, string $newebpay_trade_no
         $pdo->prepare("INSERT IGNORE INTO notifications (user_id, type, ref_id, title, body) VALUES (?, 'sub_paid', ?, ?, ?)")
             ->execute([$ownerId, $sub['id'], '會員訂閱付款成功',
                 '「' . $label . '方案」已開通,有效期至 ' . $ends . '。感謝您使用安家生活GO!']);
+        /* 實際購買者(會計/行政代買)也通知 */
+        if (!empty($sub['buyer_user_id']) && (int)$sub['buyer_user_id'] !== $ownerId) {
+            $pdo->prepare("INSERT IGNORE INTO notifications (user_id, type, ref_id, title, body) VALUES (?, 'sub_paid', ?, ?, ?)")
+                ->execute([(int)$sub['buyer_user_id'], $sub['id'], '訂閱付款成功(代購)',
+                    '您代公司購買的「' . $label . '方案」已開通(歸戶:公司負責人帳上),有效期至 ' . $ends . '。']);
+        }
         return ['ok' => true, 'message' => '開通成功', 'sub_ends' => $ends];
     }
 

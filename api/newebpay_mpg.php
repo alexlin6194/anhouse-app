@@ -136,8 +136,8 @@ if ($action === 'status') {
 if ($action === 'repay') {
     /* 未完成/失敗交易的續付或重試 */
     $t = clean($_POST['trade_no'] ?? '');
-    $s = $pdo->prepare('SELECT * FROM subscriptions WHERE trade_no = ? AND vendor_user_id = ? AND status IN ("pending","failed") LIMIT 1');
-    $s->execute([$t, $meId]);
+    $s = $pdo->prepare('SELECT * FROM subscriptions WHERE trade_no = ? AND (vendor_user_id = ? OR buyer_user_id = ?) AND status IN ("pending","failed") LIMIT 1');
+    $s->execute([$t, $meId, $meId]);
     $sub = $s->fetch();
     if (!$sub) respond(false, '查無此筆待付訂閱');
     if (NEWEBPAY_MODE === 'mock') {
@@ -202,8 +202,17 @@ if ($action === 'start') {
     }
 
     $trade_no = 'ANJ' . date('YmdHis') . str_pad((string)random_int(0, 999), 3, '0', STR_PAD_LEFT);
-    $pdo->prepare('INSERT INTO subscriptions (audience, vendor_user_id, plan, months, amount, trade_no, method, created_at) VALUES (?,?,?,?,?,?,?,NOW())')
-        ->execute([$audience, $meId, $plan, $months, $amount, $trade_no, NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
+    /* 公司訂閱歸戶=組織負責人(會計/行政代買也寫到負責人帳上);buyer 記錄實際購買者 */
+    $targetUid = $meId;
+    $buyerUid = $meId;
+    if ($audience === 'member' && in_array($role, ['company_owner', 'admin_staff', 'accountant'], true)) {
+        $oOwn = $pdo->prepare('SELECT o.owner_user_id FROM org_members om JOIN organizations o ON o.id = om.org_id WHERE om.user_id = ? AND om.status = \'active\' LIMIT 1');
+        $oOwn->execute([$userId]);
+        $targetUid = (int)($oOwn->fetch()['owner_user_id'] ?? 0);
+        if ($targetUid <= 0) respond(false, '找不到公司負責人(無法歸戶)');
+    }
+    $pdo->prepare('INSERT INTO subscriptions (audience, vendor_user_id, buyer_user_id, plan, months, amount, trade_no, method, created_at) VALUES (?,?,?,?,?,?,?,?,NOW())')
+        ->execute([$audience, $targetUid, $buyerUid, $plan, $months, $amount, $trade_no, NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
 
     if (NEWEBPAY_MODE === 'mock') {
         respond(true, 'ok', ['mode' => 'mock', 'pay_url' => 'mock_pay.html?t=' . urlencode($trade_no)]);
