@@ -230,6 +230,8 @@
         if (r.ok) setTimeout(() => location.reload(), 1200);
       } catch (e) { showToast('連線異常:' + (e && e.message ? e.message : '')); }
     });
+    const mdGo = $('#mdGo');
+    if (mdGo) mdGo.addEventListener('click', () => { location.href = 'documents.html?doc=' + md.id; });
     const ownFile = $('#ownFile');
     if (ownFile) ownFile.addEventListener('change', async () => {
       const f = ownFile.files[0];
