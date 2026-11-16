@@ -18,7 +18,7 @@
     $('.sheet').classList.remove('show');
   };
 
-  const SOURCE_TXT = { walk_in: '走入店面', phone: '來電', referral: '親友介紹', web_591: '591/網路', facebook: 'FB/社群', other: '其他' };
+  const SOURCE_TXT = { walk_in: '走入店面', phone: '來電', referral: '親友介紹', web_591: '網路房產平台', facebook: 'FB/社群', other: '其他' };
   const ST_TXT = { new: ['新線索', 'warn'], following: ['跟進中', 'warn'], viewed: ['已帶看', 'ok'], dealt: ['成交', 'ok'], lost: ['已流失', 'idle'] };
 
   let filter = 'all';

@@ -74,7 +74,7 @@
           return '<div class="list-item"><span class="dot" style="background:' + dot + '"></span>' +
             '<div><b>' + (isSale ? '[售] ' : '[租] ') + l.title + '</b><span>' + info + '</span></div>' + st + '</div>';
         }).join('')
-      : '<p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">尚無房源:點右上「+ 建立房源」開始建檔(591 規格欄位,支援出租/出售)。</p>';
+      : '<p style="padding:14px 2px;color:var(--brown2);font-size:13px;margin:0">尚無房源:點右上「+ 建立房源」開始建檔(完整規格欄位,支援出租/出售)。</p>';
   }
 
   async function loadPA() {
