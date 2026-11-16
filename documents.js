@@ -155,14 +155,14 @@
       foot.querySelector('#signBtn').addEventListener('click', async () => {
         const rev = foot.querySelector('#signReviewed');
         if (rev && !rev.checked) { showToast('請先勾選「我已詳閱契約全文並同意全部條款」'); return; }
-        if (isLease) {
+        if (isLease || d.type === 'mandate') {
           const inp = foot.querySelector('#signName');
           const n = (inp.value.trim() || cache.my_name || '').trim();
           if (n.length < 2) { showToast('請先輸入您的全名'); return; }
           inp.blur();
-          const sig = await openPad('承租人(房客)簽名');
+          const sig = await openPad(d.type === 'mandate' ? (side === 1 ? '委託人(房東)簽名' : '受託公司負責人簽名') : '承租人(房客)簽名');
           if (!sig) return;
-          renderSignConfirm(foot, id, n, sig, '承租人');
+          renderSignConfirm(foot, id, n, sig, d.type === 'mandate' ? (side === 1 ? '房東' : '負責人') : '承租人');
         } else {
           const n = foot.querySelector('#signName').value.trim();
           await postAction({ doc_id: id, action: 'sign', sign_name: n, reviewed: true });
