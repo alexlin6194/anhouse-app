@@ -39,6 +39,7 @@ $myRole = $mem ? (string)$mem['role'] : '';
 $isLandlordOwner = $mem && $mem['role'] === 'landlord' && (int)$mem['org_id'] === (int)$p['org_id'];
 $isCompanyStaff = $mem && in_array($mem['role'], ['company_owner', 'admin_staff', 'accountant'], true)
     && ((int)$mem['org_id'] === (int)$p['org_id'] || (int)($p['delegated_org_id'] ?? 0) === (int)$mem['org_id']);
+$isOwnerLandlord = (int)($p['owner_user_id'] ?? 0) > 0 && (int)$p['owner_user_id'] === $userId; /* 公司代建的屋,登記房東本人可查看(唯讀) */
 $isManager = (int)($p['delegated_user_id'] ?? 0) === $userId;
 
 /* 受託業務(委託生效中)可查看詳情 */
@@ -58,7 +59,7 @@ foreach ($leases as $l) {
     if ((int)$l['tenant_user_id'] === $userId) $isTenantHere = true;
 }
 
-if (!$isLandlordOwner && !$isCompanyStaff && !$isManager && !$isTenantHere && !$paActive) {
+if (!$isLandlordOwner && !$isCompanyStaff && !$isOwnerLandlord && !$isManager && !$isTenantHere && !$paActive) {
     respond(false, '您沒有權限查看這筆房屋');
 }
 
@@ -136,5 +137,5 @@ respond(true, 'ok', [
     'handover' => $handover,
     'can_manage' => (($isLandlordOwner && $p['delegated_user_id'] === null && $p['pending_manager_id'] === null) || $isManager || $isCompanyStaff) && !$paActive,
     'my_role' => $myRole ?? '',
-    'view' => $paActive ? 'agent' : ($isLandlordOwner ? 'landlord' : ($isManager ? 'manager' : ($isCompanyStaff ? 'company' : 'tenant'))),
+    'view' => $paActive ? 'agent' : (($isLandlordOwner || $isOwnerLandlord) ? 'landlord' : ($isManager ? 'manager' : ($isCompanyStaff ? 'company' : 'tenant'))),
 ]);

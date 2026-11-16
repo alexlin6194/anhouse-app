@@ -28,7 +28,7 @@ if (!$mem) {
 }
 $orgId = (int)$mem['org_id'];
 
-$propStmt = $pdo->prepare("SELECT p.id, p.title, p.city, p.district, p.rent, p.status,
+$propStmt = $pdo->prepare("SELECT p.id, p.org_id, p.title, p.city, p.district, p.rent, p.status,
         u.name AS manager_name,
         pu.name AS pending_manager_name,
         GROUP_CONCAT(DISTINCT CASE WHEN la.status = 'active' THEN lau.name END) AS tenant_name,
@@ -40,13 +40,14 @@ $propStmt = $pdo->prepare("SELECT p.id, p.title, p.city, p.district, p.rent, p.s
     LEFT JOIN users lau ON lau.id = la.tenant_user_id
     LEFT JOIN leases lp ON lp.property_id = p.id AND lp.status IN ('pending')
     LEFT JOIN users lup ON lup.id = lp.tenant_user_id
-    WHERE p.org_id = ? GROUP BY p.id ORDER BY p.id");
-$propStmt->execute([$orgId]);
+    WHERE (p.org_id = ? OR p.owner_user_id = ?) GROUP BY p.id ORDER BY p.id");
+$propStmt->execute([$orgId, $userId]);
 $houses = $propStmt->fetchAll();
 
 $selfUnits = 0;
 foreach ($houses as $h) {
-    if ($h['manager_name'] === null && $h['pending_manager_name'] === null) {
+    /* 自管戶數只算自己組織的屋;公司名下(owner_user_id 綁定)的屋不算房東自管戶數 */
+    if ((int)$h['org_id'] === $orgId && $h['manager_name'] === null && $h['pending_manager_name'] === null) {
         $selfUnits++;
     }
 }
