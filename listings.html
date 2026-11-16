@@ -26,12 +26,6 @@
         <div class="sect">編輯房源</div>
         <form id="editForm" novalidate>
           <input type="hidden" id="f_id">
-          <div class="sect">照片管理(★ 設封面)</div>
-          <div id="photoManager" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
-          <div class="field">
-            <label for="f_addphoto">新增照片(最多 12 張)</label>
-            <input id="f_addphoto" type="file" accept="image/*" style="padding:10px">
-          </div>
           <div class="field"><label for="f_title">房屋名稱/地址</label><input id="f_title" maxlength="100"></div>
           <div class="field" style="display:flex;gap:12px"><div style="flex:1"><label for="f_city">城市</label><input id="f_city" maxlength="30"></div><div style="flex:1"><label for="f_district">行政區</label><input id="f_district" maxlength="30"></div></div>
           <div class="field"><label for="f_address">詳細地址</label><input id="f_address" maxlength="150"></div>
@@ -125,6 +119,12 @@
             <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="f_hhold" style="width:17px;height:17px;accent-color:var(--wood-d)">可入籍</label>
           </div>
           <div class="field"><label for="f_spterms">特約條款(禁菸/其他約定)</label><input id="f_spterms" maxlength="255" placeholder="例:全宅禁菸;頂樓加蓋非出租範圍"></div>
+          <div class="sect">照片管理(★ 設封面)</div>
+          <div id="photoManager" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+          <div class="field">
+            <label for="f_addphoto">新增照片(最多 12 張)</label>
+            <input id="f_addphoto" type="file" accept="image/*" style="padding:10px">
+          </div>
           <button type="submit" class="btn primary" id="saveBtn">儲存變更</button>
           <button type="button" class="btn line" id="cancelBtn" style="margin-top:8px">取消編輯</button>
         </form>
@@ -134,7 +134,7 @@
 </div>
 <div class="toast" id="toast" role="status"></div>
 <script src="assets/js/lightbox.js?v=20261114u"></script>
-<script src="listings.js?v=20261115oo"></script>
+<script src="listings.js?v=20261115tt"></script>
 <script src="assets/js/notify.js?v=20261114e"></script>
 <script src="assets/js/tabbar.js?v=20261114e"></script>
 </body>
