@@ -190,6 +190,11 @@
         if (oh) oh.textContent = md
           ? (md.status === 'signed' ? '✅ 授權書已生效(文件 #' + md.id + ')— 行政人員可代理簽租約' : '⏳ 授權書狀態:' + (md.status === 'partially_signed' ? '房東已簽,待負責人副署' : '房東尚未簽署') + '(文件 #' + md.id + ')')
           : '⚠ 已綁定房東但尚未簽委託授權書 — 請至房屋詳情頁產生授權書(文件需房東+負責人雙簽)';
+        const goMd = document.createElement('a');
+        goMd.href = 'property.html?id=' + p.id;
+        goMd.style.cssText = 'display:inline-block;margin:2px 6px 10px;font-size:12.5px;color:#8A6D3B;font-weight:700';
+        goMd.textContent = '📄 前往房屋詳情(產生/查看委託授權書)';
+        oh.parentNode.insertBefore(goMd, oh.nextSibling);
       } else {
         ownerEl2.value = '';
         if (oh) oh.textContent = '目前為公司包租模式(公司以出租人身分簽約)';
