@@ -60,6 +60,12 @@
     listEl.querySelectorAll('.doc-row').forEach(row => {
       row.addEventListener('click', () => openDoc(Number(row.dataset.id)));
     });
+    /* 深連結:?doc=N 直接開啟該文件 */
+    const want = Number(new URLSearchParams(location.search).get('doc') || 0);
+    if (want > 0 && docs.some(d => Number(d.id) === want)) {
+      openDoc(want);
+      history.replaceState(null, '', 'documents.html');
+    }
   }
 
   function sigBlock(d) {

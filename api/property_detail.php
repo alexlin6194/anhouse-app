@@ -19,7 +19,7 @@ if ($id <= 0) {
     respond(false, '缺少房屋編號');
 }
 
-$propStmt = $pdo->prepare('SELECT p.*, o.name AS org_name, o.owner_user_id,
+$propStmt = $pdo->prepare('SELECT p.*, o.name AS org_name, o.owner_user_id AS org_owner_user_id,
         du.name AS manager_name, pu.name AS pending_manager_name
     FROM properties p
     JOIN organizations o ON o.id = p.org_id
@@ -111,7 +111,7 @@ $mandateInfo = null;
 if ($landlordUid > 0) {
     $mStmt = $pdo->prepare("SELECT id, status, signer_user_id, signer2_user_id, sign_name, sign2_name FROM documents WHERE type = 'mandate' AND ref_id = ? ORDER BY id DESC LIMIT 1");
     $mStmt->execute([(int)$p['id']]);
-    $mandateInfo = $mStmt->fetch() ?: null;
+    $mandateInfo = $mStmt->fetch() ?: ['id' => 0, 'status' => 'none', 'signer_user_id' => $landlordUid, 'signer2_user_id' => 0, 'sign_name' => null, 'sign2_name' => null];
     $loStmt = $pdo->prepare('SELECT name, phone FROM users WHERE id = ?');
     $loStmt->execute([$landlordUid]);
     $loRow = $loStmt->fetch();

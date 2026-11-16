@@ -180,20 +180,21 @@
       if (!md && pOwner <= 0) {
         mandateHtml = '<div class="sect">📄 出租模式</div><p style="font-size:12.5px;color:var(--brown2);margin:2px">公司包租模式 — 公司以出租人身分簽署租約(負責人副署)。若實為房東委託,請於建立房源時填房東手機或補建。</p>';
       } else if (!md) {
-        mandateHtml = '<div class="sect">📄 房東委託授權書</div><p style="font-size:12.5px;color:var(--brown2);margin:2px">此屋綁定房東但尚未簽授權書 — 簽署後行政人員即可代理房東簽租約。</p>' +
+        mandateHtml = '<div class="sect">📄 房東委託授權書</div><p style="font-size:12.5px;color:var(--brown2);margin:2px">委託房東:<b>' + esc(md.landlord_name || '') + '</b>(' + esc(md.landlord_phone || '') + ')・狀態:<span style="color:#c0392b;font-weight:700">尚未產生授權書</span></p>' +
           '<button type="button" class="mini-btn" id="mdCreate">📄 產生委託授權書(房東+負責人雙簽)</button>';
       } else {
-        const mdStatus = md.status === 'signed' ? '<span style="color:var(--green);font-weight:700">✅ 已生效</span>' : md.status === 'partially_signed' ? '<span style="color:#B7791F;font-weight:700">⏳ 房東已簽,待負責人副署</span>' : '<span style="color:#c0392b;font-weight:700">⚠ 房東尚未簽署</span>';
-        mandateHtml = '<div class="sect">📄 房東委託授權書</div><p style="font-size:12.5px;color:var(--brown2);margin:2px">委託房東:' + esc(md.landlord_name || '') + '(' + esc(md.landlord_phone || '') + ')・狀態:' + mdStatus + '</p>' +
+        const mdStatus = md.status === 'signed' ? '<span style="color:var(--green);font-weight:700">✅ 已生效</span>' : md.status === 'partially_signed' ? '<span style="color:#B7791F;font-weight:700">⏳ 房東已簽,待負責人副署</span>' : md.status === 'none' ? '<span style="color:#c0392b;font-weight:700">尚未產生授權書</span>' : '<span style="color:#c0392b;font-weight:700">⚠ 房東尚未簽署</span>';
+        mandateHtml = '<div class="sect">📄 房東委託授權書</div><p style="font-size:12.5px;color:var(--brown2);margin:2px">委託房東:<b>' + esc(md.landlord_name || '') + '</b>(' + esc(md.landlord_phone || '') + ')・狀態:' + mdStatus + '</p>' +
           (md.status === 'signed'
             ? '<p style="font-size:12px;color:var(--green);margin:2px">授權生效中 — 行政人員可代理房東簽署租約(合約自動註明代理聲明,房東收通知+副本)。</p>'
-            : (data.my_role === 'company_owner' ? '<button type="button" class="mini-btn" id="mdGo">✍️ 前往文件簽署(副署)</button>' : '<p style="font-size:12px;color:var(--brown2);margin:2px">待房東簽名後,由負責人副署生效。</p>')) +
-          '<a href="documents.html" style="font-size:12px;color:#8A6D3B;font-weight:700;margin-left:6px">查看授權書全文(文件 #' + md.id + ')</a>';
+            : '') +
+          (md.status === 'partially_signed' && data.my_role === 'company_owner' ? '<button type="button" class="mini-btn" id="mdGo">✍️ 前往文件簽署(副署)</button>' : '') +
+          (md.id > 0 ? '<a href="documents.html?doc=' + md.id + '" style="font-size:12px;color:#8A6D3B;font-weight:700;margin-left:6px">查看授權書全文(文件 #' + md.id + ')</a>' : '');
       }
     } else if (data.view === 'landlord' && md) {
-      const mdStatus2 = md.status === 'signed' ? '✅ 已生效' : '⏳ 待簽署/副署';
+      const mdStatus2 = md.status === 'signed' ? '✅ 已生效' : md.status === 'partially_signed' ? '⏳ 房東已簽,待負責人副署' : md.status === 'none' ? '尚未產生授權書(請公司於房屋詳情產生)' : '⚠ 待您簽署';
       mandateHtml = '<div class="sect">📄 您的委託授權書</div><p style="font-size:12.5px;color:var(--brown2);margin:2px">狀態:' + mdStatus2 + ' — 授權生效期間,公司人員可代理您簽署本屋租約(每筆通知您並提供副本)。</p>' +
-        '<a href="documents.html" style="font-size:12px;color:#8A6D3B;font-weight:700">查看/簽署授權書(文件 #' + md.id + ')</a>';
+        (md.id > 0 ? '<a href="documents.html?doc=' + md.id + '" style="font-size:12px;color:#8A6D3B;font-weight:700">查看/簽署授權書(文件 #' + md.id + ')</a>' : '');
     }
     const shareSection = (p.status !== 'rented' && (data.can_manage || data.view === 'agent'))
       ? '<div class="sect">🔗 推廣連結(免註冊即可查看)</div><div style="margin:4px 2px"><button type="button" class="btn line" id="shareBtn" style="width:100%;text-align:center">🔗 複製房源推廣連結</button><p style="font-size:11px;color:var(--brown2);margin:6px 2px 0">連結給準房客/買家開啟,毋需帳號即可看房(顯示城市/區域,完整地址不公開)。</p></div>'
