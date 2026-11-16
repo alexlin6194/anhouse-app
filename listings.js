@@ -104,7 +104,7 @@
     });
   }
 
-  function openEdit(p) {
+  async function openEdit(p) {
     editingId = p.id;
     const del = !!Number(p.is_delegated);
     const photoBox = $('#photoManager');
@@ -178,6 +178,23 @@
     $('#f_taxok').checked = Number(p.tax_ok) === 1;
     $('#f_hhold').checked = Number(p.household_ok) === 1;
     $('#f_spterms').value = p.special_terms || '';
+    /* 委託房東(公司模式):顯示現況手機(未綁定=包租) */
+    const ownerEl2 = $('#f_owner');
+    if (ownerEl2) {
+      const oh = $('#ownerHint');
+      if (Number(p.owner_user_id) > 0) {
+        const opRes = await fetch('api/property_detail.php?id=' + p.id, { cache: 'no-store' });
+        const opData = await opRes.json();
+        const md = opData && opData.ok ? (opData.mandate || null) : null;
+        ownerEl2.value = (md && md.landlord_phone) || '';
+        if (oh) oh.textContent = md
+          ? (md.status === 'signed' ? '✅ 授權書已生效(文件 #' + md.id + ')— 行政人員可代理簽租約' : '⏳ 授權書狀態:' + (md.status === 'partially_signed' ? '房東已簽,待負責人副署' : '房東尚未簽署') + '(文件 #' + md.id + ')')
+          : '⚠ 已綁定房東但尚未簽委託授權書 — 請至房屋詳情頁產生授權書(文件需房東+負責人雙簽)';
+      } else {
+        ownerEl2.value = '';
+        if (oh) oh.textContent = '目前為公司包租模式(公司以出租人身分簽約)';
+      }
+    }
     renderPhotoManager(p.photos || []);
     syncTypeUI();
     $('#f_status').value = p.status;
@@ -374,7 +391,8 @@
       gender_limit: 'any',
       available_date: isSale ? '' : $('#f_available').value,
       facilities: $('#f_facilities').value.trim(),
-      note: $('#f_note').value.trim()
+      note: $('#f_note').value.trim(),
+      owner_phone: $('#f_owner') ? $('#f_owner').value.trim() : undefined
     };
     const btn = $('#saveBtn');
     btn.disabled = true;

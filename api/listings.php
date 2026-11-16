@@ -33,7 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $stmt = $pdo->prepare("SELECT p.id, p.title, p.city, p.district, p.address, p.listing_type, p.property_type,
         p.layout_rooms, p.layout_living, p.layout_bath, p.area_ping, p.floor_current, p.floor_total,
         p.rent, p.mgmt_fee, p.min_lease, p.legal_use, p.deposit, p.sale_price, p.parking, p.pet_friendly, p.cooking_allowed, p.gender_limit,
-        p.available_date, p.facilities, p.status, p.is_listed, p.note, p.created_at,
+        p.elec_mode, p.elec_rate, p.water_fee, p.parking_fee, p.cleaning_fee, p.internet_fee, p.cable_fee,
+        p.owner_user_id, p.available_date, p.facilities, p.status, p.is_listed, p.note, p.created_at,
         {$delegatedExpr} AS is_delegated
         FROM properties p WHERE p.org_id = ? ORDER BY p.is_listed DESC, p.id DESC");
     $stmt->execute([$orgId]);
@@ -287,6 +288,27 @@ $elecRate = $erateRaw === '' ? null : round((float)$erateRaw, 2);
 if ($elecRate !== null && ($elecRate < 0 || $elecRate > 99)) {
     respond(false, '電費單價請填 0–99 元/度');
 }
+$elecMode = clean($in['elec_mode'] ?? '');
+if (!in_array($elecMode, ['flat', 'taipower'], true)) {
+    $elecMode = 'flat';
+}
+/* 委託房東:有帶 owner_phone 就更新(空=清除→公司包租);查無會員則擋 */
+$ownerUid = 0;
+if (array_key_exists('owner_phone', $in)) {
+    $ownerPhone = clean((string)($in['owner_phone'] ?? ''));
+    if ($ownerPhone !== '') {
+        $oChk = $pdo->prepare('SELECT id FROM users WHERE phone = ? LIMIT 1');
+        $oChk->execute([$ownerPhone]);
+        $ownerUid = (int)($oChk->fetch()['id'] ?? 0);
+        if ($ownerUid <= 0) {
+            respond(false, '委託房東手機查無會員 — 請確認房東已註冊,或清空以公司包租模式');
+        }
+    }
+} else {
+    $curOwner = $pdo->prepare('SELECT owner_user_id FROM properties WHERE id = ?');
+    $curOwner->execute([$id]);
+    $ownerUid = (int)($curOwner->fetch()['owner_user_id'] ?? 0);
+}
 $deposit = $depositRaw === '' ? null : (int)$depositRaw;
 $salePrice = $saleRaw === '' ? null : (int)$saleRaw;
 if ($rent < 0 || ($mgmtFee !== null && $mgmtFee < 0) || ($deposit !== null && $deposit < 0) || ($salePrice !== null && $salePrice < 0)) {
@@ -333,23 +355,24 @@ if ($agentRel && !(int)$agentRel['can_edit_price']) {
 
 $pdo->prepare('UPDATE properties SET title = ?, city = ?, district = ?, address = ?, listing_type = ?, property_type = ?,
     layout_rooms = ?, layout_living = ?, layout_bath = ?, area_ping = ?, floor_current = ?, floor_total = ?,
-    rent = ?, mgmt_fee = ?, elec_rate = ?, min_lease = ?, legal_use = ?, deposit = ?, sale_price = ?, parking = ?, pet_friendly = ?, cooking_allowed = ?, gender_limit = ?,
+    rent = ?, mgmt_fee = ?, elec_mode = ?, elec_rate = ?, min_lease = ?, legal_use = ?, deposit = ?, sale_price = ?, parking = ?, pet_friendly = ?, cooking_allowed = ?, gender_limit = ?,
     no_smoking = ?, tax_ok = ?, household_ok = ?, special_terms = ?,
     water_fee = ?, parking_fee = ?, cleaning_fee = ?, internet_fee = ?, cable_fee = ?,
-    available_date = ?, facilities = ?, status = ?, note = ?
+    available_date = ?, facilities = ?, status = ?, note = ?, owner_user_id = ?
     WHERE id = ?')->execute([
     $title,
     $city !== '' ? $city : null, $district !== '' ? $district : null,
     $address !== '' ? $address : null,
     $listingType, $propertyType !== '' ? $propertyType : null,
     $roomsN, $livingN, $bathN, $areaF, $fCur, $fTotal,
-    $listingType === 'rental' ? $rent : 0, $mgmtFee, $elecRate, $minLease !== '' ? $minLease : null, $legalUse !== '' ? $legalUse : null, $deposit, $salePrice,
+    $listingType === 'rental' ? $rent : 0, $mgmtFee, $elecMode, $elecRate, $minLease !== '' ? $minLease : null, $legalUse !== '' ? $legalUse : null, $deposit, $salePrice,
     $parking, $pet, $cook, $gender,
     $noSmoking, $taxOk, $householdOk, $specialTerms !== '' ? $specialTerms : null,
     $listingType === 'rental' ? $waterFee : null, $listingType === 'rental' ? $parkingFee : null, $listingType === 'rental' ? $cleaningFee : null, $listingType === 'rental' ? $internetFee : null, $listingType === 'rental' ? $cableFee : null,
     $available !== '' ? $available : null,
     $facilities !== '' ? $facilities : null,
     $status, $note !== '' ? $note : null,
+    $ownerUid ?: null,
     $id,
 ]);
 
