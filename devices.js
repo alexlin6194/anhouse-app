@@ -167,7 +167,7 @@
       logs.forEach(g => {
         h += '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--beige2);font-size:12.5px">' +
           '<span style="flex:1;min-width:0"><b>' + dt(g.unlocked_at) + '</b><br>' + esc(g.device_name || '') +
-          '・' + (g.slot_key === 'gate' ? '大門' : '房門') + '・' + esc(g.method_label) +
+          '・' + (g.slot_label || (String(g.slot_key||'').indexOf('gate') === 0 ? '大門' : '房門')) + '・' + esc(g.method_label) +
           (g.pin_masked ? ' ' + esc(g.pin_masked) : '') + '</span>' +
           '<span style="text-align:right;min-width:70px"><b>' + esc(g.user_name || '未對應') + '</b>' +
           (g.lease_id ? '<br><span style="color:var(--brown2);font-size:11px">租約 #' + g.lease_id + '</span>' : '') +
@@ -360,7 +360,7 @@
           h += '<div style="margin-top:8px;font-size:12px;color:var(--brown2)">這組密碼最近開門:</div>';
           d.logs.forEach(g => {
             h += '<div style="padding:6px 0;border-bottom:1px dashed var(--beige2);font-size:12px">' +
-              dt(g.unlocked_at) + '・' + esc(g.device_name || '') + '・' + (g.slot_key === 'gate' ? '大門' : '房門') + '</div>';
+              dt(g.unlocked_at) + '・' + esc(g.device_name || '') + '・' + (g.slot_label || '門') + '</div>';
           });
         } else {
           h += '<p style="font-size:12px;color:var(--brown2);margin:8px 0 0">這組密碼目前沒有開門紀錄。</p>';

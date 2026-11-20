@@ -744,6 +744,7 @@ function device_access_logs_for_property(PDO $pdo, int $propertyId, int $limit =
     $lbl = ['pin' => '密碼', 'app' => 'APP', 'card' => '卡片', 'key' => '鑰匙', 'unknown' => '未知'];
     foreach ($rows as &$r) {
         $r['method_label'] = $lbl[$r['method']] ?? (string)$r['method'];
+        $r['slot_label'] = strpos((string)$r['slot_key'], 'gate') === 0 ? '大門' : '房門';
         unset($r['raw_json']);
     }
     return $rows;
@@ -762,6 +763,7 @@ function device_access_logs_for_lease(PDO $pdo, int $leaseId, int $limit = 20): 
     $lbl = ['pin' => '密碼', 'app' => 'APP', 'card' => '卡片', 'key' => '鑰匙', 'unknown' => '未知'];
     foreach ($rows as &$r) {
         $r['method_label'] = $lbl[$r['method']] ?? (string)$r['method'];
+        $r['slot_label'] = strpos((string)$r['slot_key'], 'gate') === 0 ? '大門' : '房門';
         unset($r['raw_json']);
     }
     return $rows;
