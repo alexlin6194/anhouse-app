@@ -73,7 +73,7 @@
     const pending = (cache.bills || []).filter(b => b.electric_amount == null && ['draft', 'pending'].includes(b.status));
     $('#submitAll').textContent = '📤 全部送出(' + pending.length + ' 筆)';
     if (!pending.length) {
-      listEl.innerHTML = '<p style="padding:18px 4px;text-align:center;color:var(--brown2);font-size:13px;margin:0">🌿 目前沒有待抄錄的電錶:每期帳單產生前 5 天,這裡會列出該抄的房屋。</p>';
+      listEl.innerHTML = '<p style="padding:18px 4px;text-align:center;color:var(--brown2);font-size:13px;margin:0">🌿 目前沒有待抄錄的智慧電錶:每期帳單產生前 5 天,這裡會列出該抄的房屋。</p>';
       return;
     }
     listEl.innerHTML = pending.map(b => {
@@ -86,11 +86,11 @@
         '<div class="mhead"><b>🏠 ' + esc(b.property_title) + '</b><span>' + esc(b.period) + '月|' + (b.status === 'draft' ? '草稿' : '待繳') + '</span>' +
         (row.done ? '<span class="st ok" style="margin-left:auto">✓ 已送出</span>' : '<span style="margin-left:auto;font-size:11.5px;color:var(--brown2)">上期基準 ' + (prev != null ? money(prev) : '?') + ' 度</span>') + '</div>' +
         '<div style="display:flex;gap:8px;align-items:center">' +
-        '<input class="mread" inputmode="numeric" placeholder="本期電錶度數" value="' + (row.reading || '') + '">' +
-        (row.blob ? '<img class="mthumb" src="' + row.objUrl + '" data-full="' + row.objUrl + '" alt="電錶照片">' : '') +
+        '<input class="mread" inputmode="numeric" placeholder="本期智慧電錶度數" value="' + (row.reading || '') + '">' +
+        (row.blob ? '<img class="mthumb" src="' + row.objUrl + '" data-full="' + row.objUrl + '" alt="智慧電錶照片">' : '') +
         '</div>' +
         '<div class="mact">' +
-        '<button type="button" class="mini-btn line act-photo" data-id="' + b.id + '">📷 拍電錶</button>' +
+        '<button type="button" class="mini-btn line act-photo" data-id="' + b.id + '">📷 拍智慧電錶</button>' +
         '<button type="button" class="mini-btn act-one" data-id="' + b.id + '">送出此筆</button>' +
         '</div></div>';
     }).join('');
@@ -102,7 +102,7 @@
       rowEl.querySelector('.act-photo').addEventListener('click', () => photoFlow(bid, rowEl));
       rowEl.querySelector('.act-one').addEventListener('click', () => submitOne(bid));
       rowEl.querySelector('img.mthumb')?.addEventListener('click', (e) => {
-        if (window.showLightbox) window.showLightbox(e.currentTarget.dataset.full, '電錶照片');
+        if (window.showLightbox) window.showLightbox(e.currentTarget.dataset.full, '智慧電錶照片');
       });
     });
   }
@@ -148,7 +148,7 @@
     const row = rows[bid];
     const b = pickRow(bid);
     if (!row || !b) return null;
-    if (!row.blob) { showToast('「' + b.property_title + '」請先拍電錶照片'); return null; }
+    if (!row.blob) { showToast('「' + b.property_title + '」請先拍智慧電錶照片'); return null; }
     const reading = Number(row.reading || 0);
     if (!reading || (row.prev != null && reading < row.prev)) {
       showToast('「' + b.property_title + '」度數不正確(不可小於上期 ' + (row.prev != null ? money(row.prev) : 0) + ')');

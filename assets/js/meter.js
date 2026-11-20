@@ -107,9 +107,9 @@
       const ocrVal = await ocrMeter(blob).catch(() => null);
       let raw;
       if (ocrVal !== null && ocrVal !== '') {
-        raw = prompt('已從照片辨識電錶度數,請確認或修正:\n(辨識僅供參考,請核對電錶實際數字)', String(ocrVal));
+        raw = prompt('已從照片辨識智慧電錶度數,請確認或修正:\n(辨識僅供參考,請核對智慧電錶實際數字)', String(ocrVal));
       } else {
-        raw = prompt('請輸入本期電錶度數(度):');
+        raw = prompt('請輸入本期智慧電錶度數(度):');
       }
       if (raw === null) return;
       const reading = Number(String(raw).replace(/\D/g, ''));

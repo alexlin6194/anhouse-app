@@ -142,10 +142,10 @@
     const isTenantView = !(cache.bills && cache.bills.length) && !!(cache.my_bills && cache.my_bills.length);
     const canRemind = b.status === 'pending' && b.tenant_name && !isTenantView;
     const draftBanner = b.status === 'draft'
-      ? '<div style="background:var(--cream2);border:1.5px dashed var(--beige2);border-radius:12px;padding:8px 12px;font-size:12px;color:var(--brown2);margin:8px 0">📋 草稿帳單:房客還看不到,' + dstr(b.due_date) + ' 0 點自動轉正式並通知房客。請先完成電錶抄錄。</div>'
+      ? '<div style="background:var(--cream2);border:1.5px dashed var(--beige2);border-radius:12px;padding:8px 12px;font-size:12px;color:var(--brown2);margin:8px 0">📋 草稿帳單:房客還看不到,' + dstr(b.due_date) + ' 0 點自動轉正式並通知房客。請先完成智慧電錶抄錄。</div>'
       : '';
     const meterBtn = !isTenantView && b.status !== 'paid' && b.electric_amount == null && !isSignDetail
-      ? '<button type="button" class="mini-btn act-meter" data-id="' + b.id + '">⚡ 抄錄電費(須拍電錶照片)</button>'
+      ? '<button type="button" class="mini-btn act-meter" data-id="' + b.id + '">⚡ 抄錄電費(須拍智慧電錶照片)</button>'
       : '';
     const proofImg = b.paid_proof
       ? '<div class="bd-sec">🧾 轉帳證明</div><img src="uploads/' + esc(b.paid_proof) + '" alt="轉帳證明" data-proof="uploads/' + esc(b.paid_proof) + '" style="max-width:100%;max-height:220px;border-radius:12px;border:1.5px solid var(--beige2);cursor:zoom-in">'

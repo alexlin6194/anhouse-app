@@ -18,7 +18,7 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     } : { cache: 'no-store' }).then(r => r.json());
   }
-  const roleName = { gate: '大門', door: '房門', unit_meter: '戶別電錶', main_meter: '樓層總錶' };
+  const roleName = { gate: '大門', door: '房門', unit_meter: '戶別智慧電錶', main_meter: '樓層總錶' };
   const roleIcon = { gate: '🚪', door: '🚪', unit_meter: '⚡', main_meter: '⚡' };
 
   let state = { view: 'tenant', tenant: null, properties: [], propertyId: 0, property: null, showPin: {} };
@@ -183,7 +183,7 @@
     const props = state.properties;
     if (!props.length) {
       c.innerHTML = '<div class="card"><b>沒有可管理的房源</b>' +
-        '<p style="font-size:13px;color:var(--brown2);margin-top:8px;line-height:1.9">智慧門鎖/電錶是「綁在某一戶房源」上加購的,所以要先有房源。<br>' +
+        '<p style="font-size:13px;color:var(--brown2);margin-top:8px;line-height:1.9">智慧門鎖/智慧電錶是「綁在某一戶房源」上加購的,所以要先有房源。<br>' +
         '目前這個帳號名下沒有可管理的房源(或此帳號不是房東/管理員)。</p>' +
         '<a class="btn small" href="create_property.html" style="margin-top:10px;text-decoration:none;text-align:center">建立房源</a></div>';
       return;
@@ -238,11 +238,11 @@
     {
       const mp = p.meter_plan || { plan: 'none', fee: 0, label: '未選擇', bridges: [], cloud_fee: 150, local_fee: 100 };
       const pid = state.propertyId || (p.property && p.property.id) || '';
-      html += '<div class="sect">電錶介接方案</div><div class="card" style="padding:14px 16px">' +
+      html += '<div class="sect">智慧電錶介接方案</div><div class="card" style="padding:14px 16px">' +
         '<p style="font-size:12.5px;color:var(--brown2);margin:0 0 10px;line-height:1.95">' +
-        '<b>雲端 API</b>:電錶本身連網,直接打台科電雲端,現場不必裝主機。<br>' +
-        '<b>地端橋接</b>:電錶在地下室或無網路時,現場一台小主機走 Modbus 把讀值推上來。<br>' +
-        '硬體(電錶、閘道器)另計,不列入系統帳單。</p>' +
+        '<b>雲端 API</b>:智慧電錶本身連網,直接打台科電雲端,現場不必裝主機。<br>' +
+        '<b>地端橋接</b>:智慧電錶在地下室或無網路時,現場一台小主機走 Modbus 把讀值推上來。<br>' +
+        '硬體(智慧電錶、閘道器)另計,不列入系統帳單。</p>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
         '<button type="button" class="btn small' + (mp.plan === 'cloud' ? '' : ' ghost') + '" data-mplan="cloud" data-pid="' + pid + '">雲端 API・NT$' + (mp.cloud_fee || 150) + '/月</button>' +
         '<button type="button" class="btn small' + (mp.plan === 'local' ? '' : ' ghost') + '" data-mplan="local" data-pid="' + pid + '">地端橋接・NT$' + (mp.local_fee || 100) + '/月</button>' +
@@ -254,7 +254,7 @@
         ((mp.free_meters || 0) > 0 ? '<p style="font-size:11.5px;color:var(--brown2);margin:4px 0 0">另有 ' + mp.free_meters + ' 顆總錶/公共錶不計費</p>' : '') +
         '<button type="button" class="btn small ghost" style="margin-top:10px" data-mfee="1">查看費用與合約條款</button>' +
         '<div id="mfeeBox" style="display:none;margin-top:12px;border-top:1px dashed var(--beige2);padding-top:12px">' +
-        '<p style="font-size:12.5px;color:var(--brown2);margin:0 0 8px;line-height:1.9"><b>計價方式</b>:按「該房源內計費電錶顆數」計價;總錶、公共錶、車道錶不收費。</p>' +
+        '<p style="font-size:12.5px;color:var(--brown2);margin:0 0 8px;line-height:1.9"><b>計價方式</b>:按「該房源內計費智慧電錶顆數」計價;總錶、公共錶、車道錶不收費。</p>' +
         '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
         '<tr style="background:var(--cream2)"><th style="text-align:left;padding:6px 8px">項目</th><th style="text-align:right;padding:6px 8px">雲端 API</th><th style="text-align:right;padding:6px 8px">地端橋接</th></tr>' +
         '<tr><td style="padding:6px 8px;border-top:1px solid var(--beige2)">月費(每顆計費錶)</td>' +
@@ -297,8 +297,23 @@
       html += '</div>';
     }
 
+    {
+      const plans = { taipower: '台電帳單(房客依台電帳單繳費)', flat: '固定單價(每度 NT$' + ((p.property && p.property.elec_rate) || 5) + ')', taipower_ladder: '台電累進級距' };
+      const hasMeter = (p.meters || []).length > 0;
+      if (!hasMeter) {
+        html += '<div class="sect">智慧電錶與抄表</div><div class="card" style="padding:14px 16px">' +
+          '<p style="font-size:12.5px;color:var(--brown2);margin:0;line-height:1.95">' +
+          '此房源<b>尚未加裝智慧電錶</b>。沒有智慧電錶也能正常收租與出帳,只是電費不會自動抄表,可選:<br>' +
+          '・<b>台電帳單</b>:房客自行依台電帳單繳費,系統不計電費<br>' +
+          '・<b>固定金額/固定度數</b>:每月固定收一筆,或固定度數 × 單價<br>' +
+          '・<b>人工抄表</b>:現場看傳統指針錶,每月把度數輸入帳單<br>' +
+          '要自動抄表才需加裝「智慧電錶」(雲端 NT$180/顆/月、地端 NT$150/顆/月)。' +
+          '</p></div>';
+      }
+    }
+
     if (p.meters && p.meters.length) {
-      html += '<div class="sect">電錶與抄表</div>';
+      html += '<div class="sect">智慧電錶與抄表</div>';
       p.meters.forEach(m => {
         const modeTxt = m.mode === 'prepaid' ? '儲值型(預付,餘額不足自動斷電)' : '後付型(併入每期帳單)';
         const last = m.last_reading != null ? money(m.last_reading) + ' 度' : '尚未抄表';
@@ -397,14 +412,14 @@
       (p.siblings || []).map(sb => '<option value="' + sb.id + '">計入 ' + esc(sb.title) + '</option>').join('') +
       '</select></div></div>' +
       '<div class="field"><label for="dType">類型</label><select id="dType"><option value="lock">智慧門鎖</option><option value="meter">智慧電錶</option></select></div>' +
-      '<div class="field" id="dLinkWrap" style="display:none"><label for="dLink">電錶介接方式</label><select id="dLink">' +
+      '<div class="field" id="dLinkWrap" style="display:none"><label for="dLink">智慧電錶介接方式</label><select id="dLink">' +
       '<option value="cloud">雲端 API(每顆 NT$180/月)</option>' +
       '<option value="local">地端 Modbus 橋接(每顆 NT$150/月)</option>' +
-      '<option value="mock">模擬電錶(測試用,不收費)</option></select>' +
-      '<p style="font-size:11.5px;color:var(--brown2);margin:6px 0 0;line-height:1.8">選「總電錶」= 整棟共用:系統自動設為不計費,建立後同棟各戶都看得到,且全棟只能有一顆。</p></div>' +
+      '<option value="mock">模擬智慧電錶(測試用,不收費)</option></select>' +
+      '<p style="font-size:11.5px;color:var(--brown2);margin:6px 0 0;line-height:1.8">選「總智慧電錶」= 整棟共用:系統自動設為不計費,建立後同棟各戶都看得到,且全棟只能有一顆。</p></div>' +
       '<div class="field"><label for="dRole">位置</label><select id="dRole">' +
       '<option value="gate">大門</option><option value="door">房門</option>' +
-      '<option value="unit_meter">戶別電錶</option><option value="main_meter">總電錶</option></select></div>' +
+      '<option value="unit_meter">戶別智慧電錶</option><option value="main_meter">總智慧電錶</option></select></div>' +
       '<div class="field"><label for="dName">名稱(可留空)</label><input id="dName" maxlength="60" placeholder="例:1F 大門門鎖"></div>' +
       '<button type="button" class="btn primary" id="addDev" style="margin-top:10px">加裝(模擬器,NT$' + money(fee.unit_price) + '/月)</button>' +
       '<p style="font-size:11.5px;color:var(--brown2);margin-top:8px;line-height:1.8">目前僅提供模擬器;Aqara 真機需完成代理商簽約、取得 API 憑證後切換 Adapter(介面已預留,流程不用改)。</p></div>';
@@ -652,7 +667,7 @@
 })();
 
 
-/* 電錶介接方案 / 橋接器(獨立委派,不依賴主渲染流程) */
+/* 智慧電錶介接方案 / 橋接器(獨立委派,不依賴主渲染流程) */
 document.addEventListener('click', function (e) {
   const feeBtn = e.target && e.target.closest ? e.target.closest('[data-mfee]') : null;
   if (feeBtn) {
@@ -667,9 +682,9 @@ document.addEventListener('click', function (e) {
   const pid = Number(b.dataset.pid || 0);
   let payload = null; let confirmText = '';
   if (b.dataset.mplan) {
-    if (b.dataset.mplan === 'none' && !confirm('改回逐台計費(每台電錶 NT$100/月)?')) { return; }
+    if (b.dataset.mplan === 'none' && !confirm('改回逐台計費(每台智慧電錶 NT$100/月)?')) { return; }
     payload = { action: 'set_plan', property_id: pid, plan: b.dataset.mplan };
-    confirmText = '電錶方案已更新,下期帳單起以新月費計算。';
+    confirmText = '智慧電錶方案已更新,下期帳單起以新月費計算。';
   } else if (b.dataset.bridgeAdd) {
     payload = { action: 'bridge_create', property_id: pid, name: '現場橋接器' };
   } else if (b.dataset.bridgeOff) {
