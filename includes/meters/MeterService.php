@@ -55,7 +55,7 @@ function meter_read_once(PDO $pdo, array $device, int $actorUserId = 0, string $
     }
 
     /* 同一分鐘重複抄表只留一筆(UNIQUE 已防,這裡先查避免例外) */
-    $srcCol = in_array($source, ['auto', 'manual', 'import'], true) ? $source : 'manual';
+    $srcCol = in_array($source, ['manual', 'import'], true) ? $source : 'auto';
     $dup = $pdo->prepare('SELECT id FROM meter_readings WHERE device_id = ? AND read_at = ? LIMIT 1');
     $dup->execute([(int)$device['id'], $readAt]);
     if (!$dup->fetch()) {
@@ -63,8 +63,9 @@ function meter_read_once(PDO $pdo, array $device, int $actorUserId = 0, string $
             ->execute([(int)$device['id'], (int)$device['property_id'], $reading, $readAt, $srcCol, json_encode($d, JSON_UNESCAPED_UNICODE)]);
     }
 
-    $pdo->prepare('UPDATE device_meter_state SET last_reading = ?, last_read_at = ?, updated_at = NOW() WHERE device_id = ?')
-        ->execute([$reading, $readAt, (int)$device['id']]);
+    $pdo->prepare('INSERT INTO device_meter_state (device_id, last_reading, last_read_at) VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE last_reading = VALUES(last_reading), last_read_at = VALUES(last_read_at), updated_at = NOW()')
+        ->execute([(int)$device['id'], $reading, $readAt]);
     $pdo->prepare('UPDATE devices SET status = ?, last_sync_at = NOW() WHERE id = ?')
         ->execute(['active', (int)$device['id']]);
 
@@ -125,6 +126,14 @@ function meter_push_to_bill(PDO $pdo, int $billId, ?int $reading, int $actorUser
     if ($bill['electric_amount'] !== null && (int)$bill['electric_amount'] > 0 && $source === 'auto') {
         return ['ok' => false, 'message' => '本期已有電費 NT$' . number_format((int)$bill['electric_amount']) . ',不自動覆蓋', 'data' => []];
     }
+    /* 自動抄表只在「帳單所屬月份已結束」時寫入,否則月中抄到的只是部分用量,
+       寫進整期電費後又會被「不自動覆蓋」擋住,永遠錯到底。人工寫入不受此限。 */
+    if ($source === 'auto' && preg_match('/^(\d{4})-(\d{2})$/', (string)$bill['period'], $m)) {
+        $periodEnd = date('Y-m-t 23:59:59', strtotime($m[1] . '-' . $m[2] . '-01'));
+        if (strtotime($periodEnd) >= strtotime(date('Y-m-d'))) {
+            return ['ok' => false, 'message' => $bill['period'] . ' 期尚未結束(' . $periodEnd . ' 止),期末後才自動寫入電費', 'data' => []];
+        }
+    }
 
     if ($reading === null) {
         /* 沒指定就抓這戶電錶的最新讀值 */
@@ -151,8 +160,10 @@ function meter_push_to_bill(PDO $pdo, int $billId, ?int $reading, int $actorUser
     /* 上期讀值:同租約較早帳單 > 租約簽約基準度數 */
     $prev = null;
     if ($bill['lease_id']) {
-        $p1 = $pdo->prepare('SELECT meter_reading FROM bills WHERE lease_id = ? AND meter_reading IS NOT NULL AND id < ? ORDER BY id DESC LIMIT 1');
-        $p1->execute([(int)$bill['lease_id'], $billId]);
+        /* 上期 = 「期間早於本期」的最近一張有讀值的帳單。不能只看 id:
+           帳單常預先建立(下期 draft 先存在),用 id 排會抓到未來期間的讀值。 */
+        $p1 = $pdo->prepare('SELECT meter_reading FROM bills WHERE lease_id = ? AND meter_reading IS NOT NULL AND id <> ? AND period < ? ORDER BY period DESC, id DESC LIMIT 1');
+        $p1->execute([(int)$bill['lease_id'], $billId, (string)$bill['period']]);
         $row = $p1->fetch();
         if ($row) {
             $prev = (int)$row['meter_reading'];
@@ -214,13 +225,15 @@ function meter_push_to_bill(PDO $pdo, int $billId, ?int $reading, int $actorUser
 }
 
 /** 找出可自動寫入的帳單(草稿優先、再待繳、且尚無電費) */
-function meter_pending_bill(PDO $pdo, int $propertyId): ?array
+function meter_pending_bill(PDO $pdo, int $propertyId, bool $activeLeaseOnly = true): ?array
 {
-    $st = $pdo->prepare("SELECT b.id, b.period, b.status, b.due_date, b.electric_amount
-        FROM bills b WHERE b.property_id = ? AND b.status IN ('draft','pending')
+    $st = $pdo->prepare("SELECT b.id, b.lease_id, b.period, b.status, b.due_date, b.electric_amount
+        FROM bills b LEFT JOIN leases l ON l.id = b.lease_id
+        WHERE b.property_id = ? AND b.status IN ('draft','pending')
           AND (b.electric_amount IS NULL OR b.electric_amount = 0)
-        ORDER BY FIELD(b.status,'draft','pending'), b.due_date ASC, b.id ASC LIMIT 1");
-    $st->execute([$propertyId]);
+          AND (? = 0 OR b.lease_id IS NULL OR l.status = 'active')
+        ORDER BY (l.status = 'active') DESC, FIELD(b.status,'draft','pending'), b.due_date ASC, b.id ASC LIMIT 1");
+    $st->execute([$propertyId, $activeLeaseOnly ? 1 : 0]);
     return $st->fetch() ?: null;
 }
 
@@ -376,7 +389,6 @@ function meter_cron_run(PDO $pdo): array
         $log['read']++;
 
         $state = meter_state($pdo, (int)$d['id']);
-        $prev = $state['last_reading'] !== null ? null : null;
 
         if ($state['mode'] === 'prepaid') {
             /* 儲值型:以上一次讀值計算本次用量並扣抵 */
@@ -397,14 +409,28 @@ function meter_cron_run(PDO $pdo): array
             }
         } else {
             /* 後付型:有可寫入的帳單就自動寫電費 */
-            $billId = (int)($_GET['bill_id'] ?? 0);
-            $target = $billId > 0 ? ['id' => $billId] : meter_pending_bill($pdo, (int)$d['property_id']);
-            if ($target) {
+            $target = meter_pending_bill($pdo, (int)$d['property_id']);
+            /* 已結束的租約不自動寫電費:退租時期的電費屬結算爭議,留給人工確認與備註 */
+            $held = false;
+            if ($target && !empty($target['lease_id'])) {
+                $ls = $pdo->prepare('SELECT status FROM leases WHERE id = ? LIMIT 1');
+                $ls->execute([(int)$target['lease_id']]);
+                $lstat = (string)($ls->fetchColumn() ?: '');
+                if ($lstat !== '' && $lstat !== 'active') {
+                    $log['items'][] = $d['name'] . ':帳單 #' . $target['id'] . ' 租約已' . ($lstat === 'ended' ? '結束' : $lstat) . ',不自動寫入(請人工結算)';
+                    $held = true;
+                }
+            }
+            if ($target && !$held) {
                 $pr = meter_push_to_bill($pdo, (int)$target['id'], $r['reading'], 0, 'auto');
                 if ($pr['ok']) {
                     $log['bill']++;
                     $log['items'][] = $d['name'] . ':寫入帳單 ' . ($pr['data']['amount'] ?? 0) . ' 元';
+                } else {
+                    $log['items'][] = $d['name'] . ':未寫帳單(' . $pr['message'] . ')';
                 }
+            } elseif (!$held) {
+                $log['items'][] = $d['name'] . ':無待寫帳單';
             }
         }
     }
