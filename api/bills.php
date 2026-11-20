@@ -353,7 +353,8 @@ if ($action === 'set_electric') {
     $mgmt = (int)($bill['mgmt_amount'] ?? 0);
     $park = (int)($bill['parking_amount'] ?? 0);
     $misc = (int)($bill['misc_amount'] ?? 0);
-    $total = $rent + $mgmt + $park + $misc + $amount;
+    $device = isset($bill['device_amount']) ? (int)$bill['device_amount'] : 0;
+    $total = $rent + $mgmt + $park + $misc + $device + $amount;
     $pdo->prepare('UPDATE bills SET electric_amount = ?, meter_reading = ?, amount = ?, electric_photo = ?, photo_meta = ? WHERE id = ?')
         ->execute([$amount, $meterReading, $total, 'meters/' . $name, $meterMetaJson, $billId]);
     if ($bill['lease_id'] && $bill['status'] === 'pending') {

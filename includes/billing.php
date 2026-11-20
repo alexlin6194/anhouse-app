@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/notify.php';
+require_once __DIR__ . '/devices/DeviceService.php';
 
 function tier_table(): array
 {
@@ -163,6 +164,13 @@ function generate_lease_bills(array $lease): int
     $miscBase = $recurring;
     $total = $rent + $mgmtFee + $parkingAmt + $recurring;
 
+    /* 智慧硬體加購(NT$100/台/月):隨每期帳單計入,獨立記在 device_amount 欄位 */
+    $deviceAmt = 0;
+    if (function_exists('device_monthly_fee')) {
+        $deviceAmt = (int)device_monthly_fee($pdo, $propertyId)['amount'];
+    }
+    $total += $deviceAmt;
+
     /* 押金 */
     $depStmt = $pdo->prepare('SELECT deposit_amount FROM leases WHERE id = ?');
     $depStmt->execute([$leaseId]);
@@ -176,9 +184,9 @@ function generate_lease_bills(array $lease): int
     $firstChk->execute([$leaseId, $firstPeriod]);
     $firstBillRow = $firstChk->fetch();
     if (!$firstBillRow) {
-        $pdo->prepare("INSERT INTO bills (property_id, lease_id, period, amount, rent_amount, electric_amount, mgmt_amount, parking_amount, deposit_amount, misc_amount, misc_note, due_date, status, pay_trade_no, pay_mode)
-            VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)")
-            ->execute([$propertyId, $leaseId, $firstPeriod, $total + $dep, $rent, $mgmtFee ?: null, $parkingAmt ?: null, $dep ?: null, $miscBase ?: null, implode('; ', $miscParts) ?: null, $start->format('Y-m-d'), 'BILL' . date('ymdHis') . 'L' . $leaseId . 'F1', NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
+        $pdo->prepare("INSERT INTO bills (property_id, lease_id, period, amount, rent_amount, electric_amount, mgmt_amount, parking_amount, device_amount, deposit_amount, misc_amount, misc_note, due_date, status, pay_trade_no, pay_mode)
+            VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)")
+            ->execute([$propertyId, $leaseId, $firstPeriod, $total + $dep, $rent, $mgmtFee ?: null, $parkingAmt ?: null, $deviceAmt ?: null, $dep ?: null, $miscBase ?: null, implode('; ', $miscParts) ?: null, $start->format('Y-m-d'), 'BILL' . date('ymdHis') . 'L' . $leaseId . 'F1', NEWEBPAY_MODE === 'mock' ? 'mock' : 'newebpay']);
         $firstChk->execute([$leaseId, $firstPeriod]);
         $firstBillRow = $firstChk->fetch();
         if (!empty($lease['tenant_user_id'])) {
@@ -234,9 +242,9 @@ function generate_lease_bills(array $lease): int
         if ($today < (clone $pay)->modify('-5 days')) {
             return $created;
         }
-        $pdo->prepare("INSERT INTO bills (property_id, lease_id, period, amount, rent_amount, electric_amount, mgmt_amount, parking_amount, misc_amount, misc_note, due_date, status)
-            VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, 'draft')")
-            ->execute([$propertyId, $leaseId, $period, $total, $rent, $mgmtFee ?: null, $parkingAmt ?: null, $recurring ?: null, implode('; ', $miscParts) ?: null, $due]);
+        $pdo->prepare("INSERT INTO bills (property_id, lease_id, period, amount, rent_amount, electric_amount, mgmt_amount, parking_amount, device_amount, misc_amount, misc_note, due_date, status)
+            VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, 'draft')")
+            ->execute([$propertyId, $leaseId, $period, $total, $rent, $mgmtFee ?: null, $parkingAmt ?: null, $deviceAmt ?: null, $recurring ?: null, implode('; ', $miscParts) ?: null, $due]);
         $chk->execute([$leaseId, $period]);
         $bill = $chk->fetch();
     }

@@ -22,6 +22,21 @@ define('RESET_TOKEN_MINUTES', 30);
 define('BILL_GENERATE_MONTHS', 12);
 define('ELECTRIC_RATE_PER_KWH', 5.0);
 
+/* ── 智慧裝置(Phase 1)──
+ * DEVICE_PIN_KEY:門鎖密碼在資料庫內的加密金鑰(≥32 字元),正式環境務必改成自己的隨機值
+ * DEVICE_ADDON_PRICE_MONTHLY:每台裝置加購月費(NT$)
+ * DEVICE_PIN_CHANGE_LIMIT_24H:同一組密碼 24 小時內可修改次數上限
+ */
+define('DEVICE_PIN_KEY', 'change-me-anhouse-device-pin-key-32chars-min');
+define('DEVICE_ADDON_PRICE_MONTHLY', 100);
+define('DEVICE_PIN_CHANGE_LIMIT_24H', 3);
+
+/* Aqara 開放平台(Phase 3;未簽約前留空,Adapter 會回報「尚未開通」) */
+define('AQARA_APP_ID', '');
+define('AQARA_APP_KEY', '');
+define('AQARA_REGION', 'TW');
+define('AQARA_BASE_URL', '');
+
 date_default_timezone_set('Asia/Taipei');
 
 

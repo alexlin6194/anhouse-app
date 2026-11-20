@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/notify.php';
 require_once __DIR__ . '/../includes/billing.php';
 require_once __DIR__ . '/../includes/contract.php';
+require_once __DIR__ . '/../includes/devices/DeviceService.php';
 ensure_active_lease_bills();
 
 require_methods('GET', 'POST');
@@ -119,6 +120,8 @@ if ($action === 'accept' || $action === 'decline') {
         $pdo->prepare("UPDATE leases SET status = 'active', responded_at = NOW() WHERE id = ?")->execute([$leaseId]);
         $pdo->prepare("UPDATE properties SET status = 'rented' WHERE id = ? AND status <> 'rented'")->execute([(int)$lease['property_id']]);
         $billsCreated = generate_lease_bills($lease);
+        /* 簽約即發碼:對該房源的大門/房門門鎖發送限時入住密碼 */
+        $doorIssued = device_issue_for_lease($pdo, $leaseId, $userId, 'app');
         notify((int)($lease['created_by'] ?? 0), 'lease_accepted', '房客已接受租約', $myName . ' 已接受「' . $lease['property_title'] . '」的租約,租期 ' . $lease['start_date'] . ' 起。每月 1 日自動產生當月帳單,於每月 ' . (int)$lease['payment_day'] . ' 日到期。', $leaseId);
 
         [$okDoc, $docMsg] = contract_create_for_lease($pdo, $leaseId, (int)($lease['created_by'] ?? $userId), '');
@@ -159,7 +162,9 @@ if ($action === 'end') {
         $pdo->prepare("UPDATE properties SET status = 'vacant' WHERE id = ?")->execute([(int)$lease['property_id']]);
     }
     notify((int)$lease['tenant_user_id'], 'system', '租約已結束', '「' . $lease['property_title'] . '」的租約已於今日結束,感謝您的租住。', $leaseId);
-    respond(true, '租約已結束;房屋「' . $lease['property_title'] . '」已標回空置');
+    /* 退租即撤權:大門與房門密碼全部失效 */
+    $revoked = device_revoke_for_lease($pdo, $leaseId, 'lease_ended', $userId);
+    respond(true, '租約已結束;房屋「' . $lease['property_title'] . '」已標回空置' . ($revoked > 0 ? ',門鎖密碼已撤銷 ' . $revoked . ' 組' : ''));
 }
 
 /* ─────────── 建立租約邀請(房東/代管管理員)─────────── */
