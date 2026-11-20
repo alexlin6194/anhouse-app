@@ -21,6 +21,9 @@ require_once __DIR__ . '/AqaraLockAdapter.php';
  * 棟別代碼:同一 org + 同一個「路名號」視為同一棟。
  * 例:快樂街12號301房 / 302房 / 303房 → 同一組 o1:快樂街12號
  */
+/* 這支可能被多個入口 include(api/devices.php、api/meters.php、探測腳本),
+   缺少這層保護會出現 Cannot redeclare。 */
+if (!function_exists('device_building_key')) {
 function device_building_key(PDO $pdo, int $propertyId): string
 {
     static $cache = [];
@@ -1330,4 +1333,6 @@ function device_tenant_view(PDO $pdo, int $userId): array
         'access' => device_access_logs_for_lease($pdo, (int)$lease['id'], 20),
         'fee' => device_monthly_fee($pdo, $propertyId),
     ];
+}
+
 }
