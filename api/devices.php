@@ -23,7 +23,9 @@ function device_manageable_properties(PDO $pdo, int $userId): array
     $stmt->execute([$userId]);
     $landlord = $stmt->fetch();
     $myOrgId = $landlord ? (int)$landlord['org_id'] : 0;
-    $agentSql = "p.id IN (SELECT property_id FROM property_agents WHERE agent_user_id = {$userId} AND status = 'active')";
+    $agentSql = device_has_table($pdo, 'property_agents')
+        ? "p.id IN (SELECT property_id FROM property_agents WHERE agent_user_id = {$userId} AND status = 'active')"
+        : '1 = 0';
     $companySql = "p.org_id IN (SELECT org_id FROM org_members WHERE user_id = {$userId} AND status = 'active' AND role IN ('company_owner','admin_staff','accountant'))";
     $scope = $myOrgId > 0
         ? "(p.org_id = {$myOrgId} OR p.delegated_user_id = {$userId} OR {$agentSql} OR {$companySql})"

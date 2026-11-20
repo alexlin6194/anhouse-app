@@ -139,12 +139,28 @@ function device_scope(PDO $pdo, int $userId, int $propertyId): ?string
     if ((int)$c->fetch()['c'] > 0) {
         return 'manager';
     }
-    $c = $pdo->prepare("SELECT COUNT(*) AS c FROM property_agents WHERE property_id = ? AND agent_user_id = ? AND status = 'active'");
-    $c->execute([$propertyId, $userId]);
-    if ((int)$c->fetch()['c'] > 0) {
-        return 'agent';
+    if (device_has_table($pdo, 'property_agents')) {
+        $c = $pdo->prepare("SELECT COUNT(*) AS c FROM property_agents WHERE property_id = ? AND agent_user_id = ? AND status = 'active'");
+        $c->execute([$propertyId, $userId]);
+        if ((int)$c->fetch()['c'] > 0) {
+            return 'agent';
+        }
     }
     return null;
+}
+
+/**
+ * 資料表存在檢查(部分舊版資料庫沒有 property_agents)
+ */
+function device_has_table(PDO $pdo, string $table): bool
+{
+    static $cache = [];
+    if (!isset($cache[$table])) {
+        $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?');
+        $stmt->execute([$table]);
+        $cache[$table] = (int)$stmt->fetch()['c'] > 0;
+    }
+    return $cache[$table];
 }
 
 /**
@@ -167,10 +183,12 @@ function device_manager_recipients(PDO $pdo, int $propertyId): array
         foreach ($admins->fetchAll() as $a) {
             $ids[] = (int)$a['user_id'];
         }
-        $agents = $pdo->prepare("SELECT agent_user_id FROM property_agents WHERE property_id = ? AND status = 'active'");
-        $agents->execute([$propertyId]);
-        foreach ($agents->fetchAll() as $a) {
-            $ids[] = (int)$a['agent_user_id'];
+        if (device_has_table($pdo, 'property_agents')) {
+            $agents = $pdo->prepare("SELECT agent_user_id FROM property_agents WHERE property_id = ? AND status = 'active'");
+            $agents->execute([$propertyId]);
+            foreach ($agents->fetchAll() as $a) {
+                $ids[] = (int)$a['agent_user_id'];
+            }
         }
     }
     return array_values(array_unique(array_filter($ids)));
