@@ -464,8 +464,15 @@
     const refreshMeters = () => loadProperty();
     c.querySelectorAll('[data-msync]').forEach(b => b.onclick = () => {
       b.disabled = true;
+      const mid = Number(b.dataset.msync);
       api('api/meters.php', { action: 'sync', property_id: Number(state.propertyId) })
-        .then(d => { b.disabled = false; toast(d.message); refreshMeters(); })
+        .then(d => {
+          b.disabled = false;
+          const mine = (d.results || []).find(x => Number(x.device_id) === mid) || (d.results || [])[0];
+          const detail = mine && mine.reading != null ? ':讀值 ' + money(mine.reading) + ' 度' : (mine ? ':' + mine.message : '');
+          toast((d.ok ? '抄表完成' : '抄表失敗') + detail + (mine && mine.read_at ? '・' + mine.read_at : ''));
+          return refreshMeters();
+        })
         .catch(() => { b.disabled = false; toast('連線失敗'); });
     });
     c.querySelectorAll('[data-mpush]').forEach(b => b.onclick = () => {
