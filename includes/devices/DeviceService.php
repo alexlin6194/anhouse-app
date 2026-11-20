@@ -382,9 +382,11 @@ function device_add(PDO $pdo, int $orgId, int $propertyId, int $actorUserId, arr
     if (!in_array($scopeType, ['unit', 'floor', 'building'], true)) {
         $scopeType = 'unit';
     }
-    /* 整棟總錶本身就是整棟共用:強制 building,否則每戶各建一顆會重複計費/重複出現 */
+    /* 台電的計量單位是「戶 / 樓層」,不是整棟:
+         一棟樓可能 1F、2F 是別人的,4F、5F 也是別人的,房東只有 3F。
+       因此總錶預設綁「本樓層」;只有整棟產權同一房東時,才由前端明確指定 building。 */
     if ($role === 'main_meter') {
-        $scopeType = 'building';
+        $scopeType = (($in['scope_type'] ?? '') === 'building') ? 'building' : 'floor';
     }
     $scopeKey = null;
     if ($scopeType !== 'unit') {
@@ -394,7 +396,7 @@ function device_add(PDO $pdo, int $orgId, int $propertyId, int $actorUserId, arr
         } else {
             $scopeKey = device_floor_key($bk, device_property_floor($pdo, $propertyId));
             if ($scopeKey === null) {
-                return ['ok' => false, 'message' => '此房源沒有樓層資訊,無法設為樓層共用;請改選「整棟共用」或先補樓層'];
+                return ['ok' => false, 'message' => '此房源沒有樓層資訊,無法歸屬樓層總錶;請先在房源基本資料填「所在樓層」(例:3)'];
             }
         }
     }
@@ -470,9 +472,13 @@ function device_add(PDO $pdo, int $orgId, int $propertyId, int $actorUserId, arr
         $chargePropertyId,
     ]);
     $deviceId = (int)$pdo->lastInsertId();
-    $whereLabel = $scopeType === 'unit'
-        ? ($type === 'meter' ? '(本戶計費電錶)' : '(本戶專用)')
-        : ($scopeType === 'building' ? '(整棟共用,只收一次)' : '(樓層共用,只收一次)');
+    if ($role === 'main_meter') {
+        $whereLabel = '(本樓層總錶,不計費)';
+    } elseif ($scopeType === 'unit') {
+        $whereLabel = $type === 'meter' ? '(本戶計費電錶)' : '(本戶專用)';
+    } else {
+        $whereLabel = $scopeType === 'building' ? '(整棟共用,只收一次)' : '(樓層共用,只收一次)';
+    }
     device_log($pdo, $deviceId, $propertyId, null, $actorUserId, 'device_added',
         '新增' . ($type === 'meter' ? '電錶' : '門鎖') . '「' . $name . '」' . $whereLabel
         . ($billingEnabled === 0 ? '・公共錶不計費' : ''));

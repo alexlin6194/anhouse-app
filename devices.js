@@ -18,7 +18,7 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     } : { cache: 'no-store' }).then(r => r.json());
   }
-  const roleName = { gate: '大門', door: '房門', unit_meter: '戶別電錶', main_meter: '總電錶' };
+  const roleName = { gate: '大門', door: '房門', unit_meter: '戶別電錶', main_meter: '樓層總錶' };
   const roleIcon = { gate: '🚪', door: '🚪', unit_meter: '⚡', main_meter: '⚡' };
 
   let state = { view: 'tenant', tenant: null, properties: [], propertyId: 0, property: null, showPin: {} };
@@ -306,7 +306,7 @@
           '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
           '<div><b style="font-size:15px">⚡ ' + esc(m.name) + '</b>' +
           '<div style="font-size:11.5px;color:var(--brown2);margin-top:4px">' + esc(m.adapter_label) + '・' + esc(m.serial_no || '') +
-            (m.role === 'main_meter' ? '・<b style="color:var(--wood-d)">整棟共用・不計費</b>' : '') + '</div></div>' +
+            (m.role === 'main_meter' ? '・<b style="color:var(--wood-d)">樓層總錶・不計費</b>' : '') + '</div></div>' +
           '<span class="st ' + (m.status === 'active' ? 'ok' : 'warn') + '">' + (m.status === 'active' ? '在線' : '離線') + '</span></div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">' +
           '<div style="background:var(--cream2);border-radius:10px;padding:9px 11px"><div style="font-size:11px;color:var(--brown2)">最新讀值</div><b style="font-size:16px">' + last + '</b></div>' +
