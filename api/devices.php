@@ -61,6 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         if (!$property) {
             respond(false, '找不到房源');
         }
+        /* 該戶目前的生效租約(用來判斷是否需要發碼/重設) */
+        $lStmt = $pdo->prepare("SELECT l.id, l.start_date, l.end_date, l.tenant_user_id, u.name AS tenant_name
+            FROM leases l JOIN users u ON u.id = l.tenant_user_id
+            WHERE l.property_id = ? AND l.status = 'active' ORDER BY l.id DESC LIMIT 1");
+        $lStmt->execute([$propertyId]);
+        $activeLease = $lStmt->fetch() ?: null;
+
         $devices = [];
         foreach (device_rows_for_property($pdo, $propertyId) as $d) {
             $adapter = device_adapter((string)$d['adapter']);
@@ -90,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'scope' => $scope,
             'property' => $property,
             'devices' => $devices,
+            'active_lease' => $activeLease,
             'events' => device_events_for_property($pdo, $propertyId, 40),
             'fee' => device_monthly_fee($pdo, $propertyId) + ['unit_price' => device_addon_price()],
         ]);

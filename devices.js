@@ -147,6 +147,26 @@
       '裝置 ' + fee.count + ' 台・智慧硬體加購 <b>NT$' + money(fee.amount) + '/月</b>(每台 NT$' + money(fee.unit_price) + ')' +
       '<br>加購費會自動併入每期帳單(device_amount 欄位)</p></div>';
 
+    /* 有生效租約卻還沒發碼 → 一鍵補發(舊租約在門鎖加裝前就生效的情況) */
+    const L = p.active_lease;
+    const locks = p.devices.filter(d => d.device_type === 'lock');
+    const withCred = locks.filter(d => (d.credentials || []).some(c => c.status === 'active'));
+    if (L && locks.length && withCred.length < locks.length) {
+      html += '<div class="card" style="padding:14px 16px;border:1.5px solid var(--wood)">' +
+        '<b style="font-size:14.5px">⚠️ 這戶有生效租約,但門鎖還沒發碼</b>' +
+        '<p style="font-size:12.5px;color:var(--brown2);margin:8px 0 0;line-height:1.9">' +
+        '房客:' + esc(L.tenant_name) + '|租期 ' + dstr(L.start_date) + ' ~ ' + (L.end_date ? dstr(L.end_date) : '不定期') + '<br>' +
+        '可能是租約在加裝門鎖前就生效了。按下面按鈕會立即產生並發送入住密碼給房客(同時通知您)。</p>' +
+        '<div style="display:flex;gap:8px;margin-top:10px">' +
+        '<button type="button" class="btn small" data-issue="' + L.id + '">立即發碼給房客</button>' +
+        '<button type="button" class="btn small ghost" data-mgr-all="1">先設管理密碼</button>' +
+        '</div></div>';
+    } else if (L) {
+      html += '<div class="card flat" style="padding:12px 16px"><p style="font-size:12.5px;color:var(--brown2);margin:0;line-height:1.9">' +
+        '住戶:' + esc(L.tenant_name) + '|租期 ' + dstr(L.start_date) + ' ~ ' + (L.end_date ? dstr(L.end_date) : '不定期') +
+        '|門鎖密碼已發放(見下方各鎖的憑證)</p></div>';
+    }
+
     html += '<div class="sect">裝置清單</div>';
     if (!p.devices.length) {
       html += '<p style="padding:12px 4px;color:var(--brown2);font-size:13px;margin:0">尚未加裝裝置。建議先加「大門門鎖」與「房門門鎖」兩台(模擬器),就能在 XAMPP 完整演示簽約發碼流程。</p>';
@@ -215,6 +235,25 @@
         name: $('#dName').value.trim(), adapter: 'dev_mock'
       }).then(d => { toast(d.message); if (d.ok) loadProperty(); }).catch(() => toast('連線失敗'));
     };
+    c.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => {
+      if (!confirm('立即產生入住密碼並發給房客?')) return;
+      api('api/devices.php', { action: 'issue', lease_id: Number(b.dataset.issue) })
+        .then(d => {
+          if (d.ok && d.issued && d.issued.length) {
+            toast('已發碼:' + d.issued.map(x => x.label + ' ' + x.pin).join('、'));
+          } else { toast(d.message); }
+          loadProperty();
+        }).catch(() => toast('連線失敗'));
+    });
+    c.querySelectorAll('[data-mgr-all]').forEach(b => b.onclick = () => {
+      const pin = prompt('設定管理密碼(6 位數字;留空 = 自動產生)\n會套用到本戶所有門鎖,退租不會撤銷');
+      if (pin === null) return;
+      const v = String(pin).trim();
+      Promise.all((state.property.devices || []).filter(d => d.device_type === 'lock')
+        .map(d => api('api/devices.php', { action: 'set_manager_pin', device_id: Number(d.id), pin: v })))
+        .then(() => { toast('管理密碼已設定'); loadProperty(); })
+        .catch(() => toast('連線失敗'));
+    });
     c.querySelectorAll('[data-mgr]').forEach(b => b.onclick = () => {
       const pin = prompt('設定「' + b.dataset.mgrname + '」的管理密碼(6 位數字)\n房東/管理員自己進出、帶看、清潔維修時使用;退租不會被撤銷。\n留空 = 系統自動產生');
       if (pin === null) return;
