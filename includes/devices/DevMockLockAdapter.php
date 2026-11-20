@@ -100,8 +100,8 @@ class DevMockLockAdapter implements DeviceAdapter
         try {
             $pdo = db();
             $cred = null;
-            $st = $pdo->prepare("SELECT * FROM device_credentials WHERE device_id = ? AND slot_key = ? AND status = 'active' ORDER BY id DESC");
-            $st->execute([(int)$device['id'], $slotKey]);
+            $st = $pdo->prepare("SELECT * FROM device_credentials WHERE device_id = ? AND (slot_ref = ? OR slot_key = ?) AND status = 'active' ORDER BY id DESC");
+            $st->execute([(int)$device['id'], $slotKey, $slotKey]);
             foreach ($st->fetchAll() as $c) {
                 if ($c['pin_hash'] && password_verify($pin, (string)$c['pin_hash'])) {
                     $cred = $c;
