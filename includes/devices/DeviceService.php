@@ -1167,24 +1167,38 @@ function device_revoke_for_lease(PDO $pdo, int $leaseId, string $reason = 'lease
  */
 function device_monthly_fee(PDO $pdo, int $propertyId): array
 {
+    /* 電錶介接方案(2026-11-21):房東選了方案就以「方案月費」計價,
+       不再逐台收 NT$100;未選方案則沿用舊制(每台 NT$100)。 */
+    $plan = ['plan' => 'none', 'fee' => 0, 'label' => ''];
+    if (is_file(__DIR__ . '/../meters/BridgeService.php')) {
+        require_once __DIR__ . '/../meters/BridgeService.php';
+        if (function_exists('meter_plan_of')) { $plan = meter_plan_of($pdo, $propertyId); }
+    }
+    $meterCond = $plan['fee'] > 0 ? " AND device_type <> 'meter'" : "";
+
     $stmt = $pdo->prepare("SELECT
             COALESCE(SUM(CASE WHEN scope_type = 'unit' THEN 1 ELSE 0 END),0) AS unit_count,
             COALESCE(SUM(CASE WHEN scope_type = 'unit' THEN addon_price ELSE 0 END),0) AS unit_amount,
             COALESCE(SUM(CASE WHEN scope_type <> 'unit' THEN 1 ELSE 0 END),0) AS shared_count,
             COALESCE(SUM(CASE WHEN scope_type <> 'unit' THEN addon_price ELSE 0 END),0) AS shared_amount
         FROM devices
-        WHERE status IN ('active','offline') AND billing_enabled = 1
+        WHERE status IN ('active','offline') AND billing_enabled = 1" . $meterCond . "
           AND ((scope_type = 'unit' AND property_id = ?)
             OR (scope_type <> 'unit' AND charge_property_id = ?))");
     $stmt->execute([$propertyId, $propertyId]);
     $row = $stmt->fetch();
+    $amount = (int)$row['unit_amount'] + (int)$row['shared_amount'];
     return [
         'count' => (int)$row['unit_count'] + (int)$row['shared_count'],
-        'amount' => (int)$row['unit_amount'] + (int)$row['shared_amount'],
+        'amount' => $amount + (int)$plan['fee'],
+        'device_amount' => $amount,
         'unit_count' => (int)$row['unit_count'],
         'unit_amount' => (int)$row['unit_amount'],
         'shared_count' => (int)$row['shared_count'],
         'shared_amount' => (int)$row['shared_amount'],
+        'meter_plan' => $plan['plan'],
+        'meter_plan_fee' => (int)$plan['fee'],
+        'meter_plan_label' => $plan['label'],
     ];
 }
 

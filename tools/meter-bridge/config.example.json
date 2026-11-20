@@ -1,0 +1,30 @@
+{
+  "server": "https://itdc.tw/anhouse/api/bridge.php",
+  "token": "brg_請貼上系統產生的金鑰",
+  "agent_version": "1.0.0",
+  "origin": "https://itdc.tw",
+  "poll_seconds": 60,
+  "push_seconds": 300,
+  "dry_run": false,
+  "meters": [
+    {
+      "serial": "DEM510C-0001",
+      "transport": { "type": "tcp", "host": "192.168.1.50", "port": 502 },
+      "unit_id": 1,
+      "register": 0,
+      "function": 3,
+      "scale": 0.1,
+      "word_order": "big",
+      "relay_coil": 0
+    },
+    {
+      "serial": "CC2030-0002",
+      "transport": { "type": "serial", "port": "/dev/ttyUSB0", "baudrate": 9600, "parity": "N", "stopbits": 1, "bytesize": 8 },
+      "unit_id": 2,
+      "register": 0,
+      "function": 3,
+      "scale": 1.0,
+      "relay_coil": 0
+    }
+  ]
+}

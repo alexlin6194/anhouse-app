@@ -7,6 +7,7 @@ require_once __DIR__ . '/../billing.php';
 require_once __DIR__ . '/MeterAdapter.php';
 require_once __DIR__ . '/DevMockMeterAdapter.php';
 require_once __DIR__ . '/TaikeMeterAdapter.php';
+require_once __DIR__ . '/LocalBridgeMeterAdapter.php';
 
 /* ─────────────── Adapter 解析 ─────────────── */
 function meter_adapter(string $code): MeterAdapter
@@ -14,6 +15,8 @@ function meter_adapter(string $code): MeterAdapter
     switch ($code) {
         case 'taike':
             return new TaikeMeterAdapter();
+        case 'local_bridge':
+            return new LocalBridgeMeterAdapter();
         default:
             return new DevMockMeterAdapter();
     }

@@ -235,6 +235,36 @@
         '|門鎖密碼已發放(見下方各鎖的憑證)</p></div>';
     }
 
+    {
+      const mp = p.meter_plan || { plan: 'none', fee: 0, label: '未選擇', bridges: [], cloud_fee: 150, local_fee: 100 };
+      const pid = (p.property && p.property.id) || '';
+      html += '<div class="sect">電錶介接方案</div><div class="card" style="padding:14px 16px">' +
+        '<p style="font-size:12.5px;color:var(--brown2);margin:0 0 10px;line-height:1.95">' +
+        '<b>雲端 API</b>:電錶本身連網,直接打台科電雲端,現場不必裝主機。<br>' +
+        '<b>地端橋接</b>:電錶在地下室或無網路時,現場一台小主機走 Modbus 把讀值推上來。<br>' +
+        '硬體(電錶、閘道器)另計,不列入系統帳單。</p>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<button type="button" class="btn small' + (mp.plan === 'cloud' ? '' : ' ghost') + '" data-mplan="cloud" data-pid="' + pid + '">雲端 API・NT$' + (mp.cloud_fee || 150) + '/月</button>' +
+        '<button type="button" class="btn small' + (mp.plan === 'local' ? '' : ' ghost') + '" data-mplan="local" data-pid="' + pid + '">地端橋接・NT$' + (mp.local_fee || 100) + '/月</button>' +
+        (mp.plan !== 'none' ? '<button type="button" class="btn small ghost" data-mplan="none" data-pid="' + pid + '">改回逐台計費</button>' : '') +
+        '</div>' +
+        '<p style="font-size:12px;color:var(--wood-d);margin:10px 0 0">目前:' + esc(mp.label) + '・每月 NT$' + money(mp.fee || 0) + '</p>';
+      if (mp.plan === 'local') {
+        html += '<div style="margin-top:10px;border-top:1px dashed var(--beige2);padding-top:10px">' +
+          '<p style="font-size:12px;color:var(--brown2);margin:0 0 8px">現場橋接器(金鑰只在產生時顯示一次)</p>';
+        (mp.bridges || []).forEach(bg => {
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:5px 0">' +
+            '<span>' + esc(bg.name) + '・<span class="st ' + (bg.online ? 'ok' : 'warn') + '" style="font-size:10.5px">' + esc(bg.status_label || '') + '</span>' +
+            (bg.last_seen_at ? '<span style="color:var(--brown2);font-size:11px"> ' + dt(bg.last_seen_at) + '</span>' : '') + '</span>' +
+            '<button type="button" class="btn small ghost" style="padding:5px 9px;font-size:11.5px;color:var(--err)" data-bridge-off="' + bg.id + '" data-pid="' + pid + '">停用</button>' +
+            '</div>';
+        });
+        html += '<button type="button" class="btn small" style="margin-top:8px" data-bridge-add="1" data-pid="' + pid + '">產生橋接器金鑰</button>' +
+          '<p style="font-size:11.5px;color:var(--brown2);margin:8px 0 0;line-height:1.8">把金鑰貼進現場小主機的 <code>config.json</code>,執行 <code>python3 bridge.py</code> 即會自動上報。</p></div>';
+      }
+      html += '</div>';
+    }
+
     if (p.meters && p.meters.length) {
       html += '<div class="sect">電錶與抄表</div>';
       p.meters.forEach(m => {
@@ -559,3 +589,35 @@
     $('#content').innerHTML = '<div class="card"><b>載入失敗</b><p style="font-size:13px;color:var(--brown2);margin-top:8px">請確認已登入後重新整理。</p></div>';
   });
 })();
+
+
+/* 電錶介接方案 / 橋接器(獨立委派,不依賴主渲染流程) */
+document.addEventListener('click', function (e) {
+  const b = e.target && e.target.closest ? e.target.closest('[data-mplan],[data-bridge-add],[data-bridge-off]') : null;
+  if (!b) { return; }
+  e.preventDefault();
+  const pid = Number(b.dataset.pid || 0);
+  let payload = null; let confirmText = '';
+  if (b.dataset.mplan) {
+    if (b.dataset.mplan === 'none' && !confirm('改回逐台計費(每台電錶 NT$100/月)?')) { return; }
+    payload = { action: 'set_plan', property_id: pid, plan: b.dataset.mplan };
+    confirmText = '電錶方案已更新,下期帳單起以新月費計算。';
+  } else if (b.dataset.bridgeAdd) {
+    payload = { action: 'bridge_create', property_id: pid, name: '現場橋接器' };
+  } else if (b.dataset.bridgeOff) {
+    if (!confirm('停用後該橋接器金鑰立即失效,現場需重新產生。確定?')) { return; }
+    payload = { action: 'bridge_disable', bridge_id: Number(b.dataset.bridgeOff) };
+  }
+  if (!payload) { return; }
+  fetch('api/meters.php', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    .then(r => r.json())
+    .then(j => {
+      if (j.token) {
+        alert('橋接器金鑰(只顯示這一次,請立即複製):\n\n' + j.token + '\n\n貼進現場 config.json 的 token 欄位。');
+      } else {
+        alert(j.message || (j.ok ? confirmText || '完成' : '失敗'));
+      }
+      if (j.ok) { location.reload(); }
+    })
+    .catch(() => alert('連線失敗,請稍後再試'));
+});

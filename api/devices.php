@@ -119,6 +119,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'meters' => meter_card_data($pdo, $propertyId),
             'events' => device_events_for_property($pdo, $propertyId, 40),
             'access_logs' => device_access_logs_for_property($pdo, $propertyId, 50),
+            'meter_plan' => (function () use ($pdo, $propertyId) {
+                require_once __DIR__ . '/../includes/meters/BridgeService.php';
+                return meter_plan_of($pdo, $propertyId) + ['bridges' => bridge_list($pdo, $propertyId)];
+            })(),
             'fee' => device_monthly_fee($pdo, $propertyId) + [
                 'unit_price' => device_addon_price(),
                 'owner_cost' => device_owner_cost($pdo, (int)($property['org_id'] ?? 0)),
