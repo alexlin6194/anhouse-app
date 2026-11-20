@@ -180,8 +180,12 @@
     const fee = p.fee || { count: 0, amount: 0, unit_price: 100 };
     html += '<div class="card" style="padding:14px 16px"><b style="font-size:15.5px">' + esc(p.property.title) + '</b>' +
       '<p style="font-size:12.5px;color:var(--brown2);margin:6px 0 0;line-height:1.9">' +
-      '裝置 ' + fee.count + ' 台・智慧硬體加購 <b>NT$' + money(fee.amount) + '/月</b>(每台 NT$' + money(fee.unit_price) + ')' +
-      '<br>加購費會自動併入每期帳單(device_amount 欄位)</p></div>';
+      '本戶帳單負擔 <b>NT$' + money(fee.amount) + '/月</b>(本戶專用 ' + (fee.unit_count || 0) + ' 台' +
+      ((fee.shared_count || 0) > 0 ? ' + 指定由本戶負擔的共用 ' + fee.shared_count + ' 台' : '') + ')<br>' +
+      ((p.fee && p.fee.owner_cost && p.fee.owner_cost.count > 0)
+        ? '房東自行負擔的共用裝置 ' + p.fee.owner_cost.count + ' 台 = NT$' + money(p.fee.owner_cost.amount) + '/月(不併入房客帳單)<br>'
+        : '') +
+      '共用裝置(樓層/整棟)只收一次,不會因為多間房而重複計費</p></div>';
 
     /* 有生效租約卻還沒發碼 → 一鍵補發(舊租約在門鎖加裝前就生效的情況) */
     const L = p.active_lease;
@@ -203,7 +207,38 @@
         '|門鎖密碼已發放(見下方各鎖的憑證)</p></div>';
     }
 
-    html += '<div class="sect">裝置清單</div>';
+    if (p.meters && p.meters.length) {
+      html += '<div class="sect">電錶與抄表</div>';
+      p.meters.forEach(m => {
+        const modeTxt = m.mode === 'prepaid' ? '儲值型(預付,餘額不足自動斷電)' : '後付型(併入每期帳單)';
+        const last = m.last_reading != null ? money(m.last_reading) + ' 度' : '尚未抄表';
+        html += '<div class="card" style="padding:14px 16px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+          '<div><b style="font-size:15px">⚡ ' + esc(m.name) + '</b>' +
+          '<div style="font-size:11.5px;color:var(--brown2);margin-top:4px">' + esc(m.adapter_label) + '・' + esc(m.serial_no || '') + '</div></div>' +
+          '<span class="st ' + (m.status === 'active' ? 'ok' : 'warn') + '">' + (m.status === 'active' ? '在線' : '離線') + '</span></div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">' +
+          '<div style="background:var(--cream2);border-radius:10px;padding:9px 11px"><div style="font-size:11px;color:var(--brown2)">最新讀值</div><b style="font-size:16px">' + last + '</b></div>' +
+          '<div style="background:var(--cream2);border-radius:10px;padding:9px 11px"><div style="font-size:11px;color:var(--brown2)">' + (m.mode === 'prepaid' ? '儲值餘額' : '計費模式') + '</div><b style="font-size:16px">' + (m.mode === 'prepaid' ? 'NT$' + money(m.balance) : '後付') + '</b></div>' +
+          '</div>' +
+          '<p style="font-size:11.5px;color:var(--brown2);margin:8px 0 0;line-height:1.8">' + modeTxt +
+          (m.last_read_at ? '・上次抄表 ' + dt(m.last_read_at) : '') +
+          (m.mode === 'prepaid' ? '・電源 ' + (m.relay_state === 'on' ? '供電中' : '已斷電') : '') + '</p>' +
+          (m.pending_bill ? '<p style="font-size:11.5px;color:var(--wood-d);margin:6px 0 0">待寫入帳單:' + esc(m.pending_bill.period) + ' 期(' + (m.pending_bill.status === 'draft' ? '草稿' : '待繳') + ')</p>' : '') +
+          '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
+          '<button type="button" class="btn small" data-msync="' + m.id + '">立即抄表</button>' +
+          (m.pending_bill ? '<button type="button" class="btn small ghost" data-mpush="' + m.pending_bill.id + '">寫入本期帳單</button>' : '') +
+          (m.mode === 'prepaid'
+            ? '<button type="button" class="btn small ghost" data-mtop="' + m.id + '">儲值</button>' +
+              '<button type="button" class="btn small ghost" data-mrelay="' + m.id + '" data-on="' + (m.relay_state === 'on' ? '0' : '1') + '">' + (m.relay_state === 'on' ? '斷電' : '復電') + '</button>'
+            : '<button type="button" class="btn small ghost" data-mmode="' + m.id + '" data-mode="prepaid">改為儲值型</button>') +
+          '</div></div>';
+      });
+      html += '<div class="sect">裝置清單</div>';
+    } else {
+      html += '<div class="sect">裝置清單</div>';
+    }
+
     if (!p.devices.length) {
       html += '<p style="padding:12px 4px;color:var(--brown2);font-size:13px;margin:0">尚未加裝裝置。建議先加「大門門鎖」與「房門門鎖」兩台(模擬器),就能在 XAMPP 完整演示簽約發碼流程。</p>';
     }
@@ -211,7 +246,12 @@
       html += '<div class="card" style="padding:14px 16px">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
         '<div><b style="font-size:15px">' + roleIcon[d.role] + ' ' + esc(d.name) + '</b>' +
-        '<div style="font-size:11.5px;color:var(--brown2);margin-top:4px">' + esc(d.adapter_label) + '・' + esc(d.serial_no || '') + '・' + (roleName[d.role] || '') + '</div></div>' +
+        '<div style="font-size:11.5px;color:var(--brown2);margin-top:4px">' + esc(d.adapter_label) + '・' + esc(d.serial_no || '') + '・' + (roleName[d.role] || '') + '</div>' +
+        '<div style="margin-top:5px"><span class="st ' + (d.is_shared ? 'warn' : '') + '" style="font-size:10.5px">' + esc(d.shared_label) +
+        (d.is_shared ? '・只收一次' : '') + '</span>' +
+        (d.is_shared && d.charge_property_id ? '<span style="font-size:10.5px;color:var(--brown2);margin-left:6px">費用計入 #' + d.charge_property_id + '</span>' : '') +
+        (d.is_shared && !d.charge_property_id ? '<span style="font-size:10.5px;color:var(--brown2);margin-left:6px">房東負擔</span>' : '') +
+        '</div></div>' +
         '<span class="st ' + (d.online ? 'ok' : 'warn') + '">' + (d.online ? '在線' : '離線') + '</span></div>' +
         '<p style="font-size:12px;color:var(--brown2);margin:8px 0 0">' + esc(d.adapter_message) + (d.last_sync_at ? '・同步 ' + dt(d.last_sync_at) : '') + '</p>';
       if (d.credentials && d.credentials.length) {
@@ -234,6 +274,7 @@
         (d.device_type === 'lock' ? '<button type="button" class="btn small" data-mgr="' + d.id + '" data-mgrname="' + esc(d.name) + '">設定管理密碼</button>' : '') +
         '<button type="button" class="btn small ghost" data-editable="' + d.id + '" data-cur="' + (d.tenant_editable ? '1' : '0') + '">' +
           (d.tenant_editable ? '🔓 房客可改碼:開' : '🔒 房客可改碼:關') + '</button>' +
+        '<button type="button" class="btn small ghost" data-scope="' + d.id + '" data-cur="' + d.scope_type + '">改範圍</button>' +
         '<button type="button" class="btn small ghost" data-sync="' + d.id + '">同步狀態</button>' +
         '<button type="button" class="btn small ghost" data-del="' + d.id + '" data-name="' + esc(d.name) + '">移除</button>' +
         '</div></div>';
@@ -244,6 +285,15 @@
       '<div class="field"><label for="dProp">加裝在哪一戶房源</label><select id="dProp" style="font-size:14.5px;padding:11px">' + propOptions() + '</select></div>' +
       '<div style="background:rgba(200,155,107,.12);border-radius:12px;padding:9px 12px;margin:6px 0 12px;font-size:12.5px;line-height:1.8">' +
       '即將加裝於:<b>' + esc(p.property.title) + '</b>(編號 #' + p.property.id + ')<br>每台每月加購 NT$' + money(fee.unit_price) + ',會自動併入該戶帳單</div>' +
+      '<div class="field"><label for="dScope">安裝範圍(費用怎麼算)</label><select id="dScope" style="font-size:14.5px;padding:11px">' +
+      '<option value="unit">本戶專用(只服務這一戶,計入本戶帳單)</option>' +
+      '<option value="floor">樓層共用(同層房客共用,全層只收一次)</option>' +
+      '<option value="building">整棟共用(例:1F 大門,全棟只收一次)</option></select></div>' +
+      '<div id="dChargeWrap" style="display:none">' +
+      '<div class="field"><label for="dCharge">費用歸屬(共用裝置只收一次)</label><select id="dCharge" style="font-size:14.5px;padding:11px">' +
+      '<option value="0">房東自行負擔(不併入房客帳單)</option>' +
+      (p.siblings || []).map(sb => '<option value="' + sb.id + '">計入 ' + esc(sb.title) + '</option>').join('') +
+      '</select></div></div>' +
       '<div class="field"><label for="dType">類型</label><select id="dType"><option value="lock">智慧門鎖</option><option value="meter">智慧電錶</option></select></div>' +
       '<div class="field"><label for="dRole">位置</label><select id="dRole">' +
       '<option value="gate">大門</option><option value="door">房門</option>' +
@@ -263,6 +313,10 @@
     }
     c.innerHTML = html;
     bindPropSel();
+    const dScope = $('#dScope'), dChargeWrap = $('#dChargeWrap');
+    if (dScope && dChargeWrap) {
+      dScope.onchange = () => { dChargeWrap.style.display = dScope.value === 'unit' ? 'none' : 'block'; };
+    }
     const add = $('#addDev');
     if (add) add.onclick = () => {
       const type = $('#dType').value;
@@ -270,9 +324,53 @@
       const role = type === 'lock' ? (roleSel === 'gate' ? 'gate' : 'door') : (roleSel === 'main_meter' ? 'main_meter' : 'unit_meter');
       api('api/devices.php', {
         action: 'add', property_id: Number(state.propertyId), device_type: type, role: role,
-        name: $('#dName').value.trim(), adapter: 'dev_mock'
+        name: $('#dName').value.trim(), adapter: 'dev_mock',
+        scope_type: ($('#dScope') ? $('#dScope').value : 'unit'),
+        charge_property_id: ($('#dCharge') ? Number($('#dCharge').value) : 0)
       }).then(d => { toast(d.message); if (d.ok) loadProperty(); }).catch(() => toast('連線失敗'));
     };
+    const refreshMeters = () => loadProperty();
+    c.querySelectorAll('[data-msync]').forEach(b => b.onclick = () => {
+      b.disabled = true;
+      api('api/meters.php', { action: 'sync', property_id: Number(state.propertyId) })
+        .then(d => { b.disabled = false; toast(d.message); refreshMeters(); })
+        .catch(() => { b.disabled = false; toast('連線失敗'); });
+    });
+    c.querySelectorAll('[data-mpush]').forEach(b => b.onclick = () => {
+      api('api/meters.php', { action: 'push_bill', bill_id: Number(b.dataset.mpush) })
+        .then(d => { toast(d.message); refreshMeters(); }).catch(() => toast('連線失敗'));
+    });
+    c.querySelectorAll('[data-mtop]').forEach(b => b.onclick = () => {
+      const v = prompt('儲值金額(NT$)', '1000');
+      if (v === null) return;
+      api('api/meters.php', { action: 'topup', device_id: Number(b.dataset.mtop), amount: Number(v) })
+        .then(d => { toast(d.message); refreshMeters(); }).catch(() => toast('連線失敗'));
+    });
+    c.querySelectorAll('[data-mrelay]').forEach(b => b.onclick = () => {
+      const on = b.dataset.on === '1';
+      if (!confirm(on ? '復電?' : '斷電?房客將立即無電可用。')) return;
+      api('api/meters.php', { action: 'relay', device_id: Number(b.dataset.mrelay), on: on ? '1' : '0' })
+        .then(d => { toast(d.message); refreshMeters(); }).catch(() => toast('連線失敗'));
+    });
+    c.querySelectorAll('[data-mmode]').forEach(b => b.onclick = () => {
+      if (!confirm('改為儲值型?之後以餘額扣抵用電,不足會自動斷電。')) return;
+      api('api/meters.php', { action: 'set_mode', device_id: Number(b.dataset.mmode), mode: b.dataset.mode })
+        .then(d => { toast(d.message); refreshMeters(); }).catch(() => toast('連線失敗'));
+    });
+    c.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => {
+      const cur = b.dataset.cur || 'unit';
+      const next = cur === 'unit' ? 'floor' : (cur === 'floor' ? 'building' : 'unit');
+      const names = { unit: '本戶專用', floor: '樓層共用', building: '整棟共用' };
+      if (!confirm('改為「' + names[next] + '」?' + (next !== 'unit' ? '\n共用裝置只收一次費用。' : ''))) return;
+      let charge = 0;
+      if (next !== 'unit') {
+        const v = prompt('費用歸屬戶:輸入房源編號(留空或 0 = 房東自行負擔)\n同棟房源:' + (state.property.siblings || []).map(s2 => s2.id + '=' + s2.title).join('、'), '0');
+        if (v === null) return;
+        charge = Number(v) || 0;
+      }
+      api('api/devices.php', { action: 'set_scope', device_id: Number(b.dataset.scope), scope_type: next, charge_property_id: charge })
+        .then(d => { toast(d.message); if (d.ok) loadProperty(); }).catch(() => toast('連線失敗'));
+    });
     c.querySelectorAll('[data-editable]').forEach(b => b.onclick = () => {
       const next = b.dataset.cur === '1' ? '0' : '1';
       api('api/devices.php', { action: 'set_tenant_editable', device_id: Number(b.dataset.editable), enabled: next })

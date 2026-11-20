@@ -15,6 +15,93 @@ require_once __DIR__ . '/AqaraLockAdapter.php';
  * 品牌差異全部收斂在 Adapter,本檔不認識任何一家的 API。
  */
 
+/* ─────────── 共用範圍(同一棟/同一層) ─────────── */
+
+/**
+ * 棟別代碼:同一 org + 同一個「路名號」視為同一棟。
+ * 例:快樂街12號301房 / 302房 / 303房 → 同一組 o1:快樂街12號
+ */
+function device_building_key(PDO $pdo, int $propertyId): string
+{
+    static $cache = [];
+    if (isset($cache[$propertyId])) {
+        return $cache[$propertyId];
+    }
+    $st = $pdo->prepare('SELECT org_id, address, title FROM properties WHERE id = ? LIMIT 1');
+    $st->execute([$propertyId]);
+    $row = $st->fetch();
+    if (!$row) {
+        return $cache[$propertyId] = 'p' . $propertyId;
+    }
+    $raw = trim((string)($row['address'] !== null && $row['address'] !== '' ? $row['address'] : $row['title']));
+    if (preg_match('/^(.*?號)/u', $raw, $m)) {
+        $raw = $m[1];
+    }
+    $raw = preg_replace('/\s+/u', '', $raw);
+    return $cache[$propertyId] = 'o' . (int)$row['org_id'] . ':' . $raw;
+}
+
+/** 樓層(以 floor_current 優先;沒有就從房號推:301房→3、3樓→3) */
+function device_property_floor(PDO $pdo, int $propertyId): ?string
+{
+    $st = $pdo->prepare('SELECT floor_current, title, address FROM properties WHERE id = ? LIMIT 1');
+    $st->execute([$propertyId]);
+    $row = $st->fetch();
+    if (!$row) {
+        return null;
+    }
+    if ($row['floor_current'] !== null && $row['floor_current'] !== '') {
+        return (string)(int)$row['floor_current'];
+    }
+    $txt = (string)($row['title'] ?: $row['address']);
+    if (preg_match('/(\d{3,4})\s*房/u', $txt, $m)) {
+        return (string)(int)substr($m[1], 0, 1);
+    }
+    if (preg_match('/(\d+)\s*樓/u', $txt, $m)) {
+        return $m[1];
+    }
+    return null;
+}
+
+/** 樓層共用裝置的 scope_key */
+function device_floor_key(string $buildingKey, ?string $floor): ?string
+{
+    return ($floor === null || $floor === '') ? null : $buildingKey . '#' . $floor . 'F';
+}
+
+/**
+ * 某戶「適用」的裝置清單:本戶專用 + 該棟共用 + 該層共用
+ * (只出現在清單,不代表費用由該戶負擔 —— 費用另由 charge_property_id 決定)
+ */
+function device_devices_for_property(PDO $pdo, int $propertyId): array
+{
+    $bk = device_building_key($pdo, $propertyId);
+    $floor = device_property_floor($pdo, $propertyId);
+    $fk = device_floor_key($bk, $floor);
+    $st = $pdo->prepare("SELECT * FROM devices WHERE status <> 'removed' AND (
+            (scope_type = 'unit' AND property_id = ?)
+            OR (scope_type = 'building' AND scope_key = ?)
+            OR (scope_type = 'floor' AND scope_key = ?)
+        ) ORDER BY device_type, FIELD(role,'gate','door','unit_meter','main_meter'), id");
+    $st->execute([$propertyId, $bk, $fk ?? '']);
+    return $st->fetchAll();
+}
+
+/** 同棟的其他房源(用來選「費用歸屬戶」) */
+function device_sibling_properties(PDO $pdo, int $propertyId): array
+{
+    $bk = device_building_key($pdo, $propertyId);
+    $st = $pdo->prepare('SELECT id, title, city, district, address, org_id FROM properties WHERE org_id = (SELECT org_id FROM properties WHERE id = ?)');
+    $st->execute([$propertyId]);
+    $out = [];
+    foreach ($st->fetchAll() as $row) {
+        if (device_building_key($pdo, (int)$row['id']) === $bk) {
+            $out[] = $row;
+        }
+    }
+    return $out;
+}
+
 function device_addon_price(): int
 {
     return defined('DEVICE_ADDON_PRICE_MONTHLY') ? (int)DEVICE_ADDON_PRICE_MONTHLY : 100;
@@ -232,23 +319,70 @@ function device_add(PDO $pdo, int $orgId, int $propertyId, int $actorUserId, arr
     if (!in_array($adapter, ['dev_mock', 'aqara'], true)) {
         $adapter = 'dev_mock';
     }
-    $cnt = $pdo->prepare('SELECT COUNT(*) AS c FROM devices WHERE property_id = ? AND status <> "removed"');
-    $cnt->execute([$propertyId]);
-    if ((int)$cnt->fetch()['c'] >= 20) {
-        return ['ok' => false, 'message' => '單一房源最多 20 台裝置'];
+    /* 共用範圍 */
+    $scopeType = (string)($in['scope_type'] ?? 'unit');
+    if (!in_array($scopeType, ['unit', 'floor', 'building'], true)) {
+        $scopeType = 'unit';
     }
-    $dup = $pdo->prepare('SELECT COUNT(*) AS c FROM devices WHERE property_id = ? AND role = ? AND status <> "removed"');
-    $dup->execute([$propertyId, $role]);
-    if ((int)$dup->fetch()['c'] > 0) {
-        return ['ok' => false, 'message' => '此房源已有相同位置的裝置(' . $role . ')'];
+    $scopeKey = null;
+    if ($scopeType !== 'unit') {
+        if ($role === 'main_meter') {
+            $scopeType = 'building';
+        }
+        $bk = device_building_key($pdo, $propertyId);
+        if ($scopeType === 'building') {
+            $scopeKey = $bk;
+        } else {
+            $scopeKey = device_floor_key($bk, device_property_floor($pdo, $propertyId));
+            if ($scopeKey === null) {
+                return ['ok' => false, 'message' => '此房源沒有樓層資訊,無法設為樓層共用;請改選「整棟共用」或先補樓層'];
+            }
+        }
+    }
+
+    /* 費用歸屬戶:共用裝置只收一次;未指定(0) = 房東負擔 */
+    $chargePropertyId = null;
+    if ($scopeType !== 'unit') {
+        $reqCharge = (int)($in['charge_property_id'] ?? 0);
+        if ($reqCharge > 0) {
+            $sib = array_column(device_sibling_properties($pdo, $propertyId), 'id');
+            if (!in_array($reqCharge, array_map('intval', $sib), true)) {
+                return ['ok' => false, 'message' => '費用歸屬戶必須是同棟房源'];
+            }
+            $chargePropertyId = $reqCharge;
+        }
+    }
+
+    /* 重複防呆:同一範圍 + 同類型 + 同位置 只能有一台 */
+    if ($scopeType !== 'unit') {
+        $dup2 = $pdo->prepare("SELECT name FROM devices WHERE scope_type = ? AND scope_key = ? AND device_type = ? AND role = ?
+            AND status <> 'removed' LIMIT 1");
+        $dup2->execute([$scopeType, (string)$scopeKey, $type, $role]);
+        $existing = $dup2->fetch();
+        if ($existing) {
+            return ['ok' => false, 'message' => '此共用範圍已有「' . $existing['name'] . '」,不需要再裝一台(共用裝置只收一次費用)'];
+        }
+    } else {
+        $dup = $pdo->prepare("SELECT COUNT(*) AS c FROM devices WHERE scope_type = 'unit' AND property_id = ? AND role = ? AND status <> 'removed'");
+        $dup->execute([$propertyId, $role]);
+        if ((int)$dup->fetch()['c'] > 0) {
+            return ['ok' => false, 'message' => '此房源已有相同位置的裝置(' . $role . ')'];
+        }
+    }
+
+    $cnt = $pdo->prepare("SELECT COUNT(*) AS c FROM devices WHERE status <> 'removed' AND
+        ((scope_type='unit' AND property_id = ?) OR (scope_type<>'unit' AND scope_key = ?))");
+    $cnt->execute([$propertyId, (string)$scopeKey]);
+    if ((int)$cnt->fetch()['c'] >= 20) {
+        return ['ok' => false, 'message' => '單一房源(含共用)最多 20 台裝置'];
     }
     $serial = trim((string)($in['serial_no'] ?? ''));
     if ($serial === '') {
         $serial = strtoupper($adapter === 'dev_mock' ? 'MOCK-' : 'DEV-') . strtoupper(bin2hex(random_bytes(4)));
     }
     $stmt = $pdo->prepare('INSERT INTO devices (org_id, property_id, device_type, role, name, brand, model, adapter, serial_no,
-            status, billing_enabled, addon_price, settings, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "active", 1, ?, NULL, ?)');
+            status, billing_enabled, addon_price, settings, created_by, scope_type, scope_key, charge_property_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "active", 1, ?, NULL, ?, ?, ?, ?)');
     $stmt->execute([
         $orgId,
         $propertyId,
@@ -261,10 +395,14 @@ function device_add(PDO $pdo, int $orgId, int $propertyId, int $actorUserId, arr
         $serial,
         device_addon_price(),
         $actorUserId,
+        $scopeType,
+        $scopeKey,
+        $chargePropertyId,
     ]);
     $deviceId = (int)$pdo->lastInsertId();
     device_log($pdo, $deviceId, $propertyId, null, $actorUserId, 'device_added',
-        '新增' . ($type === 'meter' ? '電錶' : '門鎖') . '「' . $name . '」(模擬器)');
+        '新增' . ($type === 'meter' ? '電錶' : '門鎖') . '「' . $name . '」'
+        . ($scopeType === 'unit' ? '(本戶專用)' : ($scopeType === 'building' ? '(整棟共用,只收一次)' : '(樓層共用,只收一次)')));
 
     /* 該戶若已有生效租約(先簽約、後裝鎖),立刻補發房客密碼,不必等房東手動按 */
     $autoIssued = [];
@@ -336,10 +474,9 @@ function device_issue_for_lease(PDO $pdo, int $leaseId, int $actorUserId = 0, st
     $propertyId = (int)$lease['property_id'];
     $tenantId = (int)$lease['tenant_user_id'];
 
-    $devStmt = $pdo->prepare("SELECT * FROM devices WHERE property_id = ? AND device_type = 'lock' AND status IN ('active','offline')
-        ORDER BY FIELD(role, 'gate', 'door'), id");
-    $devStmt->execute([$propertyId]);
-    $devices = $devStmt->fetchAll();
+    /* 含共用裝置:1F 大門(整棟)與樓道門(該層)也必須發給這位房客,否則他進不了門 */
+    $devices = array_values(array_filter(device_devices_for_property($pdo, $propertyId),
+        fn($d) => $d['device_type'] === 'lock' && in_array($d['status'], ['active', 'offline'], true)));
     if (!$devices) {
         return ['ok' => true, 'message' => '此房源沒有門鎖裝置,略過發碼', 'issued' => [], 'failed' => []];
     }
@@ -422,6 +559,57 @@ function device_issue_for_lease(PDO $pdo, int $leaseId, int $actorUserId = 0, st
         'issued' => $issued,
         'failed' => $failed,
     ];
+}
+
+/* ─────────── 管理端:調整裝置的共用範圍 ─────────── */
+
+function device_set_scope(PDO $pdo, int $userId, int $deviceId, string $scopeType, int $chargePropertyId = 0): array
+{
+    $stmt = $pdo->prepare('SELECT d.* FROM devices d WHERE d.id = ? LIMIT 1');
+    $stmt->execute([$deviceId]);
+    $device = $stmt->fetch();
+    if (!$device) {
+        return ['ok' => false, 'message' => '找不到裝置'];
+    }
+    $propertyId = (int)$device['property_id'];
+    $scope = device_scope($pdo, $userId, $propertyId);
+    if ($scope === null || $scope === 'agent') {
+        return ['ok' => false, 'message' => '僅屋主/代管管理員/公司管理職可調整'];
+    }
+    if (!in_array($scopeType, ['unit', 'floor', 'building'], true)) {
+        return ['ok' => false, 'message' => '範圍不正確'];
+    }
+    $scopeKey = null;
+    if ($scopeType === 'building') {
+        $scopeKey = device_building_key($pdo, $propertyId);
+    } elseif ($scopeType === 'floor') {
+        $scopeKey = device_floor_key(device_building_key($pdo, $propertyId), device_property_floor($pdo, $propertyId));
+        if ($scopeKey === null) {
+            return ['ok' => false, 'message' => '此房源沒有樓層資訊,無法設為樓層共用'];
+        }
+    }
+    $charge = null;
+    if ($scopeType !== 'unit' && $chargePropertyId > 0) {
+        $sib = array_map('intval', array_column(device_sibling_properties($pdo, $propertyId), 'id'));
+        if (!in_array($chargePropertyId, $sib, true)) {
+            return ['ok' => false, 'message' => '費用歸屬戶必須是同棟房源'];
+        }
+        $charge = $chargePropertyId;
+    }
+    if ($scopeType !== 'unit' && $scopeKey !== null) {
+        $dup = $pdo->prepare("SELECT name FROM devices WHERE scope_type = ? AND scope_key = ? AND device_type = ? AND role = ? AND id <> ? AND status <> 'removed' LIMIT 1");
+        $dup->execute([$scopeType, $scopeKey, $device['device_type'], $device['role'], $deviceId]);
+        $ex = $dup->fetch();
+        if ($ex) {
+            return ['ok' => false, 'message' => '此範圍已有「' . $ex['name'] . '」,請改用那一台'];
+        }
+    }
+    $pdo->prepare('UPDATE devices SET scope_type = ?, scope_key = ?, charge_property_id = ? WHERE id = ?')
+        ->execute([$scopeType, $scopeKey, $charge, $deviceId]);
+    $label = $scopeType === 'unit' ? '本戶專用' : ($scopeType === 'building' ? '整棟共用' : '樓層共用');
+    device_log($pdo, $deviceId, $propertyId, null, $userId, 'device_scope',
+        $device['name'] . ' 改為' . $label . ($scopeType !== 'unit' ? '(只收一次費用)' : ''), 'app');
+    return ['ok' => true, 'message' => '已改為' . $label . ($scopeType !== 'unit' ? ';費用只收一次' : '')];
 }
 
 /* ─────────── 管理端:是否允許房客自行改碼(逐台) ─────────── */
@@ -657,20 +845,52 @@ function device_revoke_for_lease(PDO $pdo, int $leaseId, string $reason = 'lease
 
 /* ─────────── 查詢 ─────────── */
 
+/**
+ * 某戶帳單要負擔的智慧硬體月費。
+ *
+ * 規則(依屋主 2026-11-20 指示):
+ *   本戶專用裝置 → 計入本戶
+ *   共用裝置(樓層/整棟) → 只收一次,計在「費用歸屬戶」;若未指定歸屬戶(charge_property_id = NULL)
+ *                        則由房東自行負擔,不併入任何房客帳單
+ *   → 所以 301/302/303 三間共用一台 1F 大門時,不會變成 3 × NT$100
+ */
 function device_monthly_fee(PDO $pdo, int $propertyId): array
 {
+    $stmt = $pdo->prepare("SELECT
+            COALESCE(SUM(CASE WHEN scope_type = 'unit' THEN 1 ELSE 0 END),0) AS unit_count,
+            COALESCE(SUM(CASE WHEN scope_type = 'unit' THEN addon_price ELSE 0 END),0) AS unit_amount,
+            COALESCE(SUM(CASE WHEN scope_type <> 'unit' THEN 1 ELSE 0 END),0) AS shared_count,
+            COALESCE(SUM(CASE WHEN scope_type <> 'unit' THEN addon_price ELSE 0 END),0) AS shared_amount
+        FROM devices
+        WHERE status IN ('active','offline') AND billing_enabled = 1
+          AND ((scope_type = 'unit' AND property_id = ?)
+            OR (scope_type <> 'unit' AND charge_property_id = ?))");
+    $stmt->execute([$propertyId, $propertyId]);
+    $row = $stmt->fetch();
+    return [
+        'count' => (int)$row['unit_count'] + (int)$row['shared_count'],
+        'amount' => (int)$row['unit_amount'] + (int)$row['shared_amount'],
+        'unit_count' => (int)$row['unit_count'],
+        'unit_amount' => (int)$row['unit_amount'],
+        'shared_count' => (int)$row['shared_count'],
+        'shared_amount' => (int)$row['shared_amount'],
+    ];
+}
+
+/** 房東自負的共用裝置月費(整 org) */
+function device_owner_cost(PDO $pdo, int $orgId): array
+{
     $stmt = $pdo->prepare("SELECT COUNT(*) AS c, COALESCE(SUM(addon_price),0) AS amount FROM devices
-        WHERE property_id = ? AND status IN ('active','offline') AND billing_enabled = 1");
-    $stmt->execute([$propertyId]);
+        WHERE org_id = ? AND status IN ('active','offline') AND billing_enabled = 1
+          AND scope_type <> 'unit' AND charge_property_id IS NULL");
+    $stmt->execute([$orgId]);
     $row = $stmt->fetch();
     return ['count' => (int)$row['c'], 'amount' => (int)$row['amount']];
 }
 
 function device_rows_for_property(PDO $pdo, int $propertyId): array
 {
-    $stmt = $pdo->prepare('SELECT * FROM devices WHERE property_id = ? AND status <> "removed" ORDER BY device_type, FIELD(role, "gate","door","unit_meter","main_meter"), id');
-    $stmt->execute([$propertyId]);
-    return $stmt->fetchAll();
+    return device_devices_for_property($pdo, $propertyId);
 }
 
 function device_credentials_for_device(PDO $pdo, int $deviceId, bool $withPin = false): array

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/helpers.php';
 require_once __DIR__ . '/../includes/devices/DeviceService.php';
+require_once __DIR__ . '/../includes/meters/MeterService.php';
 
 require_methods('GET', 'POST');
 session_start();
@@ -55,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         if ($scope === null) {
             respond(false, '無權限查看此房源的裝置');
         }
-        $pStmt = $pdo->prepare('SELECT id, title, city, district, address, status FROM properties WHERE id = ? LIMIT 1');
+        $pStmt = $pdo->prepare('SELECT id, title, city, district, address, status, org_id, floor_current FROM properties WHERE id = ? LIMIT 1');
         $pStmt->execute([$propertyId]);
         $property = $pStmt->fetch();
         if (!$property) {
@@ -87,6 +88,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'addon_price' => (int)$d['addon_price'],
                 'last_sync_at' => $d['last_sync_at'],
                 'tenant_editable' => (int)$d['tenant_editable'] === 1,
+                'scope_type' => $d['scope_type'] ?? 'unit',
+                'scope_key' => $d['scope_key'] ?? null,
+                'charge_property_id' => isset($d['charge_property_id']) ? (int)$d['charge_property_id'] : 0,
+                'own_property_id' => (int)$d['property_id'],
+                'is_shared' => ($d['scope_type'] ?? 'unit') !== 'unit',
+                'shared_label' => ($d['scope_type'] ?? 'unit') === 'building'
+                    ? '整棟共用'
+                    : (($d['scope_type'] ?? 'unit') === 'floor' ? '樓層共用' : '本戶專用'),
                 'online' => (bool)($status['data']['online'] ?? false),
                 'adapter_message' => $status['message'],
                 'mock_slots' => $status['data']['slots'] ?? [],
@@ -106,8 +115,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'property' => $property,
             'devices' => $devices,
             'active_lease' => $activeLease,
+            'meters' => meter_card_data($pdo, $propertyId),
             'events' => device_events_for_property($pdo, $propertyId, 40),
-            'fee' => device_monthly_fee($pdo, $propertyId) + ['unit_price' => device_addon_price()],
+            'fee' => device_monthly_fee($pdo, $propertyId) + [
+                'unit_price' => device_addon_price(),
+                'owner_cost' => device_owner_cost($pdo, (int)($property['org_id'] ?? 0)),
+            ],
+            'building_key' => device_building_key($pdo, $propertyId),
+            'floor' => device_property_floor($pdo, $propertyId),
+            'siblings' => device_sibling_properties($pdo, $propertyId),
         ]);
     }
 
@@ -166,6 +182,13 @@ if ($action === 'sync') {
 if ($action === 'change_pin') {
     $res = device_change_pin($pdo, $userId, (int)($in['credential_id'] ?? 0), (string)($in['new_pin'] ?? ''), $ip);
     respond($res['ok'], $res['message'], $res['data']);
+}
+
+/* 房東/管理員:調整裝置共用範圍(本戶/樓層/整棟) */
+if ($action === 'set_scope') {
+    $res = device_set_scope($pdo, $userId, (int)($in['device_id'] ?? 0),
+        (string)($in['scope_type'] ?? 'unit'), (int)($in['charge_property_id'] ?? 0));
+    respond($res['ok'], $res['message']);
 }
 
 /* 房東/管理員:是否允許房客自行改碼(大門預設關閉) */
