@@ -363,8 +363,10 @@
       }
       html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
         (d.device_type === 'lock' ? '<button type="button" class="btn small" data-mgr="' + d.id + '" data-mgrname="' + esc(d.name) + '">設定管理密碼</button>' : '') +
-        '<button type="button" class="btn small ghost" data-editable="' + d.id + '" data-cur="' + (d.tenant_editable ? '1' : '0') + '">' +
-          (d.tenant_editable ? '🔓 房客可改碼:開' : '🔒 房客可改碼:關') + '</button>' +
+        (d.device_type === 'lock'
+          ? '<button type="button" class="btn small ghost" data-editable="' + d.id + '" data-cur="' + (d.tenant_editable ? '1' : '0') + '">' +
+            (d.tenant_editable ? '🔓 房客可改碼:開' : '🔒 房客可改碼:關') + '</button>'
+          : '') +
         (d.device_type === 'lock' && d.role === 'gate' ? '<button type="button" class="btn small ghost" data-shared="' + d.id + '" data-cur="' + (d.shared_pin ? '1' : '0') + '">' + (d.shared_pin ? '👥 共用碼:開' : '👥 共用碼:關') + '</button>' : '') +
         '<button type="button" class="btn small ghost" data-scope="' + d.id + '" data-cur="' + d.scope_type + '">改範圍</button>' +
         '<button type="button" class="btn small ghost" data-sync="' + d.id + '">同步狀態</button>' +

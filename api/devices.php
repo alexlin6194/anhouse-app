@@ -240,6 +240,11 @@ if ($action === 'set_shared_pin') {
 
 /* 房東/管理員:是否允許房客自行改碼(大門預設關閉) */
 if ($action === 'set_tenant_editable') {
+    $tq = $pdo->prepare('SELECT device_type FROM devices WHERE id = ? LIMIT 1');
+    $tq->execute([(int)($in['device_id'] ?? 0)]);
+    if ((string)($tq->fetchColumn() ?: '') !== 'lock') {
+        respond(false, '電錶沒有密碼,不適用「房客可改碼」');
+    }
     $res = device_set_tenant_editable($pdo, $userId, (int)($in['device_id'] ?? 0),
         (string)($in['enabled'] ?? '') === '1', $ip);
     respond($res['ok'], $res['message']);
