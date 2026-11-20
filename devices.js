@@ -55,10 +55,18 @@
             '<button type="button" class="btn small ghost" data-toggle="' + L.id + '">' + (shown ? '隱藏' : '顯示') + '</button></div>' +
             '<p style="font-size:11.5px;color:var(--brown2);margin:6px 0 0">有效至 ' + (L.valid_to ? dt(L.valid_to) : '退租') +
             (L.last_changed_at ? '・上次改碼 ' + dt(L.last_changed_at) : '') + '</p>' +
-            '<div style="display:flex;gap:8px;margin-top:10px">' +
-            '<button type="button" class="btn small" data-change="' + L.credential_id + '" data-label="' + esc(roleName[L.role]) + '">修改' + esc(roleName[L.role]) + '密碼</button>' +
+            '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
+            '<button type="button" class="btn small" data-open="' + L.id + '">修改' + esc(roleName[L.role]) + '密碼</button>' +
             (L.adapter === 'dev_mock' ? '<button type="button" class="btn small ghost" data-test="' + L.id + '" data-slot="' + L.role + '">試開(模擬)</button>' : '') +
-            '</div>'
+            '</div>' +
+            '<div id="pf-' + L.id + '" style="display:none;margin-top:10px;background:var(--cream2);border:1.5px solid var(--beige2);border-radius:12px;padding:12px">' +
+            '<div style="font-size:12px;color:var(--brown2);margin-bottom:6px">新的' + esc(roleName[L.role]) + '密碼(6 位數字,不可連號/重複)</div>' +
+            '<input id="pin-' + L.id + '" type="tel" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="輸入 6 位數字" ' +
+            'style="width:100%;border:1.5px solid var(--beige2);border-radius:10px;padding:10px 12px;font-size:20px;letter-spacing:6px;font-family:monospace;background:var(--surface);color:var(--brown);box-sizing:border-box">' +
+            '<div style="display:flex;gap:8px;margin-top:8px">' +
+            '<button type="button" class="btn small" data-submit="' + L.credential_id + '" data-dev="' + L.id + '">確認修改</button>' +
+            '<button type="button" class="btn small ghost" data-cancel="' + L.id + '">取消</button>' +
+            '</div></div>'
           : '<p style="font-size:12.5px;color:var(--err);margin-top:8px">尚未開通密碼,請聯絡管理員重新發碼。</p>') +
         '</div>';
     });
@@ -87,7 +95,32 @@
       state.showPin[b.dataset.toggle] = !state.showPin[b.dataset.toggle];
       renderTenant(state.tenant);
     });
-    c.querySelectorAll('[data-change]').forEach(b => b.onclick = () => changePin(b.dataset.change, b.dataset.label));
+    c.querySelectorAll('[data-open]').forEach(b => b.onclick = () => {
+      const f = document.getElementById('pf-' + b.dataset.open);
+      if (!f) return;
+      const open = f.style.display === 'none';
+      f.style.display = open ? 'block' : 'none';
+      if (open) { const i = document.getElementById('pin-' + b.dataset.open); if (i) { i.value = ''; i.focus(); } }
+    });
+    c.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => {
+      const f = document.getElementById('pf-' + b.dataset.cancel);
+      if (f) f.style.display = 'none';
+    });
+    c.querySelectorAll('[data-submit]').forEach(b => b.onclick = () => {
+      const devId = b.dataset.dev;
+      const inp = document.getElementById('pin-' + devId);
+      const pin = (inp ? inp.value : '').replace(/\D/g, '');
+      if (pin.length !== 6) { toast('請輸入 6 位數字'); return; }
+      if (b.disabled) return;
+      b.disabled = true;
+      api('api/devices.php', { action: 'change_pin', credential_id: Number(b.dataset.submit), new_pin: pin })
+        .then(d => {
+          b.disabled = false;
+          toast(d.message);
+          if (d.ok) { state.showPin[Number(devId)] = true; loadTenant(); }
+        })
+        .catch(() => { b.disabled = false; toast('連線失敗,請稍後再試'); });
+    });
     c.querySelectorAll('[data-test]').forEach(b => b.onclick = () => testUnlock(b.dataset.test, b.dataset.slot));
   }
 
