@@ -424,6 +424,26 @@ function device_issue_for_lease(PDO $pdo, int $leaseId, int $actorUserId = 0, st
     ];
 }
 
+/* ─────────── 管理端:是否允許房客自行改碼(逐台) ─────────── */
+
+function device_set_tenant_editable(PDO $pdo, int $userId, int $deviceId, bool $editable, ?string $ip = null): array
+{
+    $stmt = $pdo->prepare('SELECT d.*, p.title AS property_title FROM devices d JOIN properties p ON p.id = d.property_id WHERE d.id = ? LIMIT 1');
+    $stmt->execute([$deviceId]);
+    $device = $stmt->fetch();
+    if (!$device) {
+        return ['ok' => false, 'message' => '找不到裝置'];
+    }
+    $scope = device_scope($pdo, $userId, (int)$device['property_id']);
+    if ($scope === null || $scope === 'agent') {
+        return ['ok' => false, 'message' => '僅屋主/代管管理員/公司管理職可調整此設定'];
+    }
+    $pdo->prepare('UPDATE devices SET tenant_editable = ? WHERE id = ?')->execute([$editable ? 1 : 0, $deviceId]);
+    device_log($pdo, $deviceId, (int)$device['property_id'], null, $userId,
+        'tenant_editable_changed', ($device['name'] ?? '') . ':' . ($editable ? '開放' : '關閉') . '房客自行改碼', 'app', $ip);
+    return ['ok' => true, 'message' => $editable ? '已開放房客自行修改「' . $device['name'] . '」密碼' : '已關閉:「' . $device['name'] . '」僅房東/管理員可改碼'];
+}
+
 /* ─────────── 管理端專用密碼(房東/管理員自用,不隨租約撤銷)─────────── */
 
 /**
@@ -490,7 +510,7 @@ function device_set_manager_pin(PDO $pdo, int $userId, int $deviceId, string $pi
  */
 function device_change_pin(PDO $pdo, int $userId, int $credentialId, string $newPin, ?string $ip = null): array
 {
-    $stmt = $pdo->prepare('SELECT c.*, d.name AS device_name, d.role, d.adapter, d.status AS device_status, d.property_id AS dev_prop,
+    $stmt = $pdo->prepare('SELECT c.*, d.name AS device_name, d.role, d.adapter, d.status AS device_status, d.property_id AS dev_prop, d.tenant_editable,
             l.status AS lease_status, l.end_date, p.title AS property_title
         FROM device_credentials c
         JOIN devices d ON d.id = c.device_id
@@ -516,6 +536,12 @@ function device_change_pin(PDO $pdo, int $userId, int $credentialId, string $new
     }
     if ($cred['lease_id'] !== null && $cred['lease_status'] !== 'active') {
         return ['ok' => false, 'message' => '租約未生效或已結束,無法改碼', 'data' => []];
+    }
+    /* 大門(公共門鎖)預設不可由房客自行改碼;只有房東/管理員可改。
+       devices.tenant_editable 可逐台開關(房東在管理頁可切換)。 */
+    if ($isOwner && !$isManager && (int)($cred['tenant_editable'] ?? 1) !== 1) {
+        $label = $cred['role'] === 'gate' ? '大門' : ($cred['label'] ?: '門鎖');
+        return ['ok' => false, 'message' => $label . '密碼由房東管理,房客無法自行修改;如需變更請聯絡房東/管理員', 'data' => ['locked_by_landlord' => true]];
     }
     $newPin = trim($newPin);
     if (device_pin_is_weak($newPin)) {
@@ -694,6 +720,7 @@ function device_tenant_view(PDO $pdo, int $userId): array
             'id' => (int)$d['id'],
             'name' => $d['name'],
             'role' => $d['role'],
+            'tenant_editable' => (int)$d['tenant_editable'] === 1,
             'status' => $d['status'],
             'adapter' => $d['adapter'],
             'adapter_label' => device_adapter((string)$d['adapter'])->label(),
@@ -702,7 +729,8 @@ function device_tenant_view(PDO $pdo, int $userId): array
             'valid_from' => $cred['valid_from'] ?? null,
             'valid_to' => $cred['valid_to'] ?? null,
             'last_changed_at' => $cred['last_changed_at'] ?? null,
-            'can_change' => (bool)$cred,
+            'can_change' => (bool)$cred && ((int)$d['tenant_editable'] === 1),
+            'locked_reason' => ($cred && (int)$d['tenant_editable'] !== 1) ? '此門為公共/房東管理,僅房東可變更' : null,
         ];
     }
     $ev = $pdo->prepare("SELECT e.*, d.name AS device_name FROM device_events e LEFT JOIN devices d ON d.id = e.device_id

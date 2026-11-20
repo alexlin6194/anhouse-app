@@ -56,7 +56,9 @@
             '<p style="font-size:11.5px;color:var(--brown2);margin:6px 0 0">有效至 ' + (L.valid_to ? dt(L.valid_to) : '退租') +
             (L.last_changed_at ? '・上次改碼 ' + dt(L.last_changed_at) : '') + '</p>' +
             '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
-            '<button type="button" class="btn small" data-open="' + L.id + '">修改' + esc(roleName[L.role]) + '密碼</button>' +
+            (L.can_change
+              ? '<button type="button" class="btn small" data-open="' + L.id + '">修改' + esc(roleName[L.role]) + '密碼</button>'
+              : '<span style="font-size:12px;color:var(--brown2);background:var(--cream2);border:1px dashed var(--beige2);border-radius:10px;padding:8px 12px;line-height:1.7">🔒 ' + esc(roleName[L.role]) + '密碼由房東管理,如需變更請聯絡房東</span>') +
             (L.adapter === 'dev_mock' ? '<button type="button" class="btn small ghost" data-test="' + L.id + '" data-slot="' + L.role + '">試開(模擬)</button>' : '') +
             '</div>' +
             '<div id="pf-' + L.id + '" style="display:none;margin-top:10px;background:var(--cream2);border:1.5px solid var(--beige2);border-radius:12px;padding:12px">' +
@@ -77,7 +79,8 @@
       '・新碼不可與目前相同;改完舊碼立即失效<br>' +
       '・同一組密碼 24 小時內最多修改 3 次<br>' +
       '・改碼會即時通知房東/管理員(避免同住人不知情被鎖在門外)<br>' +
-      '・退租或租約到期,大門與房門密碼自動全部撤銷</p></div>';
+      '・大門(公共門鎖)由房東管理,房客僅能修改自己入戶門的密碼<br>' +
+      '・退租或租約到期,所有密碼自動全部撤銷</p></div>';
 
     if (v.events && v.events.length) {
       html += '<div class="sect">最近紀錄</div><div class="card flat" style="padding:10px 16px">';
@@ -229,6 +232,8 @@
       }
       html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
         (d.device_type === 'lock' ? '<button type="button" class="btn small" data-mgr="' + d.id + '" data-mgrname="' + esc(d.name) + '">設定管理密碼</button>' : '') +
+        '<button type="button" class="btn small ghost" data-editable="' + d.id + '" data-cur="' + (d.tenant_editable ? '1' : '0') + '">' +
+          (d.tenant_editable ? '🔓 房客可改碼:開' : '🔒 房客可改碼:關') + '</button>' +
         '<button type="button" class="btn small ghost" data-sync="' + d.id + '">同步狀態</button>' +
         '<button type="button" class="btn small ghost" data-del="' + d.id + '" data-name="' + esc(d.name) + '">移除</button>' +
         '</div></div>';
@@ -268,6 +273,11 @@
         name: $('#dName').value.trim(), adapter: 'dev_mock'
       }).then(d => { toast(d.message); if (d.ok) loadProperty(); }).catch(() => toast('連線失敗'));
     };
+    c.querySelectorAll('[data-editable]').forEach(b => b.onclick = () => {
+      const next = b.dataset.cur === '1' ? '0' : '1';
+      api('api/devices.php', { action: 'set_tenant_editable', device_id: Number(b.dataset.editable), enabled: next })
+        .then(d => { toast(d.message); if (d.ok) loadProperty(); }).catch(() => toast('連線失敗'));
+    });
     c.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => {
       if (!confirm('立即產生入住密碼並發給房客?')) return;
       api('api/devices.php', { action: 'issue', lease_id: Number(b.dataset.issue) })

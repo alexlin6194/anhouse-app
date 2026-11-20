@@ -86,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'billing_enabled' => (bool)$d['billing_enabled'],
                 'addon_price' => (int)$d['addon_price'],
                 'last_sync_at' => $d['last_sync_at'],
+                'tenant_editable' => (int)$d['tenant_editable'] === 1,
                 'online' => (bool)($status['data']['online'] ?? false),
                 'adapter_message' => $status['message'],
                 'mock_slots' => $status['data']['slots'] ?? [],
@@ -165,6 +166,13 @@ if ($action === 'sync') {
 if ($action === 'change_pin') {
     $res = device_change_pin($pdo, $userId, (int)($in['credential_id'] ?? 0), (string)($in['new_pin'] ?? ''), $ip);
     respond($res['ok'], $res['message'], $res['data']);
+}
+
+/* 房東/管理員:是否允許房客自行改碼(大門預設關閉) */
+if ($action === 'set_tenant_editable') {
+    $res = device_set_tenant_editable($pdo, $userId, (int)($in['device_id'] ?? 0),
+        (string)($in['enabled'] ?? '') === '1', $ip);
+    respond($res['ok'], $res['message']);
 }
 
 /* 房東/管理員:設定「管理密碼」(自用,不隨租約撤銷) */
