@@ -338,11 +338,12 @@ function device_add(PDO $pdo, int $orgId, int $propertyId, int $actorUserId, arr
     if (!in_array($scopeType, ['unit', 'floor', 'building'], true)) {
         $scopeType = 'unit';
     }
+    /* 整棟總錶本身就是整棟共用:強制 building,否則每戶各建一顆會重複計費/重複出現 */
+    if ($role === 'main_meter') {
+        $scopeType = 'building';
+    }
     $scopeKey = null;
     if ($scopeType !== 'unit') {
-        if ($role === 'main_meter') {
-            $scopeType = 'building';
-        }
         $bk = device_building_key($pdo, $propertyId);
         if ($scopeType === 'building') {
             $scopeKey = $bk;
