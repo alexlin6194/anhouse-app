@@ -90,6 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'adapter_message' => $status['message'],
                 'mock_slots' => $status['data']['slots'] ?? [],
                 'credentials' => device_credentials_for_device($pdo, (int)$d['id'], true),
+                'tenant_issued' => (function () use ($pdo, $d, $activeLease) {
+                    if (!$activeLease) { return false; }
+                    $cq = $pdo->prepare("SELECT COUNT(*) AS c FROM device_credentials
+                        WHERE device_id = ? AND lease_id = ? AND slot_key IN ('gate','door') AND status = 'active'");
+                    $cq->execute([(int)$d['id'], (int)$activeLease['id']]);
+                    return (int)$cq->fetch()['c'] > 0;
+                })(),
             ];
         }
         respond(true, 'ok', [

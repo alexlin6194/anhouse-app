@@ -265,7 +265,27 @@ function device_add(PDO $pdo, int $orgId, int $propertyId, int $actorUserId, arr
     $deviceId = (int)$pdo->lastInsertId();
     device_log($pdo, $deviceId, $propertyId, null, $actorUserId, 'device_added',
         '新增' . ($type === 'meter' ? '電錶' : '門鎖') . '「' . $name . '」(模擬器)');
-    return ['ok' => true, 'message' => '裝置已新增', 'device_id' => $deviceId, 'serial_no' => $serial];
+
+    /* 該戶若已有生效租約(先簽約、後裝鎖),立刻補發房客密碼,不必等房東手動按 */
+    $autoIssued = [];
+    if ($type === 'lock') {
+        $ls = $pdo->prepare("SELECT id FROM leases WHERE property_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1");
+        $ls->execute([$propertyId]);
+        $leaseId = (int)($ls->fetchColumn() ?: 0);
+        if ($leaseId > 0) {
+            $r = device_issue_for_lease($pdo, $leaseId, $actorUserId, 'system');
+            foreach ($r['issued'] as $x) {
+                $autoIssued[] = $x['label'] . ' ' . $x['pin'];
+            }
+        }
+    }
+    return [
+        'ok' => true,
+        'message' => '裝置已新增' . ($autoIssued ? ';已自動發碼給現有房客:' . implode('、', $autoIssued) : ''),
+        'device_id' => $deviceId,
+        'serial_no' => $serial,
+        'issued' => $autoIssued,
+    ];
 }
 
 function device_remove(PDO $pdo, int $actorUserId, int $deviceId): array

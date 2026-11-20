@@ -150,13 +150,13 @@
     /* 有生效租約卻還沒發碼 → 一鍵補發(舊租約在門鎖加裝前就生效的情況) */
     const L = p.active_lease;
     const locks = p.devices.filter(d => d.device_type === 'lock');
-    const withCred = locks.filter(d => (d.credentials || []).some(c => c.status === 'active'));
-    if (L && locks.length && withCred.length < locks.length) {
+    const issuedCount = locks.filter(d => d.tenant_issued).length;
+    if (L && locks.length && issuedCount < locks.length) {
       html += '<div class="card" style="padding:14px 16px;border:1.5px solid var(--wood)">' +
         '<b style="font-size:14.5px">⚠️ 這戶有生效租約,但門鎖還沒發碼</b>' +
         '<p style="font-size:12.5px;color:var(--brown2);margin:8px 0 0;line-height:1.9">' +
         '房客:' + esc(L.tenant_name) + '|租期 ' + dstr(L.start_date) + ' ~ ' + (L.end_date ? dstr(L.end_date) : '不定期') + '<br>' +
-        '可能是租約在加裝門鎖前就生效了。按下面按鈕會立即產生並發送入住密碼給房客(同時通知您)。</p>' +
+        ('尚未發碼:' + locks.filter(d => !d.tenant_issued).map(d => esc(d.name)).join('、') + '<br>可能是租約在加裝門鎖前就生效了。按下面按鈕會立即產生並發送入住密碼給房客(同時通知您)。') + '</p>' +
         '<div style="display:flex;gap:8px;margin-top:10px">' +
         '<button type="button" class="btn small" data-issue="' + L.id + '">立即發碼給房客</button>' +
         '<button type="button" class="btn small ghost" data-mgr-all="1">先設管理密碼</button>' +
