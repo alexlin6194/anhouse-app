@@ -192,6 +192,47 @@ function device_gen_pin(): string
 
 /* ─────────── Adapter 解析 ─────────── */
 
+/**
+ * 依裝置類型取得正確的 adapter 標籤。
+ *
+ * 電錶與門鎖是兩套不同介面(MeterAdapter / DeviceAdapter),型號也完全不重疊。
+ * 過去一律用 device_adapter() 查表,電錶型號查不到就落到 default,畫面便顯示「模擬鎖」。
+ */
+function device_adapter_label(array $device): string
+{
+    if (($device['device_type'] ?? 'lock') === 'meter') {
+        $map = [
+            'taike' => '台科電智慧電錶',
+            'local_bridge' => '地端電錶(Modbus 橋接)',
+            'dev_mock_meter' => '模擬電錶(開發/展示用)',
+            'dev_mock' => '模擬電錶(開發/展示用)',
+        ];
+        return $map[(string)($device['adapter'] ?? '')] ?? '電錶';
+    }
+    return device_adapter((string)($device['adapter'] ?? ''))->label();
+}
+
+function device_is_mock(array $device): bool
+{
+    if (($device['device_type'] ?? 'lock') === 'meter') {
+        return in_array((string)($device['adapter'] ?? ''), ['dev_mock_meter', 'dev_mock'], true);
+    }
+    return device_adapter((string)($device['adapter'] ?? ''))->isMock();
+}
+
+/** 電錶的狀態訊息(門鎖 adapter 的 status() 不適用於電錶) */
+function device_meter_status(PDO $pdo, array $device): array
+{
+    $isMock = device_is_mock($device);
+    $state = function_exists('meter_state') ? meter_state($pdo, (int)$device['id']) : [];
+    $online = ($device['status'] ?? '') === 'active';
+    $last = $state['last_read_at'] ?? null;
+    $msg = $isMock
+        ? '模擬電錶(虛擬)'.($last ? '・上次抄表 '.$last : '・尚未抄表')
+        : ($online ? '電錶在線'.($last ? '・上次抄表 '.$last : '') : '電錶離線');
+    return ['ok' => true, 'message' => $msg, 'data' => ['online' => $online, 'slots' => []]];
+}
+
 function device_adapter(string $code): DeviceAdapter
 {
     switch ($code) {
@@ -1306,7 +1347,7 @@ function device_tenant_view(PDO $pdo, int $userId): array
             'tenant_editable' => (int)$d['tenant_editable'] === 1,
             'status' => $d['status'],
             'adapter' => $d['adapter'],
-            'adapter_label' => device_adapter((string)$d['adapter'])->label(),
+            'adapter_label' => device_adapter_label($d),
             'credential_id' => $cred ? (int)$cred['id'] : null,
             'pin' => $cred ? device_pin_decrypt((string)$cred['pin_enc']) : null,
             'valid_from' => $cred['valid_from'] ?? null,

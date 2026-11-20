@@ -71,8 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         $devices = [];
         foreach (device_rows_for_property($pdo, $propertyId) as $d) {
-            $adapter = device_adapter((string)$d['adapter']);
-            $status = $adapter->status($d);
+            $isMeterDevice = ($d['device_type'] ?? 'lock') === 'meter';
+            $adapter = $isMeterDevice ? null : device_adapter((string)$d['adapter']);
+            $status = $isMeterDevice ? device_meter_status($pdo, $d) : $adapter->status($d);
             $devices[] = [
                 'id' => (int)$d['id'],
                 'name' => $d['name'],
@@ -80,8 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'role' => $d['role'],
                 'brand' => $d['brand'],
                 'adapter' => $d['adapter'],
-                'adapter_label' => $adapter->label(),
-                'is_mock' => $adapter->isMock(),
+                'adapter_label' => device_adapter_label($d),
+                'is_mock' => device_is_mock($d),
                 'serial_no' => $d['serial_no'],
                 'status' => $d['status'],
                 'billing_enabled' => (bool)$d['billing_enabled'],
