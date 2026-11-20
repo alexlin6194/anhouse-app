@@ -33,8 +33,9 @@
 | **每顆計費電錶** | 3,600 | 1,800 | ✓ 現行 |
 | 每房東帳號 | 180(全部) | 180 | ✗ 絕對虧 |
 
-**什麼算「計費電錶」**:`device_type='meter'` 且 `role='unit_meter'` 且 `billing_enabled=1`。
-總錶 / 公共錶 / 車道錶請設 `role='main_meter'` 或 `billing_enabled=0` → **不收費**。
+**什麼算「計費電錶」**:`device_type='meter'` 且 `role <> 'main_meter'` 且 `billing_enabled=1`。
+總錶 / 公共錶 / 車道錶請設 `role='main_meter'` 或把「計費」關掉(`billing_enabled=0`)→ **不收費**。
+(早期建立的電錶 `role` 可能是空字串,同樣視為計費錶,不會漏收。)
 
 ### 價目表(APP 內「查看費用與合約條款」同步顯示)
 

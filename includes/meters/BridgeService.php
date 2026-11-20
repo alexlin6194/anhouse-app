@@ -23,7 +23,7 @@ function meter_billable_count(PDO $pdo, int $propertyId): int
 {
     try {
         $st = $pdo->prepare("SELECT COUNT(*) FROM devices
-            WHERE property_id = ? AND device_type = 'meter' AND role = 'unit_meter'
+            WHERE property_id = ? AND device_type = 'meter' AND role <> 'main_meter'
               AND status <> 'removed' AND billing_enabled = 1");
         $st->execute([$propertyId]);
         return (int)$st->fetchColumn();
@@ -37,7 +37,7 @@ function meter_total_count(PDO $pdo, int $propertyId): array
 {
     try {
         $st = $pdo->prepare("SELECT
-                SUM(CASE WHEN role = 'unit_meter' AND billing_enabled = 1 THEN 1 ELSE 0 END) AS billable,
+                SUM(CASE WHEN role <> 'main_meter' AND billing_enabled = 1 THEN 1 ELSE 0 END) AS billable,
                 COUNT(*) AS total
             FROM devices WHERE property_id = ? AND device_type = 'meter' AND status <> 'removed'");
         $st->execute([$propertyId]);
