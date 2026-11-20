@@ -109,20 +109,34 @@
   }
 
   /* ────────── 管理端檢視 ────────── */
+  function propOptions() {
+    return state.properties.map(p => '<option value="' + p.id + '"' + (Number(p.id) === Number(state.propertyId) ? ' selected' : '') + '>' +
+      esc(p.title) + (p.city || p.district ? '・' + esc((p.city || '') + (p.district || '')) : '') + '（' + p.device_count + ' 台裝置）</option>').join('');
+  }
+
   function renderManager() {
     const c = $('#content');
     const props = state.properties;
     if (!props.length) {
-      c.innerHTML = '<div class="card"><b>沒有可管理的房源</b><p style="font-size:13px;color:var(--brown2);margin-top:8px">建立房源後即可加裝智慧門鎖/電錶。</p></div>';
+      c.innerHTML = '<div class="card"><b>沒有可管理的房源</b>' +
+        '<p style="font-size:13px;color:var(--brown2);margin-top:8px;line-height:1.9">智慧門鎖/電錶是「綁在某一戶房源」上加購的,所以要先有房源。<br>' +
+        '目前這個帳號名下沒有可管理的房源(或此帳號不是房東/管理員)。</p>' +
+        '<a class="btn small" href="create_property.html" style="margin-top:10px;text-decoration:none;text-align:center">建立房源</a></div>';
       return;
     }
-    let html = '<div class="field"><label for="propSel">選擇房源</label><select id="propSel">' +
-      props.map(p => '<option value="' + p.id + '"' + (Number(p.id) === Number(state.propertyId) ? ' selected' : '') + '>' +
-        esc(p.title) + '・' + esc(p.city || '') + esc(p.district || '') + '(' + p.device_count + ' 台裝置)</option>').join('') +
-      '</select></div>';
+    const sel = state.property ? state.property.property : null;
+    let html = '<div class="sect">① 選擇房源</div>' +
+      '<div class="card" style="padding:14px 16px">' +
+      '<div class="field" style="margin:0"><label for="propSel">要加裝／管理裝置的房源</label>' +
+      '<select id="propSel" style="font-size:15px;padding:12px">' + propOptions() + '</select></div>' +
+      (sel
+        ? '<p style="font-size:12.5px;color:var(--brown2);margin:8px 0 0;line-height:1.9">目前選取:<b style="color:var(--brown)">' + esc(sel.title) + '</b>' +
+          (sel.city || sel.district ? '｜' + esc((sel.city || '') + (sel.district || '')) : '') + '｜編號 #' + sel.id + '</p>'
+        : '<p style="font-size:12.5px;color:var(--brown2);margin:8px 0 0">請先從上方選一戶房源,下方才會出現該戶的裝置與加裝按鈕。</p>') +
+      '</div>';
+
     const p = state.property;
     if (!p) {
-      html += '<p style="padding:16px 4px;color:var(--brown2);font-size:13px">選擇房源以管理裝置。</p>';
       c.innerHTML = html;
       bindPropSel();
       return;
@@ -164,6 +178,9 @@
 
     html += '<div class="sect">加裝裝置</div>' +
       '<div class="card" style="padding:14px 16px">' +
+      '<div class="field"><label for="dProp">加裝在哪一戶房源</label><select id="dProp" style="font-size:14.5px;padding:11px">' + propOptions() + '</select></div>' +
+      '<div style="background:rgba(200,155,107,.12);border-radius:12px;padding:9px 12px;margin:6px 0 12px;font-size:12.5px;line-height:1.8">' +
+      '即將加裝於:<b>' + esc(p.property.title) + '</b>(編號 #' + p.property.id + ')<br>每台每月加購 NT$' + money(fee.unit_price) + ',會自動併入該戶帳單</div>' +
       '<div class="field"><label for="dType">類型</label><select id="dType"><option value="lock">智慧門鎖</option><option value="meter">智慧電錶</option></select></div>' +
       '<div class="field"><label for="dRole">位置</label><select id="dRole">' +
       '<option value="gate">大門</option><option value="door">房門</option>' +
@@ -205,12 +222,16 @@
   }
 
   function bindPropSel() {
-    const sel = $('#propSel');
-    if (!sel) return;
-    sel.onchange = () => {
-      state.propertyId = Number(sel.value);
+    const change = (e) => {
+      const v = Number(e.target.value);
+      if (!v || v === Number(state.propertyId)) return;
+      state.propertyId = v;
       loadProperty();
     };
+    ['#propSel', '#dProp'].forEach(s => {
+      const el = $(s);
+      if (el) el.onchange = change;
+    });
   }
 
   /* ────────── 載入 ────────── */
@@ -230,13 +251,20 @@
     });
   }
   function setView(v) {
+    const hasTenant = !!(state.tenant && state.tenant.lease);
+    const hasProps = state.properties.length > 0;
+    if (v === 'tenant' && !hasTenant) v = 'manager';
+    if (v === 'manager' && !hasProps) v = hasTenant ? 'tenant' : 'manager';
     state.view = v;
     const bar = $('#roleBar');
-    bar.style.display = state.properties.length && state.tenant && state.tenant.lease ? 'flex' : 'none';
-    bar.innerHTML =
-      '<button type="button" class="btn small ' + (v === 'tenant' ? '' : 'ghost') + '" data-v="tenant">我的門鎖</button>' +
-      '<button type="button" class="btn small ' + (v === 'manager' ? '' : 'ghost') + '" data-v="manager">管理裝置</button>';
-    bar.querySelectorAll('[data-v]').forEach(b => b.onclick = () => setView(b.dataset.v));
+    const showBar = hasTenant && hasProps;
+    bar.style.display = showBar ? 'flex' : 'none';
+    if (showBar) {
+      bar.innerHTML =
+        '<button type="button" class="btn small ' + (v === 'tenant' ? '' : 'ghost') + '" data-v="tenant" style="flex:1">我的門鎖</button>' +
+        '<button type="button" class="btn small ' + (v === 'manager' ? '' : 'ghost') + '" data-v="manager" style="flex:1">管理／加裝裝置</button>';
+      bar.querySelectorAll('[data-v]').forEach(b => b.onclick = () => setView(b.dataset.v));
+    }
     if (v === 'tenant') { loadTenant(); } else { renderManager(); }
   }
 
@@ -251,10 +279,10 @@
       state.property = null;
       loadProperty();
     }
-    if (state.tenant && state.tenant.lease) {
-      setView('tenant');
-    } else if (state.properties.length) {
+    if (state.properties.length) {
       setView('manager');
+    } else if (state.tenant && state.tenant.lease) {
+      setView('tenant');
     } else {
       $('#content').innerHTML = '<div class="card"><b>尚未有可檢視的裝置</b><p style="font-size:13px;color:var(--brown2);margin-top:8px">房東/管理員可先建立房源並加裝門鎖;房客於簽約後會看到入住密碼。</p></div>';
     }
