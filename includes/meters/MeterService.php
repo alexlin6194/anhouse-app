@@ -100,7 +100,7 @@ function meter_sync_property(PDO $pdo, int $propertyId, int $actorUserId = 0, st
     $results = [];
     foreach ($rows as $d) {
         $r = meter_read_once($pdo, $d, $actorUserId, $source);
-        $results[] = ['device' => $d['name'], 'ok' => $r['ok'], 'message' => $r['message'], 'reading' => $r['reading']];
+        $results[] = ['device_id' => (int)$d['id'], 'device' => $d['name'], 'ok' => $r['ok'], 'message' => $r['message'], 'reading' => $r['reading'], 'read_at' => $r['read_at']];
     }
     $okCount = count(array_filter($results, fn($x) => $x['ok']));
     return [
