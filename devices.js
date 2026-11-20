@@ -306,7 +306,7 @@
           '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
           '<div><b style="font-size:15px">⚡ ' + esc(m.name) + '</b>' +
           '<div style="font-size:11.5px;color:var(--brown2);margin-top:4px">' + esc(m.adapter_label) + '・' + esc(m.serial_no || '') +
-            (m.role === 'main_meter' ? '・<b style="color:var(--wood-d)">整棟總錶(不計費)</b>' : '') + '</div></div>' +
+            (m.role === 'main_meter' ? '・<b style="color:var(--wood-d)">整棟共用・不計費</b>' : '') + '</div></div>' +
           '<span class="st ' + (m.status === 'active' ? 'ok' : 'warn') + '">' + (m.status === 'active' ? '在線' : '離線') + '</span></div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">' +
           '<div style="background:var(--cream2);border-radius:10px;padding:9px 11px"><div style="font-size:11px;color:var(--brown2)">最新讀值</div><b style="font-size:16px">' + last + '</b></div>' +
@@ -333,7 +333,15 @@
     if (!p.devices.length) {
       html += '<p style="padding:12px 4px;color:var(--brown2);font-size:13px;margin:0">尚未加裝裝置。建議先加「大門門鎖」與「房門門鎖」兩台(模擬器),就能在 XAMPP 完整演示簽約發碼流程。</p>';
     }
-    p.devices.forEach(d => {
+    /* 本戶裝置與共用裝置分開列:總錶/樓道門屬於整棟或樓層,不屬於這一戶,
+       混在「本戶」清單裡會讓房東以為是 301 房的錶。 */
+    const sortedDevices = p.devices.slice().sort((a, b) => (a.is_shared ? 1 : 0) - (b.is_shared ? 1 : 0));
+    let sharedHeaderAdded = false;
+    sortedDevices.forEach(d => {
+      if (d.is_shared && !sharedHeaderAdded) {
+        sharedHeaderAdded = true;
+        html += '<div class="sect">共用裝置(樓層／整棟,同棟各戶都看得到)</div>';
+      }
       html += '<div class="card" style="padding:14px 16px">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
         '<div><b style="font-size:15px">' + roleIcon[d.role] + ' ' + esc(d.name) + '</b>' +
@@ -393,7 +401,7 @@
       '<option value="cloud">雲端 API(每顆 NT$180/月)</option>' +
       '<option value="local">地端 Modbus 橋接(每顆 NT$150/月)</option>' +
       '<option value="mock">模擬電錶(測試用,不收費)</option></select>' +
-      '<p style="font-size:11.5px;color:var(--brown2);margin:6px 0 0;line-height:1.8">總錶/公共錶請選位置「整棟總錶」,系統自動設為不計費。</p></div>' +
+      '<p style="font-size:11.5px;color:var(--brown2);margin:6px 0 0;line-height:1.8">選「總電錶」= 整棟共用:系統自動設為不計費,建立後同棟各戶都看得到,且全棟只能有一顆。</p></div>' +
       '<div class="field"><label for="dRole">位置</label><select id="dRole">' +
       '<option value="gate">大門</option><option value="door">房門</option>' +
       '<option value="unit_meter">戶別電錶</option><option value="main_meter">總電錶</option></select></div>' +
