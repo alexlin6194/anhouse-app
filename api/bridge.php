@@ -51,6 +51,16 @@ if ($action === 'push') {
     respond(true, 'ok', $res);
 }
 
+if ($action === 'policy') {
+    respond(true, 'ok', meter_policy_for_bridge($pdo, $bridge));
+}
+
+if ($action === 'ledger') {
+    $entries = $in['entries'] ?? [];
+    if (!is_array($entries)) { respond(false, 'entries 必須是陣列'); }
+    respond(true, 'ok', bridge_ledger_accept($pdo, $bridge, $entries));
+}
+
 if ($action === 'ack') {
     $res = bridge_ack($pdo, $bridge, (int)($in['command_id'] ?? 0), !empty($in['ok']), (string)($in['result'] ?? ''));
     respond($res['ok'], $res['ok'] ? 'ok' : '指令回報失敗');

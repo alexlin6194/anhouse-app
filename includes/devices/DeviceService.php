@@ -1174,7 +1174,7 @@ function device_monthly_fee(PDO $pdo, int $propertyId): array
         require_once __DIR__ . '/../meters/BridgeService.php';
         if (function_exists('meter_plan_of')) { $plan = meter_plan_of($pdo, $propertyId); }
     }
-    $meterCond = $plan['fee'] > 0 ? " AND device_type <> 'meter'" : "";
+    $meterCond = $plan['plan'] !== 'none' ? " AND device_type <> 'meter'" : "";
 
     $stmt = $pdo->prepare("SELECT
             COALESCE(SUM(CASE WHEN scope_type = 'unit' THEN 1 ELSE 0 END),0) AS unit_count,
@@ -1198,6 +1198,8 @@ function device_monthly_fee(PDO $pdo, int $propertyId): array
         'shared_amount' => (int)$row['shared_amount'],
         'meter_plan' => $plan['plan'],
         'meter_plan_fee' => (int)$plan['fee'],
+        'meter_plan_per' => (int)($plan['fee_per_meter'] ?? 0),
+        'meter_plan_count' => (int)($plan['billable_meters'] ?? 0),
         'meter_plan_label' => $plan['label'],
     ];
 }

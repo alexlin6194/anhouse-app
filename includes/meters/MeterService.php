@@ -62,8 +62,13 @@ function meter_read_once(PDO $pdo, array $device, int $actorUserId = 0, string $
     $dup = $pdo->prepare('SELECT id FROM meter_readings WHERE device_id = ? AND read_at = ? LIMIT 1');
     $dup->execute([(int)$device['id'], $readAt]);
     if (!$dup->fetch()) {
-        $pdo->prepare('INSERT INTO meter_readings (device_id, property_id, reading, read_at, source, raw) VALUES (?, ?, ?, ?, ?, ?)')
-            ->execute([(int)$device['id'], (int)$device['property_id'], $reading, $readAt, $srcCol, json_encode($d, JSON_UNESCAPED_UNICODE)]);
+        $uuid = isset($d['client_uuid']) && $d['client_uuid'] !== '' ? (string)$d['client_uuid'] : null;
+        try {
+            $pdo->prepare('INSERT INTO meter_readings (device_id, property_id, reading, read_at, source, raw, client_uuid) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                ->execute([(int)$device['id'], (int)$device['property_id'], $reading, $readAt, $srcCol, json_encode($d, JSON_UNESCAPED_UNICODE), $uuid]);
+        } catch (PDOException $e) {
+            if ((string)$e->getCode() !== '23000') { throw $e; }   /* uuid 重複 = 已寫過,略過 */
+        }
     }
 
     $pdo->prepare('INSERT INTO device_meter_state (device_id, last_reading, last_read_at) VALUES (?, ?, ?)
@@ -304,6 +309,9 @@ function meter_deduct_usage(PDO $pdo, int $deviceId, int $usage, float $rate): a
         return ['ok' => false, 'message' => '找不到電錶'];
     }
     $state = meter_state($pdo, $deviceId);
+    if (($state['authority'] ?? 'server') === 'agent') {
+        return ['ok' => true, 'message' => '此電錶由現場自行扣款,雲端不重複扣抵', 'balance' => (int)$state['balance'], 'skipped' => true];
+    }
     if ($state['mode'] !== 'prepaid' || $usage <= 0) {
         return ['ok' => true, 'message' => '無需扣抵', 'balance' => (int)$state['balance']];
     }

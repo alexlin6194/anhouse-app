@@ -5,15 +5,49 @@ require_once __DIR__ . '/../db.php';
 
 /* ─────────── 方案與月費 ─────────── */
 
-function meter_plan_fee_cloud(): int { return defined('METER_PLAN_FEE_CLOUD') ? (int)METER_PLAN_FEE_CLOUD : 150; }
-function meter_plan_fee_local(): int { return defined('METER_PLAN_FEE_LOCAL') ? (int)METER_PLAN_FEE_LOCAL : 100; }
+function meter_plan_fee_cloud(): int { return defined('METER_PLAN_FEE_CLOUD') ? (int)METER_PLAN_FEE_CLOUD : 180; }
+function meter_plan_fee_local(): int { return defined('METER_PLAN_FEE_LOCAL') ? (int)METER_PLAN_FEE_LOCAL : 150; }
+function meter_setup_fee_cloud(): int { return defined('METER_SETUP_FEE_CLOUD') ? (int)METER_SETUP_FEE_CLOUD : 500; }
+function meter_setup_fee_local(): int { return defined('METER_SETUP_FEE_LOCAL') ? (int)METER_SETUP_FEE_LOCAL : 2000; }
+function meter_visit_fee(): int { return defined('METER_VISIT_FEE') ? (int)METER_VISIT_FEE : 800; }
 
 /**
- * 房源目前的電錶介接方案。
- * none = 未選(沿用舊制:每台電錶 NT$100/月)
- * cloud = 台科電雲端 API,每月 NT$150/房源(內含該房源所有電錶)
- * local = 地端 Modbus 橋接,每月 NT$100/房源
+ * 該房源「計費電錶」顆數。
+ *
+ * 計價單位 = 顆數,不是房源:
+ *   同一棟 10 顆分錶若只收一份月費,上游 API 成本會吃掉全部毛利。
+ * 只算 role=unit_meter(戶別計費錶)且 billing_enabled=1;
+ * 總錶 / 公共錶 / 車道錶請設 role=main_meter 或 billing_enabled=0,不收費。
  */
+function meter_billable_count(PDO $pdo, int $propertyId): int
+{
+    try {
+        $st = $pdo->prepare("SELECT COUNT(*) FROM devices
+            WHERE property_id = ? AND device_type = 'meter' AND role = 'unit_meter'
+              AND status <> 'removed' AND billing_enabled = 1");
+        $st->execute([$propertyId]);
+        return (int)$st->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+/** 該房源所有電錶顆數(含公共錶,給 UI 說明用) */
+function meter_total_count(PDO $pdo, int $propertyId): array
+{
+    try {
+        $st = $pdo->prepare("SELECT
+                SUM(CASE WHEN role = 'unit_meter' AND billing_enabled = 1 THEN 1 ELSE 0 END) AS billable,
+                COUNT(*) AS total
+            FROM devices WHERE property_id = ? AND device_type = 'meter' AND status <> 'removed'");
+        $st->execute([$propertyId]);
+        $r = $st->fetch();
+        return ['billable' => (int)($r['billable'] ?? 0), 'total' => (int)($r['total'] ?? 0)];
+    } catch (Throwable $e) {
+        return ['billable' => 0, 'total' => 0];
+    }
+}
+
 function meter_plan_of(PDO $pdo, int $propertyId): array
 {
     $row = null;
@@ -26,16 +60,30 @@ function meter_plan_of(PDO $pdo, int $propertyId): array
     }
     $plan = (string)($row['meter_plan'] ?? 'none');
     if (!in_array($plan, ['none', 'cloud', 'local'], true)) { $plan = 'none'; }
-    $fee = $plan === 'cloud' ? meter_plan_fee_cloud() : ($plan === 'local' ? meter_plan_fee_local() : 0);
-    $labels = ['none' => '未選擇(每台電錶 NT$100/月)', 'cloud' => '雲端 API(NT$' . meter_plan_fee_cloud() . '/月)', 'local' => '地端橋接(NT$' . meter_plan_fee_local() . '/月)'];
+
+    $counts = meter_total_count($pdo, $propertyId);
+    $per = $plan === 'cloud' ? meter_plan_fee_cloud() : ($plan === 'local' ? meter_plan_fee_local() : 0);
+    $fee = $per * $counts['billable'];
+    $labels = [
+        'none'  => '未選擇(每台電錶 NT$100/月)',
+        'cloud' => '雲端 API(NT$' . meter_plan_fee_cloud() . '/錶/月)',
+        'local' => '地端橋接(NT$' . meter_plan_fee_local() . '/錶/月)',
+    ];
     return [
         'plan' => $plan,
         'fee' => $fee,
+        'fee_per_meter' => $per,
+        'billable_meters' => $counts['billable'],
+        'total_meters' => $counts['total'],
+        'free_meters' => max(0, $counts['total'] - $counts['billable']),
         'label' => $labels[$plan],
         'since' => $row['meter_plan_since'] ?? null,
         'cloud_fee' => meter_plan_fee_cloud(),
         'local_fee' => meter_plan_fee_local(),
-        'hardware_note' => '硬體(電錶/閘道器)另計,不列入系統帳單',
+        'setup_cloud' => meter_setup_fee_cloud(),
+        'setup_local' => meter_setup_fee_local(),
+        'visit_fee' => meter_visit_fee(),
+        'hardware_note' => '硬體(電錶/閘道器/工控機)另計,保固由原廠提供',
     ];
 }
 
@@ -138,9 +186,16 @@ function bridge_push(PDO $pdo, array $bridge, array $items, string $agentVersion
         $dup = $pdo->prepare('SELECT id FROM meter_readings WHERE device_id = ? AND read_at = ? LIMIT 1');
         $dup->execute([(int)$dev['id'], $readAt]);
         if (!$dup->fetch()) {
-            $pdo->prepare('INSERT INTO meter_readings (device_id, property_id, reading, read_at, source, raw) VALUES (?, ?, ?, ?, ?, ?)')
-                ->execute([(int)$dev['id'], (int)$dev['property_id'], $reading, $readAt, 'auto', json_encode($it, JSON_UNESCAPED_UNICODE)]);
-            $accepted++;
+            $uuid = trim((string)($it['uuid'] ?? ''));
+            try {
+                $pdo->prepare('INSERT INTO meter_readings (device_id, property_id, reading, read_at, source, raw, client_uuid) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                    ->execute([(int)$dev['id'], (int)$dev['property_id'], $reading, $readAt, 'auto', json_encode($it, JSON_UNESCAPED_UNICODE), $uuid ?: null]);
+                $accepted++;
+            } catch (PDOException $e) {
+                if ((string)$e->getCode() !== '23000') { throw $e; }
+                $ignored++;
+            }
+
         } else {
             $ignored++;
         }
@@ -186,3 +241,124 @@ function bridge_pending_count(PDO $pdo, int $deviceId): int
     $st->execute([$deviceId]);
     return (int)$st->fetchColumn();
 }
+
+/* ─────────── 離線案場:政策下發 + 帳本對帳 ─────────── */
+
+/**
+ * 下發給橋接器的「計費政策」。
+ *
+ * 純離線案場由現場自己扣款與斷電,所以它必須知道:單價、目前餘額、低餘額門檻、
+ * 以及「誰是帳務權威」。這些值在每次連線時同步一次,之後斷網也能繼續運作。
+ *
+ * 同時回傳「尚未套用的儲值」——房東在 APP 儲值時現場可能離線,
+ * 這筆錢必須等橋接器下次連線才生效(誠實:離線期間儲值不會即時復電)。
+ */
+function meter_policy_for_bridge(PDO $pdo, array $bridge): array
+{
+    $st = $pdo->prepare("SELECT d.id, d.serial_no, d.name, d.settings, p.elec_rate, p.elec_mode,
+            s.mode, s.balance, s.low_balance, s.relay_state, s.authority
+        FROM devices d
+        JOIN properties p ON p.id = d.property_id
+        LEFT JOIN device_meter_state s ON s.device_id = d.id
+        WHERE d.property_id = ? AND d.device_type = 'meter' AND d.status <> 'removed'
+        ORDER BY d.id");
+    $st->execute([(int)$bridge['property_id']]);
+    $meters = [];
+    foreach ($st->fetchAll() as $r) {
+        $rate = ($r['elec_rate'] !== null && (float)$r['elec_rate'] > 0)
+            ? (float)$r['elec_rate']
+            : (defined('ELECTRIC_RATE_PER_KWH') ? (float)ELECTRIC_RATE_PER_KWH : 5.0);
+        $meters[] = [
+            'serial' => (string)$r['serial_no'],
+            'name' => (string)$r['name'],
+            'mode' => (string)($r['mode'] ?: 'postpaid'),
+            'rate' => $rate,
+            'elec_mode' => (string)($r['elec_mode'] ?: 'flat'),
+            'balance' => (int)($r['balance'] ?? 0),
+            'low_balance' => (int)($r['low_balance'] ?? 200),
+            'relay' => (string)($r['relay_state'] ?: 'on'),
+            'authority' => (string)($r['authority'] ?: 'server'),
+            'settings' => $r['settings'] ? json_decode((string)$r['settings'], true) : null,
+        ];
+    }
+
+    /* 尚未被現場套用的儲值 */
+    $cq = $pdo->prepare("SELECT t.id, t.device_id, t.amount, t.created_at, d.serial_no
+        FROM meter_topups t JOIN devices d ON d.id = t.device_id
+        WHERE d.property_id = ? AND t.applied_at IS NULL ORDER BY t.id");
+    $cq->execute([(int)$bridge['property_id']]);
+    $credits = [];
+    foreach ($cq->fetchAll() as $c) {
+        $credits[] = ['topup_id' => (int)$c['id'], 'serial' => (string)$c['serial_no'], 'amount' => (int)$c['amount'], 'at' => $c['created_at']];
+    }
+
+    return ['meters' => $meters, 'credits' => $credits, 'server_time' => date('Y-m-d H:i:s')];
+}
+
+/**
+ * 接收現場帳本(冪等)。
+ *
+ * 重複上報靠 uuid 去重 —— 現場斷網時會一直重試,沒有這層就會重複扣住房客的錢。
+ * 若該電錶 authority = 'agent',以現場回報的 balance_after 為準(現場才是真的扣款者),
+ * 雲端不再自行扣抵,避免兩邊各扣一次。
+ */
+function bridge_ledger_accept(PDO $pdo, array $bridge, array $entries): array
+{
+    $accepted = 0; $dup = 0; $unknown = []; $errors = [];
+    foreach ($entries as $e) {
+        $uuid = trim((string)($e['uuid'] ?? ''));
+        $serial = trim((string)($e['serial'] ?? ''));
+        $kind = (string)($e['kind'] ?? '');
+        if ($uuid === '' || !in_array($kind, ['deduct','topup','relay_on','relay_off','cut'], true)) { $errors[] = 'entry 格式不完整'; continue; }
+
+        $dq = $pdo->prepare("SELECT id, property_id FROM devices WHERE property_id = ? AND device_type = 'meter' AND serial_no = ? AND status <> 'removed' LIMIT 1");
+        $dq->execute([(int)$bridge['property_id'], $serial]);
+        $dev = $dq->fetch();
+        if (!$dev) { $unknown[] = $serial; continue; }
+
+        $chk = $pdo->prepare('SELECT id FROM meter_ledger WHERE uuid = ? LIMIT 1');
+        $chk->execute([$uuid]);
+        if ($chk->fetch()) { $dup++; continue; }
+
+        $occurred = (string)($e['occurred_at'] ?? date('Y-m-d H:i:s'));
+        $pdo->prepare('INSERT INTO meter_ledger (uuid, device_id, property_id, kind, usage, amount, balance_after, rate, occurred_at, source, raw)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            ->execute([
+                $uuid, (int)$dev['id'], (int)$dev['property_id'], $kind,
+                (int)($e['usage'] ?? 0), (int)($e['amount'] ?? 0), (int)($e['balance_after'] ?? 0),
+                isset($e['rate']) ? (float)$e['rate'] : null, $occurred, 'agent',
+                json_encode($e, JSON_UNESCAPED_UNICODE),
+            ]);
+        $accepted++;
+
+        /* 以現場為準回寫狀態 */
+        if (in_array($kind, ['deduct','topup','cut'], true)) {
+            $pdo->prepare('UPDATE device_meter_state SET balance = ?, authority = ?, updated_at = NOW() WHERE device_id = ?')
+                ->execute([(int)($e['balance_after'] ?? 0), 'agent', (int)$dev['id']]);
+        }
+        if ($kind === 'relay_on' || $kind === 'relay_off' || $kind === 'cut') {
+            $on = $kind === 'relay_on';
+            $pdo->prepare('UPDATE device_meter_state SET relay_state = ? WHERE device_id = ?')
+                ->execute([$on ? 'on' : 'off', (int)$dev['id']]);
+        }
+        if ($kind === 'topup' && !empty($e['topup_id'])) {
+            $pdo->prepare('UPDATE meter_topups SET applied_at = NOW(), applied_by = ? WHERE id = ?')
+                ->execute(['agent', (int)$e['topup_id']]);
+        }
+    }
+    return ['accepted' => $accepted, 'duplicate' => $dup, 'unknown_serials' => $unknown, 'errors' => $errors, 'server_time' => date('Y-m-d H:i:s')];
+}
+
+/** 離線案場的帳本(給 APP 顯示) */
+function meter_ledger_for_property(PDO $pdo, int $propertyId, int $limit = 60): array
+{
+    try {
+        $st = $pdo->prepare('SELECT l.*, d.name AS device_name, d.serial_no FROM meter_ledger l JOIN devices d ON d.id = l.device_id
+            WHERE l.property_id = ? ORDER BY l.occurred_at DESC, l.id DESC LIMIT ' . max(1, min(200, $limit)));
+        $st->execute([$propertyId]);
+        return $st->fetchAll();
+    } catch (Throwable $e) {
+        return [];   /* migration 未執行 */
+    }
+}
+

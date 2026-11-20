@@ -248,7 +248,39 @@
         '<button type="button" class="btn small' + (mp.plan === 'local' ? '' : ' ghost') + '" data-mplan="local" data-pid="' + pid + '">地端橋接・NT$' + (mp.local_fee || 100) + '/月</button>' +
         (mp.plan !== 'none' ? '<button type="button" class="btn small ghost" data-mplan="none" data-pid="' + pid + '">改回逐台計費</button>' : '') +
         '</div>' +
-        '<p style="font-size:12px;color:var(--wood-d);margin:10px 0 0">目前:' + esc(mp.label) + '・每月 NT$' + money(mp.fee || 0) + '</p>';
+        '<p style="font-size:12px;color:var(--wood-d);margin:10px 0 0">目前:' + esc(mp.label) +
+        (mp.plan !== 'none' ? '・' + (mp.billable_meters || 0) + ' 顆計費錶 × NT$' + money(mp.fee_per_meter || 0) + ' = 每月 NT$' + money(mp.fee || 0) : '') +
+        '</p>' +
+        ((mp.free_meters || 0) > 0 ? '<p style="font-size:11.5px;color:var(--brown2);margin:4px 0 0">另有 ' + mp.free_meters + ' 顆總錶/公共錶不計費</p>' : '') +
+        '<button type="button" class="btn small ghost" style="margin-top:10px" data-mfee="1">查看費用與合約條款</button>' +
+        '<div id="mfeeBox" style="display:none;margin-top:12px;border-top:1px dashed var(--beige2);padding-top:12px">' +
+        '<p style="font-size:12.5px;color:var(--brown2);margin:0 0 8px;line-height:1.9"><b>計價方式</b>:按「該房源內計費電錶顆數」計價;總錶、公共錶、車道錶不收費。</p>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+        '<tr style="background:var(--cream2)"><th style="text-align:left;padding:6px 8px">項目</th><th style="text-align:right;padding:6px 8px">雲端 API</th><th style="text-align:right;padding:6px 8px">地端橋接</th></tr>' +
+        '<tr><td style="padding:6px 8px;border-top:1px solid var(--beige2)">月費(每顆計費錶)</td>' +
+        '<td style="text-align:right;padding:6px 8px;border-top:1px solid var(--beige2)">NT$' + money(mp.cloud_fee || 180) + '</td>' +
+        '<td style="text-align:right;padding:6px 8px;border-top:1px solid var(--beige2)">NT$' + money(mp.local_fee || 150) + '</td></tr>' +
+        '<tr><td style="padding:6px 8px;border-top:1px solid var(--beige2)">一次性設定費</td>' +
+        '<td style="text-align:right;padding:6px 8px;border-top:1px solid var(--beige2)">NT$' + money(mp.setup_cloud || 500) + '</td>' +
+        '<td style="text-align:right;padding:6px 8px;border-top:1px solid var(--beige2)">NT$' + money(mp.setup_local || 2000) + '</td></tr>' +
+        '<tr><td style="padding:6px 8px;border-top:1px solid var(--beige2)">硬體</td>' +
+        '<td colspan="2" style="text-align:right;padding:6px 8px;border-top:1px solid var(--beige2);color:var(--brown2)">另計,保固由原廠提供</td></tr>' +
+        '<tr><td style="padding:6px 8px;border-top:1px solid var(--beige2)">到府服務(保固外)</td>' +
+        '<td colspan="2" style="text-align:right;padding:6px 8px;border-top:1px solid var(--beige2)">NT$' + money(mp.visit_fee || 800) + '/次</td></tr>' +
+        '<tr><td style="padding:6px 8px;border-top:1px solid var(--beige2)">大量優惠</td>' +
+        '<td colspan="2" style="text-align:right;padding:6px 8px;border-top:1px solid var(--beige2)">20 顆以上 9 折・50 顆以上 85 折</td></tr>' +
+        '</table>' +
+        '<div style="margin-top:12px;background:var(--cream2);border-radius:10px;padding:10px 12px">' +
+        '<p style="font-size:12px;color:var(--brown2);margin:0 0 6px"><b>試算</b>:本房源目前 ' + (mp.billable_meters || 0) + ' 顆計費錶</p>' +
+        '<p style="font-size:12.5px;margin:0;line-height:1.95">雲端:NT$' + money((mp.cloud_fee || 180) * (mp.billable_meters || 0)) + '/月(設定費 NT$' + money(mp.setup_cloud || 500) + ')<br>' +
+        '地端:NT$' + money((mp.local_fee || 150) * (mp.billable_meters || 0)) + '/月(設定費 NT$' + money(mp.setup_local || 2000) + ')</p></div>' +
+        '<div style="margin-top:12px">' +
+        '<p style="font-size:12px;color:var(--brown2);margin:0 0 6px"><b>合約必要條款</b>(安裝前須告知房東)</p>' +
+        '<ol style="font-size:12px;color:var(--brown2);margin:0;padding-left:18px;line-height:1.95">' +
+        '<li>地端方案之計費以現場主機帳本為準,APP 顯示為最後同步資料。</li>' +
+        '<li>地端方案之儲值於現場主機連線後生效,不保證即時復電。</li>' +
+        '<li>硬體保固由原廠提供;系統設定與軟體維護不含人為損壞與現場網路環境問題。</li>' +
+        '</ol></div></div>';
       if (mp.plan === 'local') {
         html += '<div style="margin-top:10px;border-top:1px dashed var(--beige2);padding-top:10px">' +
           '<p style="font-size:12px;color:var(--brown2);margin:0 0 8px">現場橋接器(金鑰只在產生時顯示一次)</p>';
@@ -593,6 +625,13 @@
 
 /* 電錶介接方案 / 橋接器(獨立委派,不依賴主渲染流程) */
 document.addEventListener('click', function (e) {
+  const feeBtn = e.target && e.target.closest ? e.target.closest('[data-mfee]') : null;
+  if (feeBtn) {
+    e.preventDefault();
+    const box = document.getElementById('mfeeBox');
+    if (box) { box.style.display = (box.style.display === 'none' ? 'block' : 'none'); }
+    return;
+  }
   const b = e.target && e.target.closest ? e.target.closest('[data-mplan],[data-bridge-add],[data-bridge-off]') : null;
   if (!b) { return; }
   e.preventDefault();
