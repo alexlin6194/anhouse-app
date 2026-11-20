@@ -6,7 +6,6 @@ require_once __DIR__ . '/../includes/notify.php';
 require_once __DIR__ . '/../includes/billing.php';
 require_once __DIR__ . '/../includes/contract.php';
 require_once __DIR__ . '/../includes/devices/DeviceService.php';
-ensure_active_lease_bills();
 
 require_methods('GET', 'POST');
 
@@ -18,6 +17,7 @@ if (empty($_SESSION['user_id'])) {
 
 $pdo = db();
 $userId = (int)$_SESSION['user_id'];
+ensure_active_lease_bills($userId);
 $myName = (string)($_SESSION['name'] ?? '');
 
 $landlordStmt = $pdo->prepare("SELECT om.role, o.id AS org_id FROM org_members om JOIN organizations o ON o.id = om.org_id

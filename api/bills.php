@@ -17,7 +17,7 @@ if (empty($_SESSION['user_id'])) {
 $pdo = db();
 $userId = (int)$_SESSION['user_id'];
 
-ensure_active_lease_bills();
+ensure_active_lease_bills($userId);
 
 $landlordStmt = $pdo->prepare("SELECT o.id AS org_id FROM org_members om JOIN organizations o ON o.id = om.org_id
     WHERE om.user_id = ? AND om.status = 'active' AND om.role IN ('landlord','company_owner','admin_staff','accountant') LIMIT 1");
@@ -83,14 +83,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         (SELECT MAX(b2.meter_reading) FROM bills b2 WHERE b2.lease_id = b.lease_id AND b2.meter_reading IS NOT NULL AND b2.id < b.id) AS prev_reading
         FROM bills b JOIN properties p ON p.id = b.property_id
         LEFT JOIN leases l ON l.id = b.lease_id
-        WHERE {$scopeSql}
+        WHERE b.status <> 'void' AND {$scopeSql}
         ORDER BY b.period ASC, b.id ASC LIMIT 100")->fetchAll();
 
     $own = $pdo->prepare("SELECT b.*, p.title AS property_title, p.elec_rate, p.elec_mode,
         l.start_date AS lease_start, l.meter_start AS lease_meter_start,
         (SELECT MAX(b2.meter_reading) FROM bills b2 WHERE b2.lease_id = b.lease_id AND b2.meter_reading IS NOT NULL AND b2.id < b.id) AS prev_reading
         FROM bills b JOIN properties p ON p.id = b.property_id JOIN leases l ON l.id = b.lease_id
-        WHERE l.tenant_user_id = ? AND b.status <> 'draft' ORDER BY b.period ASC, b.id ASC LIMIT 50");
+        WHERE l.tenant_user_id = ? AND b.status NOT IN ('draft','void') ORDER BY b.period ASC, b.id ASC LIMIT 50");
     $own->execute([$userId]);
     $myBills = $own->fetchAll();
 
@@ -101,21 +101,24 @@ $in = json_input();
 $billId = (int)($in['bill_id'] ?? 0);
 $action = clean($in['action'] ?? '');
 
-/* mock 付款確認:以交易號為憑,不走帳單權限閘(付款頁開啟時僅帶交易號) */
+/* Mock payment is bound to the logged-in tenant and their own pending lease bill. */
 if ($action === 'mock_confirm') {
     if (NEWEBPAY_MODE !== 'mock') respond(false, '非模擬模式不可用');
     $t = clean($in['t'] ?? '');
     $result = clean($in['result'] ?? '');
-    $b = $pdo->prepare('SELECT * FROM bills WHERE pay_trade_no = ? LIMIT 1');
-    $b->execute([$t]);
+    $b = $pdo->prepare("SELECT b.* FROM bills b JOIN leases l ON l.id=b.lease_id
+        WHERE b.pay_trade_no = ? AND l.tenant_user_id = ? LIMIT 1");
+    $b->execute([$t, $userId]);
     $payBill = $b->fetch();
     if (!$payBill) respond(false, '查無此交易');
     if ($payBill['status'] === 'paid') respond(true, '此帳單已完成付款');
+    if ($payBill['status'] !== 'pending' || ($payBill['pay_mode'] ?? '') !== 'mock') respond(false, '此帳單目前不可付款');
     if ($result !== 'success' && $result !== 'T') {
         respond(false, '模擬付款失敗(未扣款)');
     }
-    $pdo->prepare("UPDATE bills SET status = 'paid', paid_at = NOW(), paid_by = 'online' WHERE id = ?")
-        ->execute([(int)$payBill['id']]);
+    $updated = $pdo->prepare("UPDATE bills SET status = 'paid', paid_at = NOW(), paid_by = 'online' WHERE id = ? AND status = 'pending'");
+    $updated->execute([(int)$payBill['id']]);
+    if ($updated->rowCount() !== 1) respond(false, '帳單狀態已變更，請重新整理');
     $tChk = $pdo->prepare('SELECT tenant_user_id FROM leases WHERE id = ? LIMIT 1');
     $tChk->execute([(int)$payBill['lease_id']]);
     $tenantUid = (int)$tChk->fetch()['tenant_user_id'];
@@ -138,6 +141,15 @@ if (!$bill) {
     respond(false, '找不到這筆帳單或無權限');
 }
 
+$manageStmt = $pdo->prepare("SELECT (p.delegated_user_id = ?) OR EXISTS (
+    SELECT 1 FROM property_agents pa WHERE pa.property_id=p.id AND pa.agent_user_id=? AND pa.status='active'
+) OR EXISTS (
+    SELECT 1 FROM org_members om WHERE om.user_id=? AND om.org_id=p.org_id AND om.status='active'
+      AND om.role IN ('landlord','company_owner','admin_staff','accountant')
+) AS can_manage FROM properties p WHERE p.id=?");
+$manageStmt->execute([$userId, $userId, $userId, (int)$bill['property_id']]);
+$canManageBill = (bool)($manageStmt->fetch()['can_manage'] ?? false);
+
 if ($action === 'pay_link') {
     /* 產生線上收款連結:房東/管理員/受託業務皆可發起;房客本人也可直接取自己的 */
     $tenantChk = $pdo->prepare('SELECT tenant_user_id FROM leases WHERE id = ? LIMIT 1');
@@ -149,6 +161,7 @@ if ($action === 'pay_link') {
     if ($bill['status'] !== 'pending') {
         respond(false, '此帳單不是待繳狀態');
     }
+    if (($bill['paid_by'] ?? null) === 'tenant' && !empty($bill['paid_proof'])) respond(false, '已回報繳費,請等待屋主核對');
     $trade = (string)($bill['pay_trade_no'] ?? '');
     if ($trade === '') {
         $trade = 'BILL' . date('ymdHis') . 'B' . (int)$bill['id'] . substr(bin2hex(random_bytes(2)), 0, 4);
@@ -193,6 +206,7 @@ if ($action === 'pay_proof') {
     if ($bill['status'] !== 'pending') {
         respond(false, '此帳單不是待繳狀態');
     }
+    if (($bill['paid_by'] ?? null) === 'tenant' && !empty($bill['paid_proof'])) respond(false, '此帳單已回報,請等待核對');
     if (empty($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
         respond(false, '請先上傳轉帳證明截圖(轉帳成功畫面或收據)');
     }
@@ -214,8 +228,9 @@ if ($action === 'pay_proof') {
     $proofMeta = !empty($bill['photo_meta']) ? (json_decode($bill['photo_meta'], true) ?: []) : [];
     $clientPay = json_decode($_POST['pay_meta'] ?? 'null', true);
     $proofMeta[$name] = photo_capture_meta([$_FILES['photo']['tmp_name']], is_array($clientPay) ? [$clientPay] : null)[0];
-    $pdo->prepare("UPDATE bills SET status = 'paid', paid_at = NOW(), paid_proof = 'proofs/" . $name . "', paid_by = 'tenant', photo_meta = ? WHERE id = ?")
-        ->execute([json_encode($proofMeta, JSON_UNESCAPED_SLASHES), $billId]);
+    $proofUpdate = $pdo->prepare("UPDATE bills SET paid_at = NULL, paid_proof = 'proofs/" . $name . "', paid_by = 'tenant', photo_meta = ? WHERE id = ? AND status='pending' AND paid_proof IS NULL");
+    $proofUpdate->execute([json_encode($proofMeta, JSON_UNESCAPED_SLASHES), $billId]);
+    if ($proofUpdate->rowCount() !== 1) respond(false, '帳單已回報或狀態已變更,請重新整理');
     $who = [];
     if ($myOrgId > 0) {
         $o = $pdo->prepare('SELECT owner_user_id FROM organizations WHERE id = ?');
@@ -237,6 +252,7 @@ if ($action === 'pay_proof') {
 }
 
 if ($action === 'undo_paid') {
+    if (!$canManageBill) respond(false, '僅房源管理者可退回帳單');
     if ($bill['status'] !== 'paid') {
         respond(false, '僅已繳帳單可退回');
     }
@@ -255,10 +271,13 @@ if ($action === 'undo_paid') {
 }
 
 if ($action === 'mark_paid') {
+    if (!$canManageBill) respond(false, '僅房源管理者可確認收款');
     if ($bill['status'] !== 'pending') {
         respond(false, '僅待繳帳單可標記已繳');
     }
-    $pdo->prepare("UPDATE bills SET status = 'paid', paid_at = NOW() WHERE id = ?")->execute([$billId]);
+    $updated = $pdo->prepare("UPDATE bills SET status = 'paid', paid_at = NOW() WHERE id = ? AND status='pending'");
+    $updated->execute([$billId]);
+    if ($updated->rowCount() !== 1) respond(false, '帳單狀態已變更,請重新整理');
     if ($bill['lease_id']) {
         $t = $pdo->prepare('SELECT tenant_user_id FROM leases WHERE id = ?');
         $t->execute([(int)$bill['lease_id']]);
@@ -272,6 +291,8 @@ if ($action === 'mark_paid') {
 }
 
 if ($action === 'set_electric') {
+    if (!$canManageBill) respond(false, '僅房源管理者可抄錄電費');
+    if (($bill['paid_by'] ?? null) === 'tenant' && !empty($bill['paid_proof'])) respond(false, '房客已回報繳費,請先核對或退回後再調整');
     if (!in_array($bill['status'], ['pending', 'draft'], true)) {
         respond(false, '僅待繳或草稿帳單可抄錄電費');
     }
@@ -377,6 +398,8 @@ if ($action === 'set_electric') {
 }
 
 if ($action === 'remind') {
+    if (!$canManageBill) respond(false, '僅房源管理者可發送繳費提醒');
+    if (($bill['paid_by'] ?? null) === 'tenant' && !empty($bill['paid_proof'])) respond(false, '房客已回報繳費,請先核對付款證明');
     if ($bill['status'] !== 'pending') {
         respond(false, '此帳單已繳,無需催繳');
     }

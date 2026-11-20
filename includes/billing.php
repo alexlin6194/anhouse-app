@@ -285,7 +285,7 @@ function generate_lease_bills(array $lease): int
 
     return $created;
 }
-function ensure_active_lease_bills(): void
+function ensure_active_lease_bills(int $userId = 0): void
 {
     static $done = false;
     if ($done) {
@@ -293,8 +293,14 @@ function ensure_active_lease_bills(): void
     }
     $done = true;
     $pdo = db();
-    $leases = $pdo->query("SELECT id, property_id, start_date, end_date, rent_amount, payment_day, status, tenant_user_id
-        FROM leases WHERE status = 'active'")->fetchAll();
+    $stmt = $pdo->prepare("SELECT DISTINCT l.id, l.property_id, l.start_date, l.end_date, l.rent_amount, l.payment_day, l.status, l.tenant_user_id
+        FROM leases l JOIN properties p ON p.id=l.property_id
+        WHERE l.status='active' AND (l.tenant_user_id=? OR p.owner_user_id=? OR p.delegated_user_id=?
+          OR EXISTS(SELECT 1 FROM org_members om WHERE om.user_id=? AND om.org_id IN (p.org_id,p.delegated_org_id)
+            AND om.status='active' AND om.role IN ('landlord','company_owner','admin_staff','accountant','manager'))
+          OR EXISTS(SELECT 1 FROM property_agents pa WHERE pa.property_id=p.id AND pa.agent_user_id=? AND pa.status='active'))");
+    $stmt->execute([$userId, $userId, $userId, $userId, $userId]);
+    $leases = $stmt->fetchAll();
     foreach ($leases as $l) {
         generate_lease_bills($l);
     }
