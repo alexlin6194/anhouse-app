@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
     if ($action === 'my') {
         $view = device_tenant_view($pdo, $userId);
-        respond(true, 'ok', ['authenticated' => true, 'view' => 'tenant'] + $view);
+        respond(true, 'ok', ['authenticated' => true, 'view_kind' => 'tenant'] + $view);
     }
 
     if ($action === 'properties') {

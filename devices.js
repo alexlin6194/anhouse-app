@@ -300,7 +300,7 @@
   /* ────────── 載入 ────────── */
   function loadTenant() {
     return api('api/devices.php?action=my').then(d => {
-      state.tenant = d.view || { lease: null, locks: [], events: [] };
+      state.tenant = (d && d.ok) ? d : { lease: null, locks: [], events: [] };
       renderTenant(state.tenant);
       return d;
     });
@@ -335,7 +335,7 @@
     api('api/devices.php?action=my').catch(() => null),
     api('api/devices.php?action=properties').catch(() => null)
   ]).then(([my, pr]) => {
-    state.tenant = my && my.ok ? (my.view || null) : null;
+    state.tenant = (my && my.ok) ? my : null;
     state.properties = pr && pr.ok ? pr.properties : [];
     if (state.properties.length) {
       state.propertyId = Number(state.properties[0].id);
