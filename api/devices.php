@@ -118,6 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'active_lease' => $activeLease,
             'meters' => meter_card_data($pdo, $propertyId),
             'events' => device_events_for_property($pdo, $propertyId, 40),
+            'access_logs' => device_access_logs_for_property($pdo, $propertyId, 50),
             'fee' => device_monthly_fee($pdo, $propertyId) + [
                 'unit_price' => device_addon_price(),
                 'owner_cost' => device_owner_cost($pdo, (int)($property['org_id'] ?? 0)),
@@ -203,6 +204,29 @@ if ($action === 'set_scope') {
     respond($res['ok'], $res['message']);
 }
 
+/* 房東/管理員:用密碼反查是住哪一戶、哪一位房客 */
+if ($action === 'lookup_pin') {
+    $propertyId = (int)($in['property_id'] ?? 0);
+    if (device_scope($pdo, $userId, $propertyId) === null) {
+        respond(false, '無權限查詢此房源');
+    }
+    $res = device_lookup_by_pin($pdo, $propertyId, (string)($in['pin'] ?? ''));
+    respond($res['ok'], $res['message'], $res['ok'] ? ['match' => $res['match'], 'logs' => $res['logs']] : []);
+}
+
+/* 房東/管理員:從鎖端同步開門紀錄(正式品牌用;模擬鎖無事件) */
+if ($action === 'sync_access') {
+    $deviceId = (int)($in['device_id'] ?? 0);
+    $st = $pdo->prepare('SELECT property_id FROM devices WHERE id = ? LIMIT 1');
+    $st->execute([$deviceId]);
+    $row = $st->fetch();
+    if (!$row || device_scope($pdo, $userId, (int)$row['property_id']) === null) {
+        respond(false, '無權限操作此裝置');
+    }
+    $res = device_sync_access_logs($pdo, $deviceId, isset($in['since']) ? (string)$in['since'] : null);
+    respond($res['ok'], $res['message'], $res);
+}
+
 /* 房東/管理員:大門/樓道門是否全體共用同一組密碼 */
 if ($action === 'set_shared_pin') {
     $res = device_set_shared_pin($pdo, $userId, (int)($in['device_id'] ?? 0),
@@ -266,7 +290,17 @@ if ($action === 'mock_unlock') {
     if (!$adapter->isMock()) {
         respond(false, '僅模擬鎖支援試開;正式品牌請於門鎖上實測');
     }
-    $res = $adapter->verifyPin($device, $slot, $pin);
+    /* 找出這組密碼對應的憑證,用它的槽位驗證(每人一組時同槽位會有多組密碼) */
+    $ref = $slot;
+    $q = $pdo->prepare("SELECT * FROM device_credentials WHERE device_id = ? AND slot_key = ? AND status = 'active'");
+    $q->execute([$deviceId, $slot]);
+    foreach ($q->fetchAll() as $c) {
+        if ($c['pin_hash'] && password_verify($pin, (string)$c['pin_hash'])) {
+            $ref = device_slot_ref($c);
+            break;
+        }
+    }
+    $res = $adapter->verifyPin($device, $ref, $pin);
     device_log($pdo, $deviceId, (int)$device['property_id'], null, $userId, 'unlock_tested',
         ($slot === 'gate' ? '大門' : '房門') . '試開:' . $res['message'], 'app', $ip);
     respond($res['ok'], $res['message'], $res['data']);

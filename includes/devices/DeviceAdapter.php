@@ -56,4 +56,13 @@ interface DeviceAdapter
      * @return array{ok:bool, message:string, data:array}
      */
     public function verifyPin(array $device, string $slotKey, string $pin, ?string $at = null): array;
+
+    /**
+     * 讀取鎖端的開門紀錄(誰在什麼時候用哪個槽位/密碼開門)。
+     * 模擬器回空陣列;正式品牌實作時回傳事件清單,由平台對應到房客。
+     *
+     * @param ?string $since Y-m-d H:i:s,只取此時間之後的事件
+     * @return array{ok:bool, message:string, events:array}
+     */
+    public function fetchEvents(array $device, ?string $since = null): array;
 }

@@ -78,4 +78,13 @@ class AqaraLockAdapter implements DeviceAdapter
     {
         return ['ok' => false, 'message' => 'Aqara 尚未開通,無法模擬開鎖', 'data' => []];
     }
+    public function fetchEvents(array $device, ?string $since = null): array
+    {
+        if (!$this->configured()) {
+            return ['ok' => false, 'message' => 'Aqara 尚未開通,無法讀取開門紀錄', 'events' => []];
+        }
+        /* TODO(Phase 3):GET {AQARA_BASE_URL}/v1/locks/{serial}/events?since=… */
+        return ['ok' => false, 'message' => 'Aqara Adapter 尚未實作(Phase 3)', 'events' => []];
+    }
+
 }

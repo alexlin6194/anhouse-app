@@ -150,6 +150,34 @@
       esc(p.title) + (p.city || p.district ? '・' + esc((p.city || '') + (p.district || '')) : '') + '（' + p.device_count + ' 台裝置）</option>').join('');
   }
 
+  function accessSection(logs) {
+    let h = '<div class="sect">進出紀錄(開門稽核)</div>' +
+      '<div class="card" style="padding:14px 16px">' +
+      '<p style="font-size:12.5px;color:var(--brown2);margin:0 0 10px;line-height:1.9">' +
+      '每位房客在大門與房門各有一組專屬密碼,開門紀錄會對應到「哪一組密碼 = 哪一位房客」。有狀況時(財物遺失、鄰居反映、押金爭議)可在下面直接輸入密碼反查。</p>' +
+      '<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">' +
+      '<div class="field" style="flex:1;min-width:150px;margin:0"><label for="pinQ">用密碼反查(6 位數)</label>' +
+      '<input id="pinQ" inputmode="numeric" maxlength="6" placeholder="例:047210"></div>' +
+      '<button type="button" class="btn primary" id="pinQLookup" style="height:44px">查是誰</button></div>' +
+      '<div id="pinQResult" style="margin-top:10px"></div></div>';
+    h += '<div class="card flat" style="padding:6px 16px">';
+    if (!logs || !logs.length) {
+      h += '<p style="font-size:12.5px;color:var(--brown2);padding:10px 0;margin:0;line-height:1.9">尚無開門紀錄。房客用密碼開門後會自動記錄;模擬鎖可在裝置卡按「同步狀態」旁的試開驗證。接上正式鎖後會由鎖端上傳。</p>';
+    } else {
+      logs.forEach(g => {
+        h += '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--beige2);font-size:12.5px">' +
+          '<span style="flex:1;min-width:0"><b>' + dt(g.unlocked_at) + '</b><br>' + esc(g.device_name || '') +
+          '・' + (g.slot_key === 'gate' ? '大門' : '房門') + '・' + esc(g.method_label) +
+          (g.pin_masked ? ' ' + esc(g.pin_masked) : '') + '</span>' +
+          '<span style="text-align:right;min-width:70px"><b>' + esc(g.user_name || '未對應') + '</b>' +
+          (g.lease_id ? '<br><span style="color:var(--brown2);font-size:11px">租約 #' + g.lease_id + '</span>' : '') +
+          '</span></div>';
+      });
+    }
+    h += '</div>';
+    return h;
+  }
+
   function renderManager() {
     const c = $('#content');
     const props = state.properties;
@@ -303,6 +331,7 @@
       '<button type="button" class="btn primary" id="addDev" style="margin-top:10px">加裝(模擬器,NT$' + money(fee.unit_price) + '/月)</button>' +
       '<p style="font-size:11.5px;color:var(--brown2);margin-top:8px;line-height:1.8">目前僅提供模擬器;Aqara 真機需完成代理商簽約、取得 API 憑證後切換 Adapter(介面已預留,流程不用改)。</p></div>';
 
+    html += accessSection(p.access_logs);
     if (p.events && p.events.length) {
       html += '<div class="sect">裝置紀錄</div><div class="card flat" style="padding:10px 16px">';
       p.events.slice(0, 15).forEach(e => {
@@ -313,6 +342,32 @@
       html += '</div>';
     }
     c.innerHTML = html;
+    const qBtn = $('#pinQLookup');
+    if (qBtn) qBtn.onclick = () => {
+      const v = String(($('#pinQ') || {}).value || '').trim();
+      const box = $('#pinQResult');
+      if (!/^\d{6}$/.test(v)) { box.innerHTML = '<p style="font-size:12.5px;color:var(--err);margin:0">請輸入 6 位數字</p>'; return; }
+      box.innerHTML = '<p style="font-size:12.5px;color:var(--brown2);margin:0">查詢中…</p>';
+      api('api/devices.php', { action: 'lookup_pin', property_id: Number(state.propertyId), pin: v }).then(d => {
+        if (!d.ok) { box.innerHTML = '<p style="font-size:12.5px;color:var(--err);margin:0">' + esc(d.message || '查無此密碼') + '</p>'; return; }
+        const m = d.match || {};
+        let h = '<div style="background:rgba(200,155,107,.12);border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.9">' +
+          '<b>' + esc(m.user_name || '未綁定房客') + '</b>・' + esc(m.device_name || '') + '・' + esc(m.label || '') +
+          '<br>狀態:' + (m.status === 'active' ? '使用中' : (m.status === 'revoked' ? '已撤銷' : '已到期')) +
+          (m.lease_id ? '・租約 #' + m.lease_id : '') +
+          (m.valid_to ? '<br>有效至 ' + dstr(m.valid_to) : '') + '</div>';
+        if (d.logs && d.logs.length) {
+          h += '<div style="margin-top:8px;font-size:12px;color:var(--brown2)">這組密碼最近開門:</div>';
+          d.logs.forEach(g => {
+            h += '<div style="padding:6px 0;border-bottom:1px dashed var(--beige2);font-size:12px">' +
+              dt(g.unlocked_at) + '・' + esc(g.device_name || '') + '・' + (g.slot_key === 'gate' ? '大門' : '房門') + '</div>';
+          });
+        } else {
+          h += '<p style="font-size:12px;color:var(--brown2);margin:8px 0 0">這組密碼目前沒有開門紀錄。</p>';
+        }
+        box.innerHTML = h;
+      }).catch(() => { box.innerHTML = '<p style="font-size:12.5px;color:var(--err);margin:0">連線失敗</p>'; });
+    };
     bindPropSel();
     const dScope = $('#dScope'), dChargeWrap = $('#dChargeWrap');
     if (dScope && dChargeWrap) {

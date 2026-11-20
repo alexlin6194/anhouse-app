@@ -91,6 +91,50 @@ class DevMockLockAdapter implements DeviceAdapter
         if (!hash_equals((string)$row['pin_plain'], $pin)) {
             return ['ok' => false, 'message' => '密碼錯誤', 'data' => []];
         }
+        $this->logUnlock($device, $slotKey, $pin);
         return ['ok' => true, 'message' => '開鎖成功(模擬)', 'data' => ['unlocked' => true, 'slot_key' => $slotKey]];
     }
+    /** 模擬開鎖成功時寫入進出紀錄(真實鎖是由鎖端上傳,這裡模擬同樣的行為) */
+    private function logUnlock(array $device, string $slotKey, string $pin): void
+    {
+        try {
+            $pdo = db();
+            $cred = null;
+            $st = $pdo->prepare("SELECT * FROM device_credentials WHERE device_id = ? AND slot_key = ? AND status = 'active' ORDER BY id DESC");
+            $st->execute([(int)$device['id'], $slotKey]);
+            foreach ($st->fetchAll() as $c) {
+                if ($c['pin_hash'] && password_verify($pin, (string)$c['pin_hash'])) {
+                    $cred = $c;
+                    break;
+                }
+            }
+            /* 同一秒同一槽位重複試開只記一次,避免連點產生噪音 */
+            $dup = $pdo->prepare("SELECT COUNT(*) AS c FROM device_access_logs WHERE device_id = ? AND slot_key = ? AND unlocked_at >= (NOW() - INTERVAL 2 SECOND)");
+            $dup->execute([(int)$device['id'], $slotKey]);
+            if ((int)$dup->fetch()['c'] > 0) {
+                return;
+            }
+            $pdo->prepare("INSERT INTO device_access_logs (device_id, property_id, credential_id, user_id, lease_id, slot_key,
+                    pin_masked, unlocked_at, method, direction, source, raw_json)
+                VALUES (?,?,?,?,?,?,?,NOW(),'pin','in','mock',?)")
+                ->execute([
+                    (int)$device['id'],
+                    (int)$device['property_id'],
+                    $cred ? (int)$cred['id'] : null,
+                    $cred && $cred['user_id'] !== null ? (int)$cred['user_id'] : null,
+                    $cred && $cred['lease_id'] !== null ? (int)$cred['lease_id'] : null,
+                    $slotKey,
+                    substr($pin, 0, 2) . '****',
+                    json_encode(['mock' => true], JSON_UNESCAPED_UNICODE),
+                ]);
+        } catch (Throwable $e) {
+            /* 稽核紀錄失敗不應阻斷開鎖 */
+        }
+    }
+
+    public function fetchEvents(array $device, ?string $since = null): array
+    {
+        return ['ok' => true, 'message' => '模擬鎖沒有硬體事件;開門紀錄由試開產生', 'events' => []];
+    }
+
 }
