@@ -49,43 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         respond(true, 'ok', ['rows' => $st->fetchAll()]);
     }
 
-    /* 選擇電錶介接方案 */
-if ($action === 'set_plan') {
-    $propertyId = (int)($in['property_id'] ?? 0);
-    $scope = $propertyId > 0 ? device_scope($pdo, $userId, $propertyId) : null;
-    if ($scope === null || $scope === 'agent') {
-        respond(false, '僅屋主/代管管理員/公司管理職可變更電錶方案');
-    }
-    $res = meter_plan_set($pdo, $propertyId, (string)($in['plan'] ?? 'none'), $userId);
-    respond($res['ok'], $res['message'], ['meter_plan' => $res['plan'] ?? null]);
-}
 
-/* 產生橋接器金鑰(僅回傳一次) */
-if ($action === 'bridge_create') {
-    $propertyId = (int)($in['property_id'] ?? 0);
-    $scope = $propertyId > 0 ? device_scope($pdo, $userId, $propertyId) : null;
-    if ($scope === null || $scope === 'agent') {
-        respond(false, '僅屋主/代管管理員/公司管理職可建立橋接器');
-    }
-    $res = bridge_create($pdo, $propertyId, (string)($in['name'] ?? '現場橋接器'), $userId);
-    respond($res['ok'], $res['message'], ['bridge_id' => $res['id'] ?? 0, 'token' => $res['token'] ?? '']);
-}
-
-/* 停用橋接器 */
-if ($action === 'bridge_disable') {
-    $bridgeId = (int)($in['bridge_id'] ?? 0);
-    $b = $pdo->prepare('SELECT property_id FROM meter_bridges WHERE id = ? LIMIT 1');
-    $b->execute([$bridgeId]);
-    $pid = (int)($b->fetchColumn() ?: 0);
-    $scope = $pid > 0 ? device_scope($pdo, $userId, $pid) : null;
-    if ($scope === null || $scope === 'agent') {
-        respond(false, '無權限');
-    }
-    $res = bridge_disable($pdo, $bridgeId, $pid);
-    respond($res['ok'], $res['message']);
-}
-
-respond(false, '動作不正確');
 }
 
 $in = json_input();
@@ -158,6 +122,42 @@ if ($action === 'relay') {
         meter_log($pdo, $dev, $userId, 'meter_relay', '手動' . ($on ? '復電' : '斷電'), 'app');
     }
     respond($r['ok'], $r['message']);
+}
+
+    /* 選擇電錶介接方案 */
+if ($action === 'set_plan') {
+    $propertyId = (int)($in['property_id'] ?? 0);
+    $scope = $propertyId > 0 ? device_scope($pdo, $userId, $propertyId) : null;
+    if ($scope === null || $scope === 'agent') {
+        respond(false, '僅屋主/代管管理員/公司管理職可變更電錶方案');
+    }
+    $res = meter_plan_set($pdo, $propertyId, (string)($in['plan'] ?? 'none'), $userId);
+    respond($res['ok'], $res['message'], ['meter_plan' => $res['plan'] ?? null]);
+}
+
+/* 產生橋接器金鑰(僅回傳一次) */
+if ($action === 'bridge_create') {
+    $propertyId = (int)($in['property_id'] ?? 0);
+    $scope = $propertyId > 0 ? device_scope($pdo, $userId, $propertyId) : null;
+    if ($scope === null || $scope === 'agent') {
+        respond(false, '僅屋主/代管管理員/公司管理職可建立橋接器');
+    }
+    $res = bridge_create($pdo, $propertyId, (string)($in['name'] ?? '現場橋接器'), $userId);
+    respond($res['ok'], $res['message'], ['bridge_id' => $res['id'] ?? 0, 'token' => $res['token'] ?? '']);
+}
+
+/* 停用橋接器 */
+if ($action === 'bridge_disable') {
+    $bridgeId = (int)($in['bridge_id'] ?? 0);
+    $b = $pdo->prepare('SELECT property_id FROM meter_bridges WHERE id = ? LIMIT 1');
+    $b->execute([$bridgeId]);
+    $pid = (int)($b->fetchColumn() ?: 0);
+    $scope = $pid > 0 ? device_scope($pdo, $userId, $pid) : null;
+    if ($scope === null || $scope === 'agent') {
+        respond(false, '無權限');
+    }
+    $res = bridge_disable($pdo, $bridgeId, $pid);
+    respond($res['ok'], $res['message']);
 }
 
 respond(false, '動作不正確');

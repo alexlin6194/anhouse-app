@@ -315,9 +315,23 @@ function device_add(PDO $pdo, int $orgId, int $propertyId, int $actorUserId, arr
     if ($name === '') {
         $name = $type === 'meter' ? '智慧電錶' : ($role === 'gate' ? '大門門鎖' : '房門門鎖');
     }
-    $adapter = (string)($in['adapter'] ?? 'dev_mock');
-    if (!in_array($adapter, ['dev_mock', 'aqara'], true)) {
-        $adapter = 'dev_mock';
+    /* 電錶與門鎖的 adapter 完全不同;過去一律只允許 dev_mock/aqara,
+       導致新建的電錶被存成門鎖模擬器(讀值靠 fallback 才沒壞),這裡依類型分開驗證。 */
+    $adapter = (string)($in['adapter'] ?? '');
+    $meterLink = (string)($in['meter_link'] ?? '');
+    if ($type === 'meter') {
+        if (!in_array($adapter, ['dev_mock_meter', 'taike', 'local_bridge'], true)) {
+            $adapter = $meterLink === 'cloud' ? 'taike' : ($meterLink === 'local' ? 'local_bridge' : 'dev_mock_meter');
+        }
+        if ($meterLink === '') {
+            $meterLink = $adapter === 'taike' ? 'cloud' : ($adapter === 'local_bridge' ? 'local' : '');
+        }
+        if (!in_array($meterLink, ['cloud', 'local'], true)) { $meterLink = ''; }
+    } else {
+        $meterLink = '';
+        if (!in_array($adapter, ['dev_mock', 'aqara'], true)) {
+            $adapter = 'dev_mock';
+        }
     }
     /* 共用範圍 */
     $scopeType = (string)($in['scope_type'] ?? 'unit');
@@ -378,31 +392,45 @@ function device_add(PDO $pdo, int $orgId, int $propertyId, int $actorUserId, arr
     }
     $serial = trim((string)($in['serial_no'] ?? ''));
     if ($serial === '') {
-        $serial = strtoupper($adapter === 'dev_mock' ? 'MOCK-' : 'DEV-') . strtoupper(bin2hex(random_bytes(4)));
+        $prefix = $type === 'meter'
+            ? ($adapter === 'taike' ? 'TK-' : ($adapter === 'local_bridge' ? 'MB-' : 'MOCK-M'))
+            : 'DEV-';
+        $serial = strtoupper($prefix) . strtoupper(bin2hex(random_bytes(4)));
     }
-    $stmt = $pdo->prepare('INSERT INTO devices (org_id, property_id, device_type, role, name, brand, model, adapter, serial_no,
+    /* 總錶/公共錶不計費:計價單位是「計費電錶顆數」,公共用電不該向房客收 */
+    $billingEnabled = ($type === 'meter' && $role === 'main_meter') ? 0 : 1;
+    $brand = $type === 'meter'
+        ? ($adapter === 'taike' ? 'Taike' : ($adapter === 'local_bridge' ? 'Modbus' : 'dev_mock'))
+        : ($adapter === 'dev_mock' ? 'dev_mock' : 'Aqara');
+
+    $stmt = $pdo->prepare('INSERT INTO devices (org_id, property_id, device_type, role, name, brand, model, adapter, meter_link, serial_no,
             status, billing_enabled, addon_price, settings, created_by, scope_type, scope_key, charge_property_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "active", 1, ?, NULL, ?, ?, ?, ?)');
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "active", ?, ?, NULL, ?, ?, ?, ?)');
     $stmt->execute([
         $orgId,
         $propertyId,
         $type,
         $role,
         mb_substr($name, 0, 60),
-        $adapter === 'dev_mock' ? 'dev_mock' : 'Aqara',
+        $brand,
         null,
         $adapter,
+        $meterLink !== '' ? $meterLink : null,
         $serial,
-        device_addon_price(),
+        $billingEnabled,
+        $type === 'meter' ? device_addon_price() : device_addon_price(),
         $actorUserId,
         $scopeType,
         $scopeKey,
         $chargePropertyId,
     ]);
     $deviceId = (int)$pdo->lastInsertId();
+    $whereLabel = $scopeType === 'unit'
+        ? ($type === 'meter' ? '(本戶計費電錶)' : '(本戶專用)')
+        : ($scopeType === 'building' ? '(整棟共用,只收一次)' : '(樓層共用,只收一次)');
     device_log($pdo, $deviceId, $propertyId, null, $actorUserId, 'device_added',
-        '新增' . ($type === 'meter' ? '電錶' : '門鎖') . '「' . $name . '」'
-        . ($scopeType === 'unit' ? '(本戶專用)' : ($scopeType === 'building' ? '(整棟共用,只收一次)' : '(樓層共用,只收一次)')));
+        '新增' . ($type === 'meter' ? '電錶' : '門鎖') . '「' . $name . '」' . $whereLabel
+        . ($billingEnabled === 0 ? '・公共錶不計費' : ''));
 
     /* 該戶若已有生效租約(先簽約、後裝鎖),立刻補發房客密碼,不必等房東手動按 */
     $autoIssued = [];
