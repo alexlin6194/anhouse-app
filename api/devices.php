@@ -152,6 +152,12 @@ if ($action === 'change_pin') {
     respond($res['ok'], $res['message'], $res['data']);
 }
 
+/* 房東/管理員:設定「管理密碼」(自用,不隨租約撤銷) */
+if ($action === 'set_manager_pin') {
+    $res = device_set_manager_pin($pdo, $userId, (int)($in['device_id'] ?? 0), (string)($in['pin'] ?? ''), $ip);
+    respond($res['ok'], $res['message'], $res['data']);
+}
+
 if ($action === 'revoke_pin') {
     $res = device_revoke_credential($pdo, $userId, (int)($in['credential_id'] ?? 0), (string)($in['reason'] ?? 'manual'));
     respond($res['ok'], $res['message']);
@@ -169,7 +175,10 @@ if ($action === 'issue') {
     if (device_scope($pdo, $userId, (int)$lease['property_id']) === null) {
         respond(false, '無權限操作此房源');
     }
-    $res = device_issue_for_lease($pdo, $leaseId, $userId, 'app');
+    $res = device_issue_for_lease($pdo, $leaseId, $userId, 'app', [
+        'gate' => clean($in['gate_pin'] ?? ''),
+        'door' => clean($in['door_pin'] ?? ''),
+    ]);
     respond($res['ok'], $res['message'], ['issued' => $res['issued'], 'failed' => $res['failed']]);
 }
 

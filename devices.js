@@ -160,17 +160,22 @@
         '<p style="font-size:12px;color:var(--brown2);margin:8px 0 0">' + esc(d.adapter_message) + (d.last_sync_at ? '・同步 ' + dt(d.last_sync_at) : '') + '</p>';
       if (d.credentials && d.credentials.length) {
         html += '<div style="margin-top:10px;border-top:1px dashed var(--beige2);padding-top:8px">';
-        d.credentials.slice(0, 4).forEach(cr => {
-          html += '<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0">' +
-            '<span>' + esc(cr.label || '') + '・' + esc(cr.user_name || '—') + '</span>' +
-            '<span>' + (cr.status === 'active'
-              ? '<b style="font-family:monospace;letter-spacing:2px">' + esc(cr.pin || '••••••') + '</b>'
+        d.credentials.slice(0, 6).forEach(cr => {
+          const active = cr.status === 'active';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;padding:6px 0">' +
+            '<span style="flex:1;min-width:0">' + esc(cr.label || '') + '・' + esc(cr.user_name || '未綁定') +
+            (cr.valid_to ? '<span style="color:var(--brown2);font-size:11px"> 至 ' + dstr(cr.valid_to) + '</span>' : '') + '</span>' +
+            (active
+              ? '<b style="font-family:monospace;letter-spacing:2px">' + esc(cr.pin || '••••••') + '</b>' +
+                '<button type="button" class="btn small ghost" style="padding:5px 9px;font-size:11.5px" data-cred-change="' + cr.id + '" data-cred-label="' + esc(cr.label || '密碼') + '">重設</button>' +
+                '<button type="button" class="btn small ghost" style="padding:5px 9px;font-size:11.5px;color:var(--err)" data-cred-revoke="' + cr.id + '">撤銷</button>'
               : '<span class="st ' + (cr.status === 'expired' ? 'warn' : '') + '" style="font-size:11px">' + (cr.status === 'expired' ? '已到期' : '已撤銷') + '</span>') +
-            '</span></div>';
+            '</div>';
         });
         html += '</div>';
       }
-      html += '<div style="display:flex;gap:8px;margin-top:10px">' +
+      html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
+        (d.device_type === 'lock' ? '<button type="button" class="btn small" data-mgr="' + d.id + '" data-mgrname="' + esc(d.name) + '">設定管理密碼</button>' : '') +
         '<button type="button" class="btn small ghost" data-sync="' + d.id + '">同步狀態</button>' +
         '<button type="button" class="btn small ghost" data-del="' + d.id + '" data-name="' + esc(d.name) + '">移除</button>' +
         '</div></div>';
@@ -210,6 +215,25 @@
         name: $('#dName').value.trim(), adapter: 'dev_mock'
       }).then(d => { toast(d.message); if (d.ok) loadProperty(); }).catch(() => toast('連線失敗'));
     };
+    c.querySelectorAll('[data-mgr]').forEach(b => b.onclick = () => {
+      const pin = prompt('設定「' + b.dataset.mgrname + '」的管理密碼(6 位數字)\n房東/管理員自己進出、帶看、清潔維修時使用;退租不會被撤銷。\n留空 = 系統自動產生');
+      if (pin === null) return;
+      api('api/devices.php', { action: 'set_manager_pin', device_id: Number(b.dataset.mgr), pin: String(pin).trim() })
+        .then(d => { toast(d.message); if (d.ok) loadProperty(); }).catch(() => toast('連線失敗'));
+    });
+    c.querySelectorAll('[data-cred-change]').forEach(b => b.onclick = () => {
+      const pin = prompt('輸入新的' + b.dataset.credLabel + '(6 位數字;留空 = 系統自動產生)');
+      if (pin === null) return;
+      let v = String(pin).trim();
+      if (v === '') v = String(Math.floor(100000 + Math.random() * 900000));
+      api('api/devices.php', { action: 'change_pin', credential_id: Number(b.dataset.credChange), new_pin: v })
+        .then(d => { toast(d.message); if (d.ok) loadProperty(); }).catch(() => toast('連線失敗'));
+    });
+    c.querySelectorAll('[data-cred-revoke]').forEach(b => b.onclick = () => {
+      if (!confirm('撤銷這組密碼?鎖端會立即失效。')) return;
+      api('api/devices.php', { action: 'revoke_pin', credential_id: Number(b.dataset.credRevoke), reason: 'manager_revoke' })
+        .then(d => { toast(d.message); if (d.ok) loadProperty(); }).catch(() => toast('連線失敗'));
+    });
     c.querySelectorAll('[data-sync]').forEach(b => b.onclick = () => {
       api('api/devices.php', { action: 'sync', device_id: Number(b.dataset.sync) })
         .then(d => { toast(d.message); loadProperty(); }).catch(() => toast('連線失敗'));

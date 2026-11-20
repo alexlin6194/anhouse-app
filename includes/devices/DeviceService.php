@@ -301,7 +301,7 @@ function device_remove(PDO $pdo, int $actorUserId, int $deviceId): array
  *
  * @return array{ok:bool, message:string, issued:array, failed:array}
  */
-function device_issue_for_lease(PDO $pdo, int $leaseId, int $actorUserId = 0, string $source = 'system'): array
+function device_issue_for_lease(PDO $pdo, int $leaseId, int $actorUserId = 0, string $source = 'system', array $presetPins = []): array
 {
     $stmt = $pdo->prepare('SELECT l.*, p.title AS property_title, p.org_id, p.delegated_user_id FROM leases l
         JOIN properties p ON p.id = l.property_id WHERE l.id = ? LIMIT 1');
@@ -332,7 +332,10 @@ function device_issue_for_lease(PDO $pdo, int $leaseId, int $actorUserId = 0, st
     foreach ($devices as $device) {
         $slot = $device['role'] === 'gate' ? 'gate' : 'door';
         $label = $device['role'] === 'gate' ? '大門' : '房門';
-        $pin = device_gen_pin();
+        $pin = trim((string)($presetPins[$slot] ?? ''));
+        if ($pin === '' || device_pin_is_weak($pin)) {
+            $pin = device_gen_pin();
+        }
 
         /* 同一租約同裝置同槽位:先撤舊碼再發新碼(避免舊碼仍可開門) */
         $old = $pdo->prepare("SELECT * FROM device_credentials WHERE device_id = ? AND lease_id = ? AND slot_key = ? AND status = 'active'");
@@ -380,6 +383,17 @@ function device_issue_for_lease(PDO $pdo, int $leaseId, int $actorUserId = 0, st
         }
         notify($tenantId, 'system', '入住開鎖碼已開通|' . $lease['property_title'],
             '簽約完成,您的門鎖密碼已開通:' . implode('、', $lines) . '。可至「我的門鎖」查看並修改密碼。', $leaseId, true);
+
+        /* 同步通知房東/管理職(只告知已發碼與去哪裡看,不在通知內傳明文) */
+        $slotTxt = implode('、', array_map(fn($x) => $x['label'], $issued));
+        foreach (device_manager_recipients($pdo, $propertyId) as $rid) {
+            if ($rid === $tenantId) {
+                continue;
+            }
+            notify($rid, 'system', '入住開鎖碼已發送|' . $lease['property_title'],
+                '「' . $lease['property_title'] . '」租約生效,' . $slotTxt . '密碼已發給房客(有效至 ' . ($to ? substr($to, 0, 10) : '退租') . ')。至「智慧裝置」可查看目前密碼、重設或撤銷。',
+                (int)$lease['lease_id'] ?? $leaseId, true);
+        }
     }
 
     return [
@@ -388,6 +402,65 @@ function device_issue_for_lease(PDO $pdo, int $leaseId, int $actorUserId = 0, st
         'issued' => $issued,
         'failed' => $failed,
     ];
+}
+
+/* ─────────── 管理端專用密碼(房東/管理員自用,不隨租約撤銷)─────────── */
+
+/**
+ * 房東或管理員為某把鎖設定「管理密碼」:帶看、清潔、維修、自己進出用。
+ * 與房客密碼分開存放(slot=manager),房客改碼不會影響它,退租也不會撤銷它。
+ *
+ * @return array{ok:bool, message:string, data:array}
+ */
+function device_set_manager_pin(PDO $pdo, int $userId, int $deviceId, string $pin, ?string $ip = null): array
+{
+    $stmt = $pdo->prepare('SELECT d.*, p.title AS property_title FROM devices d JOIN properties p ON p.id = d.property_id WHERE d.id = ? LIMIT 1');
+    $stmt->execute([$deviceId]);
+    $device = $stmt->fetch();
+    if (!$device) {
+        return ['ok' => false, 'message' => '找不到裝置', 'data' => []];
+    }
+    if ($device['status'] === 'removed') {
+        return ['ok' => false, 'message' => '裝置已移除', 'data' => []];
+    }
+    $scope = device_scope($pdo, $userId, (int)$device['property_id']);
+    if ($scope === null || $scope === 'agent') {
+        return ['ok' => false, 'message' => '僅屋主/代管管理員/公司管理職可設定管理密碼', 'data' => []];
+    }
+    $pin = trim($pin);
+    if ($pin === '') {
+        $pin = device_gen_pin();
+    }
+    if (device_pin_is_weak($pin)) {
+        return ['ok' => false, 'message' => '密碼需為 6 位數字,且不可為連號、重複數字或常見組合', 'data' => []];
+    }
+
+    $dev = ['id' => (int)$device['id'], 'adapter' => (string)$device['adapter'], 'role' => (string)$device['role'], 'name' => (string)$device['name'], 'property_id' => (int)$device['property_id']];
+    $adapter = device_adapter((string)$device['adapter']);
+    $from = date('Y-m-d H:i:s');
+    $res = $adapter->setPin($dev, 'manager', $pin, $from, null);
+    if (!$res['ok']) {
+        return ['ok' => false, 'message' => '鎖端設定失敗:' . $res['message'], 'data' => []];
+    }
+
+    $old = $pdo->prepare("SELECT id, user_id FROM device_credentials WHERE device_id = ? AND slot_key = 'manager' AND status = 'active' LIMIT 1");
+    $old->execute([$deviceId]);
+    $row = $old->fetch();
+    if ($row) {
+        $pdo->prepare('UPDATE device_credentials SET user_id = ?, pin_hash = ?, pin_enc = ?, label = ?, valid_from = ?, valid_to = NULL, last_changed_at = NOW() WHERE id = ?')
+            ->execute([$userId, password_hash($pin, PASSWORD_DEFAULT), device_pin_encrypt($pin), '管理密碼', $from, (int)$row['id']]);
+        $credId = (int)$row['id'];
+    } else {
+        $ins = $pdo->prepare("INSERT INTO device_credentials (device_id, property_id, lease_id, user_id, slot_key, label, pin_hash, pin_enc, status, issued_by, valid_from, valid_to)
+            VALUES (?, ?, NULL, ?, 'manager', '管理密碼', ?, ?, 'active', ?, ?, NULL)");
+        $ins->execute([$deviceId, (int)$device['property_id'], $userId, password_hash($pin, PASSWORD_DEFAULT), device_pin_encrypt($pin), $userId, $from]);
+        $credId = (int)$pdo->lastInsertId();
+    }
+
+    device_log($pdo, $deviceId, (int)$device['property_id'], null, $userId, 'manager_pin_set',
+        '設定管理密碼(房東/管理員自用)', 'app', $ip, ['credential_id' => $credId]);
+
+    return ['ok' => true, 'message' => '管理密碼已設定:' . $pin . '(永久有效,退租不會撤銷)', 'data' => ['pin' => $pin, 'credential_id' => $credId]];
 }
 
 /* ─────────── 房客自改密碼 ─────────── */
