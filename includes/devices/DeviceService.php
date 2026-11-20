@@ -487,6 +487,16 @@ function device_issue_for_lease(PDO $pdo, int $leaseId, int $actorUserId = 0, st
     $issued = [];
     $failed = [];
     foreach ($devices as $device) {
+        /* 共用碼模式:全體同一組,不必也不該每人發一組 */
+        if ((int)($device['shared_pin'] ?? 0) === 1) {
+            $sh = device_shared_credential($pdo, (int)$device['id']);
+            $shPin = $sh ? device_pin_decrypt((string)$sh['pin_enc']) : null;
+            if ($shPin) {
+                $issued[] = ['device' => $device['name'], 'slot' => 'gate', 'label' => '大門(共用碼)',
+                    'pin' => $shPin, 'valid_to' => null];
+            }
+            continue;
+        }
         $slot = $device['role'] === 'gate' ? 'gate' : 'door';
         $label = $device['role'] === 'gate' ? '大門' : '房門';
         $pin = trim((string)($presetPins[$slot] ?? ''));
@@ -559,6 +569,125 @@ function device_issue_for_lease(PDO $pdo, int $leaseId, int $actorUserId = 0, st
         'issued' => $issued,
         'failed' => $failed,
     ];
+}
+
+
+/* ─────────── 共用碼模式:大門/樓道門全體共用同一組密碼 ─────────── */
+
+function device_shared_credential(PDO $pdo, int $deviceId): ?array
+{
+    $st = $pdo->prepare("SELECT * FROM device_credentials WHERE device_id = ? AND lease_id IS NULL AND user_id IS NULL AND status = 'active' ORDER BY id DESC LIMIT 1");
+    $st->execute([$deviceId]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+function device_set_shared_pin(PDO $pdo, int $userId, int $deviceId, bool $enabled, ?string $ip = null): array
+{
+    $st = $pdo->prepare('SELECT d.*, p.title AS property_title FROM devices d LEFT JOIN properties p ON p.id = d.property_id WHERE d.id = ? LIMIT 1');
+    $st->execute([$deviceId]);
+    $device = $st->fetch();
+    if (!$device) {
+        return ['ok' => false, 'message' => '找不到裝置'];
+    }
+    if (($device['device_type'] ?? 'lock') !== 'lock') {
+        return ['ok' => false, 'message' => '只有門鎖可以設定共用碼'];
+    }
+    if (device_scope($pdo, $userId, (int)$device['property_id']) === null) {
+        return ['ok' => false, 'message' => '無權限操作此裝置'];
+    }
+    $adapter = device_adapter((string)$device['adapter']);
+    $slot = $device['role'] === 'gate' ? 'gate' : 'door';
+    $label = $device['role'] === 'gate' ? '大門' : '房門';
+    $propId = (int)$device['property_id'];
+
+    if ($enabled) {
+        if ((int)($device['shared_pin'] ?? 0) === 1) {
+            return ['ok' => true, 'message' => '此裝置已是共用碼模式', 'data' => ['shared_pin' => true]];
+        }
+        /* 撤銷所有個人碼,改發一組全體共用 */
+        $q = $pdo->prepare("SELECT * FROM device_credentials WHERE device_id = ? AND status = 'active'");
+        $q->execute([$deviceId]);
+        $killed = 0;
+        foreach ($q->fetchAll() as $c) {
+            $adapter->revoke($device, (string)$c['slot_key']);
+            $pdo->prepare("UPDATE device_credentials SET status = 'revoked', revoked_at = NOW(), revoked_reason = 'shared_mode' WHERE id = ?")
+                ->execute([(int)$c['id']]);
+            $killed++;
+        }
+        $pin = device_gen_pin();
+        $res = $adapter->setPin($device, $slot, $pin, date('Y-m-d H:i:s'), null);
+        if (!$res['ok']) {
+            return ['ok' => false, 'message' => '鎖端設定失敗:' . $res['message']];
+        }
+        $pdo->prepare("INSERT INTO device_credentials (device_id, property_id, lease_id, user_id, slot_key, label,
+                pin_hash, pin_enc, status, issued_by, valid_from, valid_to)
+            VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, 'active', ?, NOW(), NULL)")
+            ->execute([$deviceId, $propId, $slot, $label . '‧全體共用',
+                password_hash($pin, PASSWORD_DEFAULT), device_pin_encrypt($pin), $userId]);
+        $pdo->prepare('UPDATE devices SET shared_pin = 1 WHERE id = ?')->execute([$deviceId]);
+        device_log($pdo, $deviceId, $propId, null, $userId, 'shared_pin_on',
+            '改為共用碼模式:全體共用一組' . $label . '密碼(撤銷 ' . $killed . ' 組個人碼)', 'app', $ip);
+        return ['ok' => true, 'message' => '已改為共用碼,所有人使用同一組' . $label . '密碼:' . $pin, 'data' => ['pin' => $pin]];
+    }
+
+    /* 關閉共用碼 → 撤銷共用碼,替該範圍內每位在租房客各發一組 */
+    $sh = device_shared_credential($pdo, $deviceId);
+    if ($sh) {
+        $adapter->revoke($device, (string)$sh['slot_key']);
+        $pdo->prepare("UPDATE device_credentials SET status = 'revoked', revoked_at = NOW(), revoked_reason = 'shared_mode_off' WHERE id = ?")
+            ->execute([(int)$sh['id']]);
+    }
+    $pdo->prepare('UPDATE devices SET shared_pin = 0 WHERE id = ?')->execute([$deviceId]);
+
+    $scopeType = (string)($device['scope_type'] ?? 'unit');
+    $targets = [];
+    if ($scopeType === 'unit') {
+        $targets[] = $propId;
+    } else {
+        foreach (device_sibling_properties($pdo, $propId) as $sib) {
+            $sid = (int)$sib['id'];
+            $bk = device_building_key($pdo, $sid);
+            if ($scopeType === 'building' && $bk === (string)$device['scope_key']) {
+                $targets[] = $sid;
+            } elseif ($scopeType === 'floor' && device_floor_key($bk, device_property_floor($pdo, $sid)) === (string)$device['scope_key']) {
+                $targets[] = $sid;
+            }
+        }
+    }
+    $issued = 0;
+    foreach (array_unique($targets) as $tp) {
+        $ls = $pdo->prepare("SELECT id FROM leases WHERE property_id = ? AND status = 'active'");
+        $ls->execute([$tp]);
+        foreach ($ls->fetchAll() as $lr) {
+            $leaseId = (int)$lr['id'];
+            $pin = device_gen_pin();
+            $from = date('Y-m-d 00:00:00', strtotime('today'));
+            $res = $adapter->setPin($device, $slot, $pin, $from, null);
+            if (!$res['ok']) {
+                continue;
+            }
+            $lid = $pdo->prepare('SELECT tenant_user_id FROM leases WHERE id = ?');
+            $lid->execute([$leaseId]);
+            $tid = (int)($lid->fetch()['tenant_user_id'] ?? 0);
+            $to = null;
+            $q2 = $pdo->prepare('SELECT end_date FROM leases WHERE id = ?');
+            $q2->execute([$leaseId]);
+            $ed = $q2->fetch()['end_date'] ?? null;
+            if ($ed) {
+                $to = date('Y-m-d 23:59:59', strtotime((string)$ed));
+            }
+            $pdo->prepare("INSERT INTO device_credentials (device_id, property_id, lease_id, user_id, slot_key, label,
+                    pin_hash, pin_enc, status, issued_by, valid_from, valid_to)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)")
+                ->execute([$deviceId, $tp, $leaseId, $tid, $slot, $label,
+                    password_hash($pin, PASSWORD_DEFAULT), device_pin_encrypt($pin), $userId, $from, $to]);
+            $issued++;
+        }
+    }
+    device_log($pdo, $deviceId, $propId, null, $userId, 'shared_pin_off',
+        '關閉共用碼模式,已重新發給 ' . $issued . ' 位房客各自一組' . $label . '密碼', 'app', $ip);
+    return ['ok' => true, 'message' => '已關閉共用碼,已為 ' . $issued . ' 位房客各發一組個人' . $label . '密碼'];
 }
 
 /* ─────────── 管理端:調整裝置的共用範圍 ─────────── */
@@ -795,6 +924,9 @@ function device_revoke_credential(PDO $pdo, int $userId, int $credentialId, stri
     if (!$cred) {
         return ['ok' => false, 'message' => '找不到這組密碼'];
     }
+    if ($cred['lease_id'] === null && $cred['user_id'] === null) {
+        return ['ok' => false, 'message' => '這是全體共用的密碼,不能單獨撤銷;請改用「共用碼:關」讓每人各有一組'];
+    }
     $isManager = device_scope($pdo, $userId, (int)$cred['property_id']) !== null;
     $isOwner = (int)$cred['user_id'] === $userId;
     if (!$isManager && !$isOwner) {
@@ -936,6 +1068,10 @@ function device_tenant_view(PDO $pdo, int $userId): array
         $credStmt = $pdo->prepare("SELECT * FROM device_credentials WHERE device_id = ? AND user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1");
         $credStmt->execute([(int)$d['id'], $userId]);
         $cred = $credStmt->fetch();
+        /* 共用碼模式:顯示該門的共用碼(全體相同,房東管理) */
+        if (!$cred && (int)($d['shared_pin'] ?? 0) === 1) {
+            $cred = device_shared_credential($pdo, (int)$d['id']);
+        }
         $locks[] = [
             'id' => (int)$d['id'],
             'name' => $d['name'],

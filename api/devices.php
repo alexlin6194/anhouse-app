@@ -88,6 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'addon_price' => (int)$d['addon_price'],
                 'last_sync_at' => $d['last_sync_at'],
                 'tenant_editable' => (int)$d['tenant_editable'] === 1,
+                'shared_pin' => (int)($d['shared_pin'] ?? 0) === 1,
                 'scope_type' => $d['scope_type'] ?? 'unit',
                 'scope_key' => $d['scope_key'] ?? null,
                 'charge_property_id' => isset($d['charge_property_id']) ? (int)$d['charge_property_id'] : 0,
@@ -150,6 +151,17 @@ if ($action === 'add') {
     if (!$res['ok']) {
         respond(false, $res['message']);
     }
+    /* 大門一律採共用碼(全體同一組),避免同一道門發出多組不同密碼 */
+    if (($in['role'] ?? 'door') === 'gate') {
+        $gateId = (int)($res['device_id'] ?? $res['id'] ?? 0);
+        if ($gateId <= 0) {
+            $gq = $pdo->query('SELECT id FROM devices WHERE property_id = ' . $propertyId . " AND role = 'gate' AND status <> 'removed' ORDER BY id DESC LIMIT 1");
+            $gateId = (int)($gq->fetch()['id'] ?? 0);
+        }
+        if ($gateId > 0) {
+            device_set_shared_pin($pdo, $userId, $gateId, true);
+        }
+    }
     $res['fee'] = device_monthly_fee($pdo, $propertyId) + ['unit_price' => device_addon_price()];
     respond(true, $res['message'] . ';加購月費 +NT$' . device_addon_price(), $res);
 }
@@ -189,6 +201,13 @@ if ($action === 'set_scope') {
     $res = device_set_scope($pdo, $userId, (int)($in['device_id'] ?? 0),
         (string)($in['scope_type'] ?? 'unit'), (int)($in['charge_property_id'] ?? 0));
     respond($res['ok'], $res['message']);
+}
+
+/* 房東/管理員:大門/樓道門是否全體共用同一組密碼 */
+if ($action === 'set_shared_pin') {
+    $res = device_set_shared_pin($pdo, $userId, (int)($in['device_id'] ?? 0),
+        (string)($in['enabled'] ?? '') === '1', $ip);
+    respond($res['ok'], $res['message'], $res['data'] ?? []);
 }
 
 /* 房東/管理員:是否允許房客自行改碼(大門預設關閉) */

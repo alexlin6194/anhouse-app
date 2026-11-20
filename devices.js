@@ -259,12 +259,12 @@
         d.credentials.slice(0, 6).forEach(cr => {
           const active = cr.status === 'active';
           html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;padding:6px 0">' +
-            '<span style="flex:1;min-width:0">' + esc(cr.label || '') + '・' + esc(cr.user_name || '未綁定') +
+            '<span style="flex:1;min-width:0">' + esc(cr.label || '') + (cr.user_name ? '・' + esc(cr.user_name) : '') +
             (cr.valid_to ? '<span style="color:var(--brown2);font-size:11px"> 至 ' + dstr(cr.valid_to) + '</span>' : '') + '</span>' +
             (active
               ? '<b style="font-family:monospace;letter-spacing:2px">' + esc(cr.pin || '••••••') + '</b>' +
                 '<button type="button" class="btn small ghost" style="padding:5px 9px;font-size:11.5px" data-cred-change="' + cr.id + '" data-cred-label="' + esc(cr.label || '密碼') + '">重設</button>' +
-                '<button type="button" class="btn small ghost" style="padding:5px 9px;font-size:11.5px;color:var(--err)" data-cred-revoke="' + cr.id + '">撤銷</button>'
+                (cr.user_name ? '<button type="button" class="btn small ghost" style="padding:5px 9px;font-size:11.5px;color:var(--err)" data-cred-revoke="' + cr.id + '">撤銷</button>' : '')
               : '<span class="st ' + (cr.status === 'expired' ? 'warn' : '') + '" style="font-size:11px">' + (cr.status === 'expired' ? '已到期' : '已撤銷') + '</span>') +
             '</div>';
         });
@@ -274,6 +274,7 @@
         (d.device_type === 'lock' ? '<button type="button" class="btn small" data-mgr="' + d.id + '" data-mgrname="' + esc(d.name) + '">設定管理密碼</button>' : '') +
         '<button type="button" class="btn small ghost" data-editable="' + d.id + '" data-cur="' + (d.tenant_editable ? '1' : '0') + '">' +
           (d.tenant_editable ? '🔓 房客可改碼:開' : '🔒 房客可改碼:關') + '</button>' +
+        (d.device_type === 'lock' && d.role === 'gate' ? '<button type="button" class="btn small ghost" data-shared="' + d.id + '" data-cur="' + (d.shared_pin ? '1' : '0') + '">' + (d.shared_pin ? '👥 共用碼:開' : '👥 共用碼:關') + '</button>' : '') +
         '<button type="button" class="btn small ghost" data-scope="' + d.id + '" data-cur="' + d.scope_type + '">改範圍</button>' +
         '<button type="button" class="btn small ghost" data-sync="' + d.id + '">同步狀態</button>' +
         '<button type="button" class="btn small ghost" data-del="' + d.id + '" data-name="' + esc(d.name) + '">移除</button>' +
@@ -412,6 +413,15 @@
     c.querySelectorAll('[data-cred-revoke]').forEach(b => b.onclick = () => {
       if (!confirm('撤銷這組密碼?鎖端會立即失效。')) return;
       api('api/devices.php', { action: 'revoke_pin', credential_id: Number(b.dataset.credRevoke), reason: 'manager_revoke' })
+        .then(d => { toast(d.message); if (d.ok) loadProperty(); }).catch(() => toast('連線失敗'));
+    });
+    c.querySelectorAll('[data-shared]').forEach(b => b.onclick = () => {
+      const on = b.dataset.cur === '1';
+      const msg = on
+        ? '關閉共用碼?系統會撤銷目前這組共用碼,改為每位在租房客各發一組個人密碼。'
+        : '開啟共用碼?大門/樓道門會改成全體共用同一組密碼(現有各人的大門碼會立即失效,並改發一組新碼)。';
+      if (!confirm(msg)) return;
+      api('api/devices.php', { action: 'set_shared_pin', device_id: Number(b.dataset.shared), enabled: on ? '0' : '1' })
         .then(d => { toast(d.message); if (d.ok) loadProperty(); }).catch(() => toast('連線失敗'));
     });
     c.querySelectorAll('[data-sync]').forEach(b => b.onclick = () => {
