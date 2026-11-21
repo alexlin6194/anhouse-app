@@ -10,7 +10,7 @@
 // 若 MySQL 在另一台機器（192.168.0.200），再改回 IP
 define('DB_HOST', 'localhost');
 define('DB_PORT', '3306');
-define('DB_NAME', 'xrtistplayer');
+define('DB_NAME', 'itdctw_anhouse');
 define('DB_USER', 'root');
 define('DB_PASS', 'A@lexMariadb168');
 define('DB_CHARSET', 'utf8mb4');
