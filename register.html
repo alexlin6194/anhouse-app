@@ -58,6 +58,16 @@
             </button>
           </div>
           <p class="hint" id="hint-confirm" aria-live="polite"></p>
+      <div class="field">
+        <label>驗證碼</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <img id="captchaImg" alt="圖形驗證碼" style="height:44px;border-radius:6px;cursor:pointer" title="看不清楚?點此換一張" />
+          <button type="button" class="pw-eye" onclick="loadCaptcha()" aria-label="換一張">↻</button>
+        </div>
+        <input id="captchaAnswer" name="captcha_answer" maxlength="5" autocomplete="off" placeholder="輸入左圖文字(不分大小寫)">
+        <p class="hint" id="hint-captcha" aria-live="polite"></p>
+      </div>
+
         </div>
 
         <div class="sect" id="roleSect">選擇您的身份</div>

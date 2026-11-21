@@ -8,6 +8,8 @@ require_once __DIR__ . '/../includes/notify.php';
 require_methods('POST');
 
 $in = json_input();
+require_once __DIR__ . '/../includes/Captcha.php';
+Captcha::verifyOrFail();   // 防灌註冊:native 驗證碼 / reCAPTCHA v3 + IP 節流
 
 $name = clean($in['name'] ?? '');
 $phone = normalize_phone(clean($in['phone'] ?? ''));

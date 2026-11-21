@@ -198,6 +198,8 @@ let checkTimer = null;
           invite_code: inviteCode || '',
           company: $('#f-company') ? $('#f-company').value.trim() : '',
           specialty: $('#f-specialty') ? $('#f-specialty').value.trim() : '',
+          captcha_id: (window.__cap && window.__cap.id) || '',
+          captcha_answer: ($('#captchaAnswer') ? $('#captchaAnswer').value : ''),
           agree: '1'
         })
       });
@@ -207,6 +209,7 @@ let checkTimer = null;
         setTimeout(() => location.href = data.redirect, 1200);
       } else {
         btn.disabled = false;
+        if (window.loadCaptcha) loadCaptcha();
         if (String(data.message).includes('手機')) { hint('#hint-phone', 'err', data.message); markInput(phoneEl, false); }
         if (String(data.message).includes('郵件')) { hint('#hint-email', 'err', data.message); markInput(emailEl, false); }
       }
@@ -216,3 +219,15 @@ let checkTimer = null;
     }
   });
 })();
+// ---- 圖形驗證碼(防灌註冊)----
+window.__cap = { id: '' };
+function loadCaptcha() {
+  fetch('api/captcha.php', { cache: 'no-store' }).then(r => r.json()).then(d => {
+    if (!d.ok) return;
+    window.__cap.id = d.data.captcha_id;
+    document.getElementById('captchaImg').src = d.data.image;
+    document.getElementById('captchaAnswer').value = '';
+  });
+}
+window.loadCaptcha = loadCaptcha;
+loadCaptcha();
