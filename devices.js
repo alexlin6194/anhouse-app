@@ -179,6 +179,10 @@
   }
 
   function renderManager() {
+    renderManagerBase();
+    attachHwUpgradeCard();
+  }
+  function renderManagerBase() {
     const c = $('#content');
     const props = state.properties;
     if (!props.length) {
@@ -704,3 +708,31 @@ document.addEventListener('click', function (e) {
     })
     .catch(() => alert('連線失敗,請稍後再試'));
 });
+  // ---- 智慧硬體加購入口(issue #2)----
+  function attachHwUpgradeCard() {
+    const box = document.getElementById('content');
+    if (!box || document.getElementById('hw-upgrade-card')) return;
+    box.insertAdjacentHTML('beforeend',
+      '<div class="card" id="hw-upgrade-card">' +
+      '<h3>⚡ 智慧硬體加購</h3>' +
+      '<p style="font-size:13px;margin:6px 0">智慧門鎖 NT$100/台/月|智慧電錶 雲端 NT$180 / 地端 NT$150(每顆計費錶/月),設定費另計。</p>' +
+      '<select id="hw-cat" style="width:100%;padding:8px;margin:4px 0">' +
+      '<option value="lock">智慧門鎖</option><option value="meter_cloud">電錶-雲端 API</option><option value="meter_local">電錶-地端橋接</option></select>' +
+      '<input id="hw-phone" inputmode="numeric" maxlength="10" placeholder="聯絡電話 09xxxxxxxx" style="width:100%;padding:8px;margin:4px 0">' +
+      '<input id="hw-prefer" maxlength="64" placeholder="希望時段(例:週六下午)" style="width:100%;padding:8px;margin:4px 0">' +
+      '<button type="button" class="btn btn-primary" onclick="submitHwLead()" style="width:100%;margin-top:8px">預約到府評估</button>' +
+      '</div>');
+  }
+  window.submitHwLead = function () {
+    const sel = document.getElementById('propSel') || document.querySelector('select[id*=prop]');
+    const pid = sel ? sel.value : '';
+    const cat = document.getElementById('hw-cat') ? document.getElementById('hw-cat').value : '';
+    const phone = document.getElementById('hw-phone') ? document.getElementById('hw-phone').value.trim() : '';
+    const prefer = document.getElementById('hw-prefer') ? document.getElementById('hw-prefer').value.trim() : '';
+    if (!pid) { toast('請先選擇房源'); return; }
+    if (!/^09\d{8}$/.test(phone)) { toast('請填寫正確的聯絡電話'); return; }
+    fetch('api/hardware_lead.php', { method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ property_id: Number(pid), category: cat, phone: phone, prefer_at: prefer, note: '' }) })
+      .then(r => r.json()).then(d => { toast(d.message || (d.ok ? '已送出' : '送出失敗')); });
+  };
