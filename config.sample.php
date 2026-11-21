@@ -2,16 +2,16 @@
 declare(strict_types=1);
 
 define('DB_HOST', '127.0.0.1');
-define('DB_NAME', 'idtctw_anhouse');
-define('DB_USER', 'adminanhouse');
-define('DB_PASS', 'H@ouse11102314an');
+define('DB_NAME', 'your_db_name');
+define('DB_USER', 'your_db_user');
+define('DB_PASS', 'your_db_password');  // 勿把真實密碼放進 sample
 define('DB_PORT', 3306);
 
 define('UPLOAD_DIR', __DIR__ . '/uploads');
 define('UPLOAD_MAX_BYTES', 5 * 1024 * 1024);
 define('UPLOAD_ALLOWED_EXT', ['pdf', 'jpg', 'jpeg', 'png']);
 
-define('APP_URL', 'http://127.0.0.1:8010');
+define('APP_URL', 'https://your-domain.com');
 define('MAIL_MODE', 'dev');
 define('MAIL_FROM', 'no-reply@anjia-life.com');
 
